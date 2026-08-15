@@ -12,6 +12,7 @@ import {
   deriveIntegrations,
   deriveBackup,
   deriveNet,
+  derivePaths,
   deriveAll,
 } from '../../../src/app-config/derive';
 
@@ -218,6 +219,17 @@ describe('deriveNet', () => {
     expect(deriveNet({ ALLOW_INTERNAL_NETWORK: 'True' }).allowInternalNetwork).toBe(true);
     expect(deriveNet({ ALLOW_INTERNAL_NETWORK: '1' }).allowInternalNetwork).toBe(true);
     expect(deriveNet({}).allowInternalNetwork).toBe(false);
+  });
+});
+
+describe('derivePaths', () => {
+  it('passes the path vars through raw — defaulting stays at the consumer', () => {
+    expect(derivePaths({ TREK_WIKI_DIR: '/w' }).wikiDir).toBe('/w');
+    expect(derivePaths({ TREK_PLACE_PHOTO_DIR: '/p' }).placePhotoDir).toBe('/p');
+    expect(derivePaths({ TREK_UPLOADS_DIR: '/mnt/uploads' }).uploadsDir).toBe('/mnt/uploads');
+    expect(derivePaths({}).uploadsDir).toBeUndefined();
+    expect(derivePaths({}).wikiDir).toBeUndefined();
+    expect(derivePaths({}).placePhotoDir).toBeUndefined();
   });
 });
 

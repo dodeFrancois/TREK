@@ -257,6 +257,8 @@ export function derivePaths(raw: RawEnv) {
   return {
     wikiDir: raw.TREK_WIKI_DIR,
     placePhotoDir: raw.TREK_PLACE_PHOTO_DIR,
+    /** Uploads root override; unset keeps the computed `<server>/uploads` default (storage registry). */
+    uploadsDir: raw.TREK_UPLOADS_DIR,
   };
 }
 

@@ -124,6 +124,7 @@ export const envSchema = z.object({
   TREK_DB_SYNCHRONOUS: anyString,
   TREK_WIKI_DIR: anyString,
   TREK_PLACE_PHOTO_DIR: anyString,
+  TREK_UPLOADS_DIR: anyString,
   BACKUP_UPLOAD_LIMIT_MB: positiveNumber,
   BACKUP_MAX_DECOMPRESSED_MB: positiveNumber,
 
