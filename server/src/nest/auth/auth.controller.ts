@@ -17,15 +17,13 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { isDemoWriteBlocked, DEMO_WRITE_ERROR } from '../common/demo-write';
 import { RuntimeEnvService } from '../app-config/runtime-env.service';
-import { diskStorage } from 'multer';
+import type { Options } from 'multer';
 import type { Request, Response } from 'express';
 import path from 'path';
-import fs from 'fs';
-import { v4 as uuid } from 'uuid';
 import { AuthService } from './auth.service';
 import { TokenService } from '../tokens/token.service';
 import { UserProfileService } from './user-profile.service';
-import { avatarDir } from './auth.helpers';
+import { StorageService } from '../storage/storage.service';
 import {
   ChangePasswordDto,
   MapsKeyUpdateDto,
@@ -49,21 +47,17 @@ import { ManagedForbidden } from '../common/managed';
 
 const WINDOW = 15 * 60 * 1000;
 const ALLOWED_AVATAR_EXTS = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
-const AVATAR_UPLOAD = {
-  storage: diskStorage({
-    destination: (_req, _file, cb) => { if (!fs.existsSync(avatarDir)) fs.mkdirSync(avatarDir, { recursive: true }); cb(null, avatarDir); },
-    filename: (_req, file, cb) => cb(null, uuid() + path.extname(file.originalname)),
-  }),
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (_req: unknown, file: Express.Multer.File, cb: (err: Error | null, accept: boolean) => void) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    if (!file.mimetype.startsWith('image/') || !ALLOWED_AVATAR_EXTS.includes(ext)) {
-      const err: Error & { statusCode?: number } = new Error('Only image files (jpg, png, gif, webp) are allowed');
-      err.statusCode = 400;
-      return cb(err, false);
-    }
-    cb(null, true);
-  },
+export const MAX_AVATAR_SIZE = 5 * 1024 * 1024;
+// Consumed by auth.module.ts's MulterModule factory; the storage engine (spool
+// destination + UUID filename) comes from the storage upload factory.
+export const AVATAR_FILE_FILTER: Options['fileFilter'] = (_req, file, cb) => {
+  const ext = path.extname(file.originalname).toLowerCase();
+  if (!file.mimetype.startsWith('image/') || !ALLOWED_AVATAR_EXTS.includes(ext)) {
+    const err: Error & { statusCode?: number } = new Error('Only image files (jpg, png, gif, webp) are allowed');
+    err.statusCode = 400;
+    return cb(err);
+  }
+  cb(null, true);
 };
 
 /**
@@ -77,7 +71,7 @@ const AVATAR_UPLOAD = {
 @Controller('api/auth')
 @UseGuards(JwtAuthGuard)
 export class AuthController {
-  constructor(private readonly auth: AuthService, private readonly profile: UserProfileService, private readonly tokens: TokenService, private readonly rl: RateLimitService, private readonly audit: AuditService, private readonly env: RuntimeEnvService) {}
+  constructor(private readonly auth: AuthService, private readonly profile: UserProfileService, private readonly tokens: TokenService, private readonly rl: RateLimitService, private readonly audit: AuditService, private readonly env: RuntimeEnvService, private readonly storage: StorageService) {}
 
   private limit(bucket: string, req: Request, max: number): void {
     if (!this.rl.check(bucket, req.ip || 'unknown', max, WINDOW, Date.now())) {
@@ -153,7 +147,7 @@ export class AuthController {
 
   @Post('avatar')
   @HttpCode(200)
-  @UseInterceptors(FileInterceptor('avatar', AVATAR_UPLOAD))
+  @UseInterceptors(FileInterceptor('avatar'))
   async avatar(@CurrentUser() user: User, @UploadedFile() file: Express.Multer.File | undefined) {
     if (isDemoWriteBlocked(this.env, user.email)) {
       throw new HttpException(DEMO_WRITE_ERROR, 403);
@@ -161,6 +155,9 @@ export class AuthController {
     if (!file) {
       throw new HttpException({ error: 'No image uploaded' }, 400);
     }
+    // Commit the spooled upload to its final storage location (atomic
+    // same-volume rename) before the DB row references the final path.
+    await this.storage.put('avatars', file.filename, { tmpPath: file.path });
     return this.profile.saveAvatar(user.id, file.filename);
   }
 

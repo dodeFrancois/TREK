@@ -35,8 +35,9 @@ const audit = { writeAudit } as unknown as AuditService;
 const apc = (a: AuthService, limiter: RateLimitService) => new AuthPublicController(a, limiter, audit);
 // Tokens moved to TokenService; the controller takes it second. Stubbed via a
 // third, optional argument so every non-token call site stays as it was.
+const storageStub = { put: vi.fn().mockResolvedValue(undefined) } as unknown as import('../../../src/nest/storage/storage.service').StorageService;
 const ac = (a: AuthService, limiter: RateLimitService, t: Partial<TokenService> = {}, pr: Partial<UserProfileService> = {}) =>
-  new AuthController(a, pr as UserProfileService, t as TokenService, limiter, audit, new RuntimeEnvService());
+  new AuthController(a, pr as UserProfileService, t as TokenService, limiter, audit, new RuntimeEnvService(), storageStub);
 
 function thrown(fn: () => unknown): { status: number; body: unknown } {
   try { fn(); } catch (err) {

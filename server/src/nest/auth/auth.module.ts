@@ -18,6 +18,11 @@ import { MailerModule } from '../notifications/mailer/mailer.module';
 import { PermissionsModule } from '../permissions/permissions.module';
 import { TripMembershipModule } from '../trip-membership/trip-membership.module';
 import { EphemeralTokenModule } from './ephemeral-token.module';
+import { MulterModule } from '@nestjs/platform-express';
+import { StorageModule } from '../storage/storage.module';
+import { StorageService } from '../storage/storage.service';
+import { buildStorageUploadOptions } from '../storage/storage-upload.factory';
+import { AVATAR_FILE_FILTER, MAX_AVATAR_SIZE } from './auth.controller';
 
 /**
  * Auth module — public flows (login/register/reset/mfa-verify/logout) and the
@@ -43,7 +48,19 @@ import { EphemeralTokenModule } from './ephemeral-token.module';
  * through auth.bridge.ts.
  */
 @Module({
-  imports: [EphemeralTokenModule, RateLimitModule, AuditModule, PermissionsModule, TripMembershipModule, MailerModule, AppConfigModule, TokensModule, BudgetModule],
+  imports: [
+    MulterModule.registerAsync({
+      imports: [StorageModule],
+      inject: [StorageService],
+      useFactory: (storage: StorageService) =>
+        buildStorageUploadOptions(storage, {
+          category: 'avatars',
+          maxSize: MAX_AVATAR_SIZE,
+          fileFilter: AVATAR_FILE_FILTER,
+        }),
+    }),
+    StorageModule,
+    EphemeralTokenModule, RateLimitModule, AuditModule, PermissionsModule, TripMembershipModule, MailerModule, AppConfigModule, TokensModule, BudgetModule],
   controllers: [AuthPublicController, AuthController, PasskeyController],
   providers: [AuthService, UserProfileService, RegistrationInvitesService, PasskeyService, UserCleanupService, WebauthnConfigService, AuthMcp],
   exports: [AuthService, RegistrationInvitesService, PasskeyService, UserCleanupService],
