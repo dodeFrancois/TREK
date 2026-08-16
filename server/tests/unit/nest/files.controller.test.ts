@@ -2,9 +2,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { RuntimeEnvService } from '../../../src/nest/app-config/runtime-env.service';
 import { HttpException } from '@nestjs/common';
 import type { Request, Response } from 'express';
-import os from 'os';
-import path from 'path';
-import fs from 'fs';
 
 vi.mock('../../../src/nest/common/demo', () => ({ isDemoEmail: vi.fn(() => false) }));
 
@@ -196,95 +193,81 @@ describe('FilesDownloadController', () => {
       authenticateDownload: vi.fn().mockReturnValue({ userId: 1 }),
       verifyTripAccess: vi.fn().mockReturnValue({ user_id: 1 }),
       getFileById: vi.fn().mockReturnValue({ filename: 'x.pdf', original_name: 'x.pdf' }),
-      resolveFilePath: vi.fn().mockReturnValue({ resolved: 'C:/nope/x.pdf', safe: true }),
       ...o,
     } as unknown as FilesService;
   }
+  function dstor(o: Record<string, unknown> = {}): StorageService {
+    return {
+      exists: vi.fn().mockResolvedValue(true),
+      sendToResponse: vi.fn().mockResolvedValue(undefined),
+      ...o,
+    } as unknown as StorageService;
+  }
   const req = { headers: {}, query: {} } as Request;
-  const res = { setHeader: vi.fn(), sendFile: vi.fn() } as unknown as Response;
+  const res = {} as Response;
 
-  it('maps the auth error from authenticateDownload', () => {
+  it('maps the auth error from authenticateDownload', async () => {
     const s = dsvc({ authenticateDownload: vi.fn().mockReturnValue({ error: 'Authentication required', status: 401 }) });
-    expect(thrown(() => new FilesDownloadController(s).download(req, res, '5', '9'))).toEqual({ status: 401, body: { error: 'Authentication required' } });
-  });
-  it('404 without trip access, 404 unknown file, 403 on an unsafe path', () => {
-    expect(thrown(() => new FilesDownloadController(dsvc({ verifyTripAccess: vi.fn().mockReturnValue(undefined) })).download(req, res, '5', '9'))).toEqual({ status: 404, body: { error: 'Trip not found' } });
-    expect(thrown(() => new FilesDownloadController(dsvc({ getFileById: vi.fn().mockReturnValue(undefined) })).download(req, res, '5', '9'))).toEqual({ status: 404, body: { error: 'File not found' } });
-    expect(thrown(() => new FilesDownloadController(dsvc({ resolveFilePath: vi.fn().mockReturnValue({ resolved: '/x', safe: false }) })).download(req, res, '5', '9'))).toEqual({ status: 403, body: { error: 'Forbidden' } });
+    expect(await rejected(new FilesDownloadController(s, dstor()).download(req, res, '5', '9'))).toEqual({ status: 401, body: { error: 'Authentication required' } });
   });
 
-  it('404 when the safe path is gone from disk', () => {
-    const missing = path.join(os.tmpdir(), `trek-no-such-${Date.now()}.pdf`);
-    const s = dsvc({ resolveFilePath: vi.fn().mockReturnValue({ resolved: missing, safe: true }) });
-    expect(thrown(() => new FilesDownloadController(s).download(req, res, '5', '9'))).toEqual({ status: 404, body: { error: 'File not found' } });
+  it('404 without trip access and 404 for an unknown file', async () => {
+    expect(await rejected(new FilesDownloadController(dsvc({ verifyTripAccess: vi.fn().mockReturnValue(undefined) }), dstor()).download(req, res, '5', '9'))).toEqual({ status: 404, body: { error: 'Trip not found' } });
+    expect(await rejected(new FilesDownloadController(dsvc({ getFileById: vi.fn().mockReturnValue(undefined) }), dstor()).download(req, res, '5', '9'))).toEqual({ status: 404, body: { error: 'File not found' } });
   });
 
-  it('streams a regular file via sendFile with an explicit root', () => {
-    const real = path.join(os.tmpdir(), `trek-dl-${Date.now()}.pdf`);
-    fs.writeFileSync(real, 'x');
-    try {
-      const sendFile = vi.fn();
-      const localRes = { setHeader: vi.fn(), sendFile } as unknown as Response;
-      const s = dsvc({ resolveFilePath: vi.fn().mockReturnValue({ resolved: real, safe: true }) });
-      new FilesDownloadController(s).download(req, localRes, '5', '9');
-      expect(sendFile).toHaveBeenCalledWith(path.basename(real), { root: path.dirname(real) });
-      expect(localRes.setHeader).not.toHaveBeenCalled();
-    } finally {
-      fs.unlinkSync(real);
-    }
+  it('404 when the object is gone from storage', async () => {
+    const storage = dstor({ exists: vi.fn().mockResolvedValue(false) });
+    expect(await rejected(new FilesDownloadController(dsvc(), storage).download(req, res, '5', '9'))).toEqual({ status: 404, body: { error: 'File not found' } });
   });
 
-  it('serves a .pkpass inline with the Wallet MIME type and the original name', () => {
-    const real = path.join(os.tmpdir(), `trek-pass-${Date.now()}.pkpass`);
-    fs.writeFileSync(real, 'x');
-    try {
-      const setHeader = vi.fn();
-      const localRes = { setHeader, sendFile: vi.fn() } as unknown as Response;
-      const s = dsvc({
-        getFileById: vi.fn().mockReturnValue({ filename: 'pass.pkpass', original_name: 'BoardingPass.pkpass' }),
-        resolveFilePath: vi.fn().mockReturnValue({ resolved: real, safe: true }),
-      });
-      new FilesDownloadController(s).download(req, localRes, '5', '9');
-      expect(setHeader).toHaveBeenCalledWith('Content-Type', 'application/vnd.apple.pkpass');
-      expect(setHeader).toHaveBeenCalledWith('Content-Disposition', 'inline; filename="BoardingPass.pkpass"');
-    } finally {
-      fs.unlinkSync(real);
-    }
+  it('404 when the stored name is an invalid key (exists rejects)', async () => {
+    const storage = dstor({ exists: vi.fn().mockRejectedValue(new Error('invalid storage key')) });
+    expect(await rejected(new FilesDownloadController(dsvc(), storage).download(req, res, '5', '9'))).toEqual({ status: 404, body: { error: 'File not found' } });
   });
 
-  it('serves a .pkpasses bundle inline with its own Wallet MIME type', () => {
-    const real = path.join(os.tmpdir(), `trek-pass-${Date.now()}.pkpasses`);
-    fs.writeFileSync(real, 'x');
-    try {
-      const setHeader = vi.fn();
-      const localRes = { setHeader, sendFile: vi.fn() } as unknown as Response;
-      const s = dsvc({
-        getFileById: vi.fn().mockReturnValue({ filename: 'passes.pkpasses', original_name: 'BoardingPasses.pkpasses' }),
-        resolveFilePath: vi.fn().mockReturnValue({ resolved: real, safe: true }),
-      });
-      new FilesDownloadController(s).download(req, localRes, '5', '9');
-      expect(setHeader).toHaveBeenCalledWith('Content-Type', 'application/vnd.apple.pkpasses');
-      expect(setHeader).toHaveBeenCalledWith('Content-Disposition', 'inline; filename="BoardingPasses.pkpasses"');
-    } finally {
-      fs.unlinkSync(real);
-    }
+  it('streams a regular file through storage with no wallet headers', async () => {
+    const storage = dstor();
+    await new FilesDownloadController(dsvc(), storage).download(req, res, '5', '9');
+    expect(storage.exists).toHaveBeenCalledWith('files', 'x.pdf');
+    expect(storage.sendToResponse).toHaveBeenCalledWith('files', 'x.pdf', res, undefined);
   });
 
-  it('falls back to the resolved basename when a .pkpass has no original name', () => {
-    const real = path.join(os.tmpdir(), `trek-pass-${Date.now()}.pkpass`);
-    fs.writeFileSync(real, 'x');
-    try {
-      const setHeader = vi.fn();
-      const localRes = { setHeader, sendFile: vi.fn() } as unknown as Response;
-      const s = dsvc({
-        getFileById: vi.fn().mockReturnValue({ filename: 'pass.pkpass', original_name: null }),
-        resolveFilePath: vi.fn().mockReturnValue({ resolved: real, safe: true }),
-      });
-      new FilesDownloadController(s).download(req, localRes, '5', '9');
-      expect(setHeader).toHaveBeenCalledWith('Content-Disposition', `inline; filename="${path.basename(real)}"`);
-    } finally {
-      fs.unlinkSync(real);
-    }
+  it('tolerates a stray prefixed row via basename, like resolveFilePath did', async () => {
+    const storage = dstor();
+    const s = dsvc({ getFileById: vi.fn().mockReturnValue({ filename: 'files/x.pdf', original_name: 'x.pdf' }) });
+    await new FilesDownloadController(s, storage).download(req, res, '5', '9');
+    expect(storage.sendToResponse).toHaveBeenCalledWith('files', 'x.pdf', res, undefined);
+  });
+
+  it('serves a .pkpass inline with the Wallet MIME type and the original name', async () => {
+    const storage = dstor();
+    const s = dsvc({ getFileById: vi.fn().mockReturnValue({ filename: 'pass.pkpass', original_name: 'BoardingPass.pkpass' }) });
+    await new FilesDownloadController(s, storage).download(req, res, '5', '9');
+    expect(storage.sendToResponse).toHaveBeenCalledWith('files', 'pass.pkpass', res, {
+      contentType: 'application/vnd.apple.pkpass',
+      disposition: 'inline; filename="BoardingPass.pkpass"',
+    });
+  });
+
+  it('serves a .pkpasses bundle inline with its own Wallet MIME type', async () => {
+    const storage = dstor();
+    const s = dsvc({ getFileById: vi.fn().mockReturnValue({ filename: 'passes.pkpasses', original_name: 'BoardingPasses.pkpasses' }) });
+    await new FilesDownloadController(s, storage).download(req, res, '5', '9');
+    expect(storage.sendToResponse).toHaveBeenCalledWith('files', 'passes.pkpasses', res, {
+      contentType: 'application/vnd.apple.pkpasses',
+      disposition: 'inline; filename="BoardingPasses.pkpasses"',
+    });
+  });
+
+  it('falls back to the stored basename when a .pkpass has no original name', async () => {
+    const storage = dstor();
+    const s = dsvc({ getFileById: vi.fn().mockReturnValue({ filename: 'pass.pkpass', original_name: null }) });
+    await new FilesDownloadController(s, storage).download(req, res, '5', '9');
+    expect(storage.sendToResponse).toHaveBeenCalledWith('files', 'pass.pkpass', res, {
+      contentType: 'application/vnd.apple.pkpass',
+      disposition: 'inline; filename="pass.pkpass"',
+    });
   });
 });
 
