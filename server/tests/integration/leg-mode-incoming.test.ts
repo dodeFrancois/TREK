@@ -41,24 +41,25 @@ describe('incoming_leg_transport_mode migration', () => {
     // skipped on every one of them. Undoing what the LAST migration did and
     // rewinding one version is the only way to prove it still runs.
     //
-    // >>> Appending a migration? Re-point the DROP below at the column yours
-    // >>> adds. That is the whole maintenance cost of this guard.
-    const TRAILING_TABLE = 'budget_items';
-    const TRAILING_COLUMN = 'place_id';
-
+    // >>> Appending a migration? Re-point the undo below at whatever yours
+    // >>> does. That is the whole maintenance cost of this guard.
+    // Trailing migration today: the storage slice-2 trip_files 'files/' prefix
+    // strip — undo it by re-inserting a prefixed row.
     const upgraded = new Database(':memory:');
     upgraded.exec('PRAGMA foreign_keys = ON');
     createTables(upgraded);
     runMigrations(upgraded);
 
     const { version } = upgraded.prepare('SELECT version FROM schema_version').get() as { version: number };
-    upgraded.exec(`ALTER TABLE ${TRAILING_TABLE} DROP COLUMN ${TRAILING_COLUMN}`);
+    upgraded.prepare("INSERT INTO users (id, username, email, password_hash) VALUES (1, 'u', 'u@example.test', 'x')").run();
+    upgraded.prepare("INSERT INTO trips (id, user_id, title) VALUES (1, 1, 'T')").run();
+    upgraded.prepare("INSERT INTO trip_files (trip_id, filename, original_name) VALUES (1, 'files/aaa.pdf', 'a.pdf')").run();
     upgraded.prepare('UPDATE schema_version SET version = ?').run(version - 1);
 
     runMigrations(upgraded);
 
-    const cols = upgraded.prepare(`PRAGMA table_info(${TRAILING_TABLE})`).all() as { name: string }[];
-    expect(cols.map(c => c.name)).toContain(TRAILING_COLUMN);
+    const rows = upgraded.prepare('SELECT filename FROM trip_files').all() as { filename: string }[];
+    expect(rows.map(r => r.filename)).toEqual(['aaa.pdf']);
     expect(upgraded.prepare('SELECT version FROM schema_version').get()).toEqual({ version });
     upgraded.close();
   });
