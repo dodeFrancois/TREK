@@ -151,10 +151,10 @@ describe('buildStorageUploadOptions', () => {
     expect('fileFilter' in without).toBe(false);
   });
 
-  it('STORAGE-UPLOAD-010 — defParamCharset is absent unless passed, utf8 when passed', () => {
+  it('STORAGE-UPLOAD-010 — defParamCharset defaults to utf8 everywhere (fix #3)', () => {
     const storage = { spoolDirFor: () => dirA } as unknown as StorageService;
     const without = buildStorageUploadOptions(storage, { category: 'files', maxSize: 10 });
-    expect('defParamCharset' in without).toBe(false);
+    expect((without as { defParamCharset?: string }).defParamCharset).toBe('utf8');
 
     const withCharset = buildStorageUploadOptions(storage, { category: 'files', maxSize: 10, defParamCharset: 'utf8' });
     expect((withCharset as { defParamCharset?: string }).defParamCharset).toBe('utf8');

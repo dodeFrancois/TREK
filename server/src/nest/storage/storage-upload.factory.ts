@@ -36,7 +36,7 @@ export interface StorageUploadOptions {
    * the pre-factory call sites).
    */
   filename?: (req: Request, file: Express.Multer.File) => string;
-  /** Parity-phase opt-in (files + collab pass 'utf8'). */
+  /** Always 'utf8' since fix #3; the option remains for explicit callers. */
   defParamCharset?: 'utf8';
 }
 
@@ -63,6 +63,8 @@ export function buildStorageUploadOptions(storage: StorageService, opts: Storage
     }),
     limits: { fileSize: opts.maxSize },
     ...(opts.fileFilter ? { fileFilter: opts.fileFilter } : {}),
-    ...(opts.defParamCharset ? { defParamCharset: opts.defParamCharset } : {}),
+    // Uniform since fix #3: non-ASCII original filenames decode as UTF-8 on
+    // every upload route (previously only trip files + collab opted in).
+    defParamCharset: opts.defParamCharset ?? 'utf8',
   };
 }
