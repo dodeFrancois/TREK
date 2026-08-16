@@ -18,55 +18,45 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { isDemoWriteBlocked, DEMO_WRITE_ERROR } from '../common/demo-write';
 import { RuntimeEnvService } from '../app-config/runtime-env.service';
-import { diskStorage } from 'multer';
+import type { Options } from 'multer';
 import path from 'path';
 import fs from 'fs';
-import { v4 as uuidv4 } from 'uuid';
 import type { User } from '../../types';
+import { StorageService } from '../storage/storage.service';
 import { FilesService } from './files.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { TripAccessGuard } from '../permissions/trip-access.guard';
 import type { TripAccess } from '../database/database.service';
 import { Trip } from '../permissions/trip.decorator';
-import { MAX_FILE_SIZE, MAX_VIDEO_SIZE, BLOCKED_EXTENSIONS, filesDir, isVideoExtension } from './files.constants';
+import { MAX_FILE_SIZE, BLOCKED_EXTENSIONS, isVideoExtension } from './files.constants';
 import { FileUploadDto, FileUpdateDto, FileLinkDto } from './files.dto';
 import { AllowedFileTypesService } from './allowed-file-types.service';
 
 /**
- * Trip-file upload options, built from the container.
+ * Trip-file upload filter, built from the container.
  *
- * A factory rather than a module-scope literal because the fileFilter reads the
- * operator's allowed-extension list at request time, and that list lives in the
- * database. It used to reach it through files.bridge.ts, which built a second
- * FilesService outside the injector; MulterModule.registerAsync gives the
- * closure the real one.
+ * A factory rather than a module-scope literal because it reads the operator's
+ * allowed-extension list at request time, and that list lives in the database.
+ * The rest of the multer options come from the storage upload factory
+ * (buildStorageUploadOptions in files.module.ts); this closure is passed
+ * through untouched.
  */
-export function buildFilesUploadOptions(allowedTypes: AllowedFileTypesService) {
-  return {
-    storage: diskStorage({
-      destination: (_req, _file, cb) => { if (!fs.existsSync(filesDir)) fs.mkdirSync(filesDir, { recursive: true }); cb(null, filesDir); },
-      filename: (_req, file, cb) => cb(null, `${uuidv4()}${path.extname(file.originalname)}`),
-    }),
-    // Allow up to the video cap; non-video files are still held to MAX_FILE_SIZE by
-    // the per-type guard in the upload handler (#823).
-    limits: { fileSize: MAX_VIDEO_SIZE },
-    defParamCharset: 'utf8', // parity with legacy routes/files.ts — preserve non-ASCII original filenames
-    fileFilter: (_req: unknown, file: Express.Multer.File, cb: (err: Error | null, accept: boolean) => void) => {
-      const ext = path.extname(file.originalname).toLowerCase();
-      const reject = () => {
-        // i18n key — the client resolves it via t() (see translateApiError).
-        const err: Error & { statusCode?: number } = new Error('files.uploadErrorType');
-        err.statusCode = 400;
-        cb(err, false);
-      };
-      if (BLOCKED_EXTENSIONS.includes(ext) || file.mimetype.includes('svg')) return reject();
-      const allowed = allowedTypes.get().split(',').map((e) => e.trim().toLowerCase());
-      const fileExt = ext.replace('.', '');
-      // Video is accepted as media regardless of the admin doc-types allowlist (#823).
-      if (allowed.includes(fileExt) || isVideoExtension(fileExt) || (allowed.includes('*') && !BLOCKED_EXTENSIONS.includes(ext))) return cb(null, true);
-      reject();
-    },
+export function filesUploadFileFilter(allowedTypes: AllowedFileTypesService): Options['fileFilter'] {
+  return (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const reject = () => {
+      // i18n key — the client resolves it via t() (see translateApiError).
+      const err: Error & { statusCode?: number } = new Error('files.uploadErrorType');
+      err.statusCode = 400;
+      cb(err);
+    };
+    if (BLOCKED_EXTENSIONS.includes(ext) || file.mimetype.includes('svg')) return reject();
+    const allowed = allowedTypes.get().split(',').map((e) => e.trim().toLowerCase());
+    const fileExt = ext.replace('.', '');
+    // Video is accepted as media regardless of the admin doc-types allowlist (#823).
+    if (allowed.includes(fileExt) || isVideoExtension(fileExt) || (allowed.includes('*') && !BLOCKED_EXTENSIONS.includes(ext))) return cb(null, true);
+    reject();
   };
 }
 
@@ -97,6 +87,7 @@ export class FilesController {
   constructor(
     private readonly files: FilesService,
     private readonly env: RuntimeEnvService,
+    private readonly storage: StorageService,
   ) {}
 
 
@@ -117,14 +108,14 @@ export class FilesController {
 
   @Post()
   @UseInterceptors(FileInterceptor('file'))
-  upload(
+  async upload(
     @CurrentUser() user: User,
     @Param('tripId') tripId: string,
     @UploadedFile() file: Express.Multer.File | undefined,
     @Body() body: FileUploadDto,
     @Headers('x-socket-id') socketId?: string,
   ) {
-    // multer (diskStorage) has already written the upload by the time we get here,
+    // multer (diskStorage) has already spooled the upload by the time we get here,
     // so every rejection below must remove the orphaned bytes — otherwise a 404/403
     // leaves up to the 500 MB video cap on disk (#823).
     const cleanup = () => { if (file?.path) { try { fs.unlinkSync(file.path); } catch { /* best-effort */ } } };
@@ -158,6 +149,14 @@ export class FilesController {
     }
     try {
       this.assertLinkTargets(tripId, { reservation_id: body.reservation_id, place_id: body.place_id });
+    } catch (err) {
+      cleanup();
+      throw err;
+    }
+    // Commit the spooled upload to its final storage location (atomic
+    // same-volume rename) before anything references the final path.
+    try {
+      await this.storage.put('files', file.filename, { tmpPath: file.path });
     } catch (err) {
       cleanup();
       throw err;

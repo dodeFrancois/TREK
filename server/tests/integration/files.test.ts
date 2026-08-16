@@ -133,6 +133,52 @@ describe('Upload file', () => {
     }
   });
 
+  it('FILE-P01 — stored filename is a bare uuid name and the bytes land in uploads/files', async () => {
+    const { user } = createUser(testDb);
+    const trip = createTrip(testDb, user.id);
+
+    const res = await uploadFile(trip.id, user.id, FIXTURE_PDF);
+    expect(res.status).toBe(201);
+    expect(res.body.file.filename).toMatch(/^[0-9a-f-]{36}\.pdf$/);
+    expect(fs.existsSync(path.join(uploadsDir, res.body.file.filename))).toBe(true);
+    // Nothing left behind in the spool after a successful commit.
+    const spoolDir = path.join(__dirname, '../../uploads/.tmp');
+    if (fs.existsSync(spoolDir)) {
+      expect(fs.readdirSync(spoolDir)).not.toContain(res.body.file.filename);
+    }
+  });
+
+  it('FILE-P02 — non-video over 50 MB is rejected with no bytes left anywhere', async () => {
+    const { user } = createUser(testDb);
+    const trip = createTrip(testDb, user.id);
+
+    const before = fs.existsSync(uploadsDir) ? fs.readdirSync(uploadsDir) : [];
+    const res = await request(app)
+      .post(`/api/trips/${trip.id}/files`)
+      .set('Cookie', authCookie(user.id))
+      .attach('file', Buffer.alloc(51 * 1024 * 1024), { filename: 'big.pdf', contentType: 'application/pdf' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('File is too large');
+    const after = fs.existsSync(uploadsDir) ? fs.readdirSync(uploadsDir) : [];
+    expect(after).toEqual(before);
+    const spoolDir = path.join(__dirname, '../../uploads/.tmp');
+    if (fs.existsSync(spoolDir)) {
+      expect(fs.readdirSync(spoolDir).filter((f) => f.endsWith('.pdf'))).toEqual([]);
+    }
+  });
+
+  it('FILE-P03 — non-ASCII original filenames are preserved (defParamCharset utf8)', async () => {
+    const { user } = createUser(testDb);
+    const trip = createTrip(testDb, user.id);
+
+    const res = await request(app)
+      .post(`/api/trips/${trip.id}/files`)
+      .set('Cookie', authCookie(user.id))
+      .attach('file', Buffer.from('utf8 name test'), { filename: 'résumé.pdf', contentType: 'application/pdf' });
+    expect(res.status).toBe(201);
+    expect(res.body.file.original_name).toBe('résumé.pdf');
+  });
+
   it('FILE-021 — non-member cannot upload file', async () => {
     const { user: owner } = createUser(testDb);
     const { user: other } = createUser(testDb);

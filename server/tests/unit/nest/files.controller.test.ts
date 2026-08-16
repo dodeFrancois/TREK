@@ -13,6 +13,7 @@ import { FilesDownloadController } from '../../../src/nest/files/files-download.
 import { PhotosController } from '../../../src/nest/photos/photos.controller';
 import type { FilesService } from '../../../src/nest/files/files.service';
 import type { PhotosService } from '../../../src/nest/photos/photos.service';
+import type { StorageService } from '../../../src/nest/storage/storage.service';
 import { isDemoEmail } from '../../../src/nest/common/demo';
 import type { User } from '../../../src/types';
 
@@ -28,6 +29,13 @@ function fsvc(o: Partial<FilesService> = {}): FilesService {
   } as unknown as FilesService;
 }
 
+const storageStub = { put: vi.fn().mockResolvedValue(undefined) } as unknown as StorageService;
+
+/** Construct the controller with the standard env + storage stubs. */
+function fc(svc: FilesService): FilesController {
+  return new FilesController(svc, new RuntimeEnvService(), storageStub);
+}
+
 function thrown(fn: () => unknown): { status: number; body: unknown } {
   try { fn(); } catch (err) {
     expect(err).toBeInstanceOf(HttpException);
@@ -35,6 +43,15 @@ function thrown(fn: () => unknown): { status: number; body: unknown } {
     return { status: e.getStatus(), body: e.getResponse() };
   }
   throw new Error('expected throw');
+}
+
+async function rejected(p: Promise<unknown>): Promise<{ status: number; body: unknown }> {
+  try { await p; } catch (err) {
+    expect(err).toBeInstanceOf(HttpException);
+    const e = err as HttpException;
+    return { status: e.getStatus(), body: e.getResponse() };
+  }
+  throw new Error('expected reject');
 }
 
 beforeEach(() => vi.clearAllMocks());
@@ -47,121 +64,128 @@ const trip = { id: 5, user_id: 42 } as never;
 describe('FilesController (parity with the legacy /api/trips/:tripId/files route)', () => {
   it('GET / lists with the trash flag', () => {
     const listFiles = vi.fn().mockReturnValue([{ id: 1 }]);
-    expect(new FilesController(fsvc({ listFiles } as Partial<FilesService>), new RuntimeEnvService()).list(user, trip, '5', 'true')).toEqual({ files: [{ id: 1 }] });
+    expect(fc(fsvc({ listFiles } as Partial<FilesService>)).list(user, trip, '5', 'true')).toEqual({ files: [{ id: 1 }] });
     expect(listFiles).toHaveBeenCalledWith('5', true);
   });
 
   describe('POST / (upload)', () => {
-    it('404 without trip access — upload keeps its own check so the body is read first', () => {
+    it('404 without trip access — upload keeps its own check so the body is read first', async () => {
       // The guard would answer before multer, and a response sent mid-upload destroys
       // the socket: the caller would see ECONNRESET rather than this 404.
       const svc = fsvc({ verifyTripAccess: vi.fn().mockReturnValue(undefined) });
-      expect(thrown(() => new FilesController(svc, new RuntimeEnvService()).upload(user, '5', undefined, {}))).toEqual({
+      expect(await rejected(fc(svc).upload(user, '5', undefined, {}))).toEqual({
         status: 404,
         body: { error: 'Trip not found' },
       });
     });
 
     const file = { filename: 'a.pdf' } as Express.Multer.File;
-    it('403 in demo mode for a demo email', () => {
+    it('403 in demo mode for a demo email', async () => {
       process.env.DEMO_MODE = 'true';
       vi.mocked(isDemoEmail).mockReturnValue(true);
-      expect(thrown(() => new FilesController(fsvc(), new RuntimeEnvService()).upload(user, '5', file, {}))).toEqual({ status: 403, body: { error: 'Uploads are disabled in demo mode. Self-host TREK for full functionality.' } });
+      expect(await rejected(fc(fsvc()).upload(user, '5', file, {}))).toEqual({ status: 403, body: { error: 'Uploads are disabled in demo mode. Self-host TREK for full functionality.' } });
     });
-    it('403 without file_upload, 400 without a file, else creates + broadcasts', () => {
-      expect(thrown(() => new FilesController(fsvc({ can: vi.fn().mockReturnValue(false) }), new RuntimeEnvService()).upload(user, '5', file, {}))).toEqual({ status: 403, body: { error: 'No permission to upload files' } });
-      expect(thrown(() => new FilesController(fsvc(), new RuntimeEnvService()).upload(user, '5', undefined, {}))).toEqual({ status: 400, body: { error: 'No file uploaded' } });
+    it('403 without file_upload, 400 without a file, else commits + creates + broadcasts', async () => {
+      expect(await rejected(fc(fsvc({ can: vi.fn().mockReturnValue(false) })).upload(user, '5', file, {}))).toEqual({ status: 403, body: { error: 'No permission to upload files' } });
+      expect(await rejected(fc(fsvc()).upload(user, '5', undefined, {}))).toEqual({ status: 400, body: { error: 'No file uploaded' } });
       const createFile = vi.fn().mockReturnValue({ id: 9 });
       const broadcast = vi.fn();
       const s = fsvc({ createFile, broadcast } as Partial<FilesService>);
-      expect(new FilesController(s, new RuntimeEnvService()).upload(user, '5', file, { description: 'd' }, 'sock')).toEqual({ file: { id: 9 } });
+      expect(await fc(s).upload(user, '5', file, { description: 'd' }, 'sock')).toEqual({ file: { id: 9 } });
+      expect(storageStub.put).toHaveBeenCalledWith('files', 'a.pdf', { tmpPath: undefined });
       expect(createFile).toHaveBeenCalledWith('5', file, 1, { place_id: undefined, description: 'd', reservation_id: undefined });
       expect(broadcast).toHaveBeenCalledWith('5', 'file:created', { file: { id: 9 } }, 'sock');
     });
 
-    it('caps non-video by extension and accepts large video; cleans up on rejection (#823)', () => {
+    it('caps non-video by extension and accepts large video; cleans up on rejection (#823)', async () => {
       const big = { filename: 'big.pdf', originalname: 'big.pdf', size: 60 * 1024 * 1024, path: '' } as Express.Multer.File;
-      expect(thrown(() => new FilesController(fsvc(), new RuntimeEnvService()).upload(user, '5', big, {}))).toEqual({ status: 400, body: { error: 'File is too large' } });
+      expect(await rejected(fc(fsvc()).upload(user, '5', big, {}))).toEqual({ status: 400, body: { error: 'File is too large' } });
 
       const createFile = vi.fn().mockReturnValue({ id: 9 });
       const vid = { filename: 'v.mp4', originalname: 'clip.mp4', size: 200 * 1024 * 1024, path: '' } as Express.Multer.File;
-      expect(new FilesController(fsvc({ createFile, broadcast: vi.fn() } as Partial<FilesService>), new RuntimeEnvService()).upload(user, '5', vid, {})).toEqual({ file: { id: 9 } });
+      expect(await fc(fsvc({ createFile, broadcast: vi.fn() } as Partial<FilesService>)).upload(user, '5', vid, {})).toEqual({ file: { id: 9 } });
 
       // A rejected upload with a real path triggers the unlink cleanup branch
       // (the file doesn't exist, so the inner best-effort catch swallows it).
       const withPath = { filename: 'a.pdf', path: '/nonexistent/zzz.pdf' } as Express.Multer.File;
-      expect(thrown(() => new FilesController(fsvc({ can: vi.fn().mockReturnValue(false) }), new RuntimeEnvService()).upload(user, '5', withPath, {}))).toEqual({ status: 403, body: { error: 'No permission to upload files' } });
+      expect(await rejected(fc(fsvc({ can: vi.fn().mockReturnValue(false) })).upload(user, '5', withPath, {}))).toEqual({ status: 403, body: { error: 'No permission to upload files' } });
+    });
+
+    it('500 with cleanup when the storage commit fails', async () => {
+      vi.mocked(storageStub.put).mockRejectedValueOnce(new Error('disk full'));
+      const withPath = { filename: 'a.pdf', path: '/nonexistent/zzz.pdf' } as Express.Multer.File;
+      await expect(fc(fsvc()).upload(user, '5', withPath, {})).rejects.toThrow('disk full');
     });
   });
 
   it('PUT /:id 403 without file_edit, 404 unknown, else updates + broadcasts', () => {
-    expect(thrown(() => new FilesController(fsvc({ can: vi.fn().mockReturnValue(false) }), new RuntimeEnvService()).update(user, trip, '5', '9', {}))).toEqual({ status: 403, body: { error: 'No permission to edit files' } });
-    expect(thrown(() => new FilesController(fsvc({ getFileById: vi.fn().mockReturnValue(undefined) } as Partial<FilesService>), new RuntimeEnvService()).update(user, trip, '5', '9', {}))).toEqual({ status: 404, body: { error: 'File not found' } });
+    expect(thrown(() => fc(fsvc({ can: vi.fn().mockReturnValue(false) })).update(user, trip, '5', '9', {}))).toEqual({ status: 403, body: { error: 'No permission to edit files' } });
+    expect(thrown(() => fc(fsvc({ getFileById: vi.fn().mockReturnValue(undefined) } as Partial<FilesService>)).update(user, trip, '5', '9', {}))).toEqual({ status: 404, body: { error: 'File not found' } });
     const updateFile = vi.fn().mockReturnValue({ id: 9 });
     const s = fsvc({ getFileById: vi.fn().mockReturnValue({ id: 9, description: 'x' }), updateFile, broadcast: vi.fn() } as Partial<FilesService>);
-    expect(new FilesController(s, new RuntimeEnvService()).update(user, trip, '5', '9', { description: 'new' })).toEqual({ file: { id: 9 } });
+    expect(fc(s).update(user, trip, '5', '9', { description: 'new' })).toEqual({ file: { id: 9 } });
   });
 
   it('PATCH /:id/star 403/404, else toggles', () => {
-    expect(thrown(() => new FilesController(fsvc({ can: vi.fn().mockReturnValue(false) }), new RuntimeEnvService()).star(user, trip, '5', '9'))).toEqual({ status: 403, body: { error: 'No permission' } });
-    expect(thrown(() => new FilesController(fsvc({ getFileById: vi.fn().mockReturnValue(undefined) } as Partial<FilesService>), new RuntimeEnvService()).star(user, trip, '5', '9'))).toEqual({ status: 404, body: { error: 'File not found' } });
+    expect(thrown(() => fc(fsvc({ can: vi.fn().mockReturnValue(false) })).star(user, trip, '5', '9'))).toEqual({ status: 403, body: { error: 'No permission' } });
+    expect(thrown(() => fc(fsvc({ getFileById: vi.fn().mockReturnValue(undefined) } as Partial<FilesService>)).star(user, trip, '5', '9'))).toEqual({ status: 404, body: { error: 'File not found' } });
     const toggleStarred = vi.fn().mockReturnValue({ id: 9, starred: 1 });
     const s = fsvc({ getFileById: vi.fn().mockReturnValue({ id: 9, starred: 0 }), toggleStarred, broadcast: vi.fn() } as Partial<FilesService>);
-    expect(new FilesController(s, new RuntimeEnvService()).star(user, trip, '5', '9')).toEqual({ file: { id: 9, starred: 1 } });
+    expect(fc(s).star(user, trip, '5', '9')).toEqual({ file: { id: 9, starred: 1 } });
     expect(toggleStarred).toHaveBeenCalledWith('9', 0);
   });
 
   it('DELETE /:id soft-delete 403/404, else success', () => {
-    expect(thrown(() => new FilesController(fsvc({ can: vi.fn().mockReturnValue(false) }), new RuntimeEnvService()).remove(user, trip, '5', '9'))).toEqual({ status: 403, body: { error: 'No permission to delete files' } });
-    expect(thrown(() => new FilesController(fsvc({ getFileById: vi.fn().mockReturnValue(undefined) } as Partial<FilesService>), new RuntimeEnvService()).remove(user, trip, '5', '9'))).toEqual({ status: 404, body: { error: 'File not found' } });
+    expect(thrown(() => fc(fsvc({ can: vi.fn().mockReturnValue(false) })).remove(user, trip, '5', '9'))).toEqual({ status: 403, body: { error: 'No permission to delete files' } });
+    expect(thrown(() => fc(fsvc({ getFileById: vi.fn().mockReturnValue(undefined) } as Partial<FilesService>)).remove(user, trip, '5', '9'))).toEqual({ status: 404, body: { error: 'File not found' } });
     const softDeleteFile = vi.fn();
     const broadcast = vi.fn();
     const s = fsvc({ getFileById: vi.fn().mockReturnValue({ id: 9 }), softDeleteFile, broadcast } as Partial<FilesService>);
-    expect(new FilesController(s, new RuntimeEnvService()).remove(user, trip, '5', '9', 'sock')).toEqual({ success: true });
+    expect(fc(s).remove(user, trip, '5', '9', 'sock')).toEqual({ success: true });
     expect(broadcast).toHaveBeenCalledWith('5', 'file:deleted', { fileId: 9 }, 'sock');
   });
 
   it('POST /:id/restore 404 not in trash, else restores', () => {
-    expect(thrown(() => new FilesController(fsvc({ getDeletedFile: vi.fn().mockReturnValue(undefined) } as Partial<FilesService>), new RuntimeEnvService()).restore(user, trip, '5', '9'))).toEqual({ status: 404, body: { error: 'File not found in trash' } });
+    expect(thrown(() => fc(fsvc({ getDeletedFile: vi.fn().mockReturnValue(undefined) } as Partial<FilesService>)).restore(user, trip, '5', '9'))).toEqual({ status: 404, body: { error: 'File not found in trash' } });
     const restoreFile = vi.fn().mockReturnValue({ id: 9 });
     const s = fsvc({ getDeletedFile: vi.fn().mockReturnValue({ id: 9 }), restoreFile, broadcast: vi.fn() } as Partial<FilesService>);
-    expect(new FilesController(s, new RuntimeEnvService()).restore(user, trip, '5', '9')).toEqual({ file: { id: 9 } });
+    expect(fc(s).restore(user, trip, '5', '9')).toEqual({ file: { id: 9 } });
   });
 
   it('DELETE /:id/permanent 404 not in trash, else deletes', async () => {
-    await expect(new FilesController(fsvc({ getDeletedFile: vi.fn().mockReturnValue(undefined) } as Partial<FilesService>), new RuntimeEnvService()).permanent(user, trip, '5', '9')).rejects.toBeInstanceOf(HttpException);
+    await expect(fc(fsvc({ getDeletedFile: vi.fn().mockReturnValue(undefined) } as Partial<FilesService>)).permanent(user, trip, '5', '9')).rejects.toBeInstanceOf(HttpException);
     const permanentDeleteFile = vi.fn().mockResolvedValue(undefined);
     const s = fsvc({ getDeletedFile: vi.fn().mockReturnValue({ id: 9 }), permanentDeleteFile, broadcast: vi.fn() } as Partial<FilesService>);
-    expect(await new FilesController(s, new RuntimeEnvService()).permanent(user, trip, '5', '9')).toEqual({ success: true });
+    expect(await fc(s).permanent(user, trip, '5', '9')).toEqual({ success: true });
   });
 
   it('DELETE /trash/empty 403, else returns the count', async () => {
-    await expect(new FilesController(fsvc({ can: vi.fn().mockReturnValue(false) }), new RuntimeEnvService()).emptyTrash(user, trip, '5')).rejects.toBeInstanceOf(HttpException);
+    await expect(fc(fsvc({ can: vi.fn().mockReturnValue(false) })).emptyTrash(user, trip, '5')).rejects.toBeInstanceOf(HttpException);
     const s = fsvc({ emptyTrash: vi.fn().mockResolvedValue(3) } as Partial<FilesService>);
-    expect(await new FilesController(s, new RuntimeEnvService()).emptyTrash(user, trip, '5')).toEqual({ success: true, deleted: 3 });
+    expect(await fc(s).emptyTrash(user, trip, '5')).toEqual({ success: true, deleted: 3 });
   });
 
   it('POST /:id/link 404 unknown file, else links', () => {
-    expect(thrown(() => new FilesController(fsvc({ getFileById: vi.fn().mockReturnValue(undefined) } as Partial<FilesService>), new RuntimeEnvService()).link(user, trip, '5', '9', {}))).toEqual({ status: 404, body: { error: 'File not found' } });
+    expect(thrown(() => fc(fsvc({ getFileById: vi.fn().mockReturnValue(undefined) } as Partial<FilesService>)).link(user, trip, '5', '9', {}))).toEqual({ status: 404, body: { error: 'File not found' } });
     const createFileLink = vi.fn().mockReturnValue([{ id: 1 }]);
     const s = fsvc({ getFileById: vi.fn().mockReturnValue({ id: 9 }), createFileLink } as Partial<FilesService>);
-    expect(new FilesController(s, new RuntimeEnvService()).link(user, trip, '5', '9', { reservation_id: 2 })).toEqual({ success: true, links: [{ id: 1 }] });
+    expect(fc(s).link(user, trip, '5', '9', { reservation_id: 2 })).toEqual({ success: true, links: [{ id: 1 }] });
   });
 
   it('DELETE /:id/link/:linkId removes the link; GET /:id/links lists', () => {
     const deleteFileLink = vi.fn();
-    expect(new FilesController(fsvc({ deleteFileLink } as Partial<FilesService>), new RuntimeEnvService()).unlink(user, trip, '5', '9', '3')).toEqual({ success: true });
+    expect(fc(fsvc({ deleteFileLink } as Partial<FilesService>)).unlink(user, trip, '5', '9', '3')).toEqual({ success: true });
     expect(deleteFileLink).toHaveBeenCalledWith('3', '9');
     const s = fsvc({ getFileLinks: vi.fn().mockReturnValue([{ id: 1 }]) } as Partial<FilesService>);
-    expect(new FilesController(s, new RuntimeEnvService()).links(user, trip, '5', '9')).toEqual({ links: [{ id: 1 }] });
+    expect(fc(s).links(user, trip, '5', '9')).toEqual({ links: [{ id: 1 }] });
   });
 
   it('the trash + link routes all reject without file_delete / file_edit', async () => {
     const denied = () => fsvc({ can: vi.fn().mockReturnValue(false) });
-    await expect(new FilesController(denied(), new RuntimeEnvService()).permanent(user, trip, '5', '9')).rejects.toMatchObject({ status: 403 });
-    expect(thrown(() => new FilesController(denied(), new RuntimeEnvService()).restore(user, trip, '5', '9'))).toEqual({ status: 403, body: { error: 'No permission' } });
-    expect(thrown(() => new FilesController(denied(), new RuntimeEnvService()).link(user, trip, '5', '9', {}))).toEqual({ status: 403, body: { error: 'No permission' } });
-    expect(thrown(() => new FilesController(denied(), new RuntimeEnvService()).unlink(user, trip, '5', '9', '3'))).toEqual({ status: 403, body: { error: 'No permission' } });
+    await expect(fc(denied()).permanent(user, trip, '5', '9')).rejects.toMatchObject({ status: 403 });
+    expect(thrown(() => fc(denied()).restore(user, trip, '5', '9'))).toEqual({ status: 403, body: { error: 'No permission' } });
+    expect(thrown(() => fc(denied()).link(user, trip, '5', '9', {}))).toEqual({ status: 403, body: { error: 'No permission' } });
+    expect(thrown(() => fc(denied()).unlink(user, trip, '5', '9', '3'))).toEqual({ status: 403, body: { error: 'No permission' } });
   });
 
 });
