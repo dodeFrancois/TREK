@@ -3891,6 +3891,16 @@ function runMigrations(db: Database.Database): void {
         db.exec('ALTER TABLE budget_items ADD COLUMN place_id INTEGER REFERENCES places(id) ON DELETE SET NULL DEFAULT NULL');
       }
     },
+    // Storage slice 2 — collab note attachments historically stored 'files/<name>'
+    // in trip_files.filename while the file manager stored bare names in the same
+    // column; the storage layer addresses objects as category + bare name, so
+    // normalize the legacy rows. substr is 1-indexed: 7 drops the six chars of
+    // 'files/'. The LIKE guard makes it a no-op on already-bare rows.
+    // Appended LAST: the array is index-addressed against schema_version, so a
+    // slot inserted above this line never runs on an existing database.
+    () => {
+      db.exec("UPDATE trip_files SET filename = substr(filename, 7) WHERE filename LIKE 'files/%'");
+    },
   ];
 
   if (currentVersion < migrations.length) {

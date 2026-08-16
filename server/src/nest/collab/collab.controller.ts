@@ -15,12 +15,11 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
+import type { Options } from 'multer';
 import path from 'path';
-import fs from 'fs';
-import { v4 as uuidv4 } from 'uuid';
 import type { User } from '../../types';
 import { CollabService } from './collab.service';
+import { StorageService } from '../storage/storage.service';
 import {
   CollabNoteCreateDto,
   CollabNoteUpdateDto,
@@ -34,24 +33,18 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { RequirePermission, TripAccessGuard } from '../permissions/trip-access.guard';
 import { BLOCKED_EXTENSIONS } from '../files/files.constants';
 
-const MAX_NOTE_FILE_SIZE = 50 * 1024 * 1024;
-const filesDir = path.join(__dirname, '../../../uploads/files');
-const NOTE_UPLOAD = {
-  storage: diskStorage({
-    destination: (_req, _file, cb) => { if (!fs.existsSync(filesDir)) fs.mkdirSync(filesDir, { recursive: true }); cb(null, filesDir); },
-    filename: (_req, file, cb) => cb(null, `${uuidv4()}${path.extname(file.originalname)}`),
-  }),
-  limits: { fileSize: MAX_NOTE_FILE_SIZE },
-  defParamCharset: 'utf8', // parity with legacy routes/collab.ts — preserve non-ASCII original filenames
-  fileFilter: (_req: unknown, file: Express.Multer.File, cb: (err: Error | null, accept: boolean) => void) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    if (BLOCKED_EXTENSIONS.includes(ext) || file.mimetype.includes('svg') || file.mimetype.includes('html') || file.mimetype.includes('javascript')) {
-      const err: Error & { statusCode?: number } = new Error('File type not allowed');
-      err.statusCode = 400;
-      return cb(err, false);
-    }
-    cb(null, true);
-  },
+export const MAX_NOTE_FILE_SIZE = 50 * 1024 * 1024;
+// Consumed by collab.module.ts's MulterModule factory; the rest of the multer
+// options (spool destination, filename, limits) come from the storage upload
+// factory.
+export const collabNoteFileFilter: Options['fileFilter'] = (_req, file, cb) => {
+  const ext = path.extname(file.originalname).toLowerCase();
+  if (BLOCKED_EXTENSIONS.includes(ext) || file.mimetype.includes('svg') || file.mimetype.includes('html') || file.mimetype.includes('javascript')) {
+    const err: Error & { statusCode?: number } = new Error('File type not allowed');
+    err.statusCode = 400;
+    return cb(err);
+  }
+  cb(null, true);
 };
 
 /**
@@ -78,7 +71,10 @@ const NOTE_UPLOAD = {
 // caller then sees ECONNRESET instead of the 404). Same as files.controller.ts.
 @UseGuards(JwtAuthGuard)
 export class CollabController {
-  constructor(private readonly collab: CollabService) {}
+  constructor(
+    private readonly collab: CollabService,
+    private readonly storage: StorageService,
+  ) {}
 
   private requireTrip(tripId: string, user: User) {
     const trip = this.collab.verifyTripAccess(tripId, user.id);
@@ -148,8 +144,8 @@ export class CollabController {
   }
 
   @Post('notes/:id/files')
-  @UseInterceptors(FileInterceptor('file', NOTE_UPLOAD))
-  addNoteFile(@CurrentUser() user: User, @Param('tripId') tripId: string, @Param('id') id: string, @UploadedFile() file: Express.Multer.File | undefined, @Headers('x-socket-id') socketId?: string) {
+  @UseInterceptors(FileInterceptor('file'))
+  async addNoteFile(@CurrentUser() user: User, @Param('tripId') tripId: string, @Param('id') id: string, @UploadedFile() file: Express.Multer.File | undefined, @Headers('x-socket-id') socketId?: string) {
     const trip = this.requireTrip(tripId, user);
     if (!this.collab.canUploadFiles(trip, user)) {
       throw new HttpException({ error: 'No permission to upload files' }, 403);
@@ -157,6 +153,9 @@ export class CollabController {
     if (!file) {
       throw new HttpException({ error: 'No file uploaded' }, 400);
     }
+    // Commit the spooled upload to its final storage location (atomic
+    // same-volume rename) before the DB row references the final path.
+    await this.storage.put('files', file.filename, { tmpPath: file.path });
     const result = this.collab.addNoteFile(tripId, id, file);
     if (!result) {
       throw new HttpException({ error: 'Note not found' }, 404);

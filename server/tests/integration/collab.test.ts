@@ -264,6 +264,81 @@ describe('Collab notes', () => {
     expect(del.body.success).toBe(true);
   });
 
+  it('COLLAB-P01 — attachment filename is stored bare (category + name; no files/ prefix)', async () => {
+    const { user } = createUser(testDb);
+    const trip = createTrip(testDb, user.id);
+
+    const create = await request(app)
+      .post(`/api/trips/${trip.id}/collab/notes`)
+      .set('Cookie', authCookie(user.id))
+      .send({ title: 'Bare name' });
+    const noteId = create.body.note.id;
+
+    const upload = await request(app)
+      .post(`/api/trips/${trip.id}/collab/notes/${noteId}/files`)
+      .set('Cookie', authCookie(user.id))
+      .attach('file', FIXTURE_PDF);
+    expect(upload.status).toBe(201);
+
+    const list = await request(app)
+      .get(`/api/trips/${trip.id}/collab/notes`)
+      .set('Cookie', authCookie(user.id));
+    const note = list.body.notes.find((n: any) => n.id === noteId);
+    expect(note.attachments[0].filename).toMatch(/^[0-9a-f-]{36}\.pdf$/);
+    expect(note.attachments[0].url).toMatch(/^\/api\/trips\/\d+\/files\/\d+\/download$/);
+    // The bytes live in uploads/files under the bare name.
+    expect(fs.existsSync(path.join(uploadsDir, note.attachments[0].filename))).toBe(true);
+  });
+
+  it('COLLAB-P02 — deleting a note file removes its bytes from uploads/files', async () => {
+    const { user } = createUser(testDb);
+    const trip = createTrip(testDb, user.id);
+
+    const create = await request(app)
+      .post(`/api/trips/${trip.id}/collab/notes`)
+      .set('Cookie', authCookie(user.id))
+      .send({ title: 'Delete file bytes' });
+    const noteId = create.body.note.id;
+
+    const upload = await request(app)
+      .post(`/api/trips/${trip.id}/collab/notes/${noteId}/files`)
+      .set('Cookie', authCookie(user.id))
+      .attach('file', FIXTURE_PDF);
+    const fileId = upload.body.file.id;
+    const diskName = path.basename(upload.body.file.filename);
+    expect(fs.existsSync(path.join(uploadsDir, diskName))).toBe(true);
+
+    const del = await request(app)
+      .delete(`/api/trips/${trip.id}/collab/notes/${noteId}/files/${fileId}`)
+      .set('Cookie', authCookie(user.id));
+    expect(del.status).toBe(200);
+    expect(fs.existsSync(path.join(uploadsDir, diskName))).toBe(false);
+  });
+
+  it('COLLAB-P03 — deleting a note removes its attachments’ bytes from uploads/files', async () => {
+    const { user } = createUser(testDb);
+    const trip = createTrip(testDb, user.id);
+
+    const create = await request(app)
+      .post(`/api/trips/${trip.id}/collab/notes`)
+      .set('Cookie', authCookie(user.id))
+      .send({ title: 'Delete note bytes' });
+    const noteId = create.body.note.id;
+
+    const upload = await request(app)
+      .post(`/api/trips/${trip.id}/collab/notes/${noteId}/files`)
+      .set('Cookie', authCookie(user.id))
+      .attach('file', FIXTURE_PDF);
+    const diskName = path.basename(upload.body.file.filename);
+    expect(fs.existsSync(path.join(uploadsDir, diskName))).toBe(true);
+
+    const del = await request(app)
+      .delete(`/api/trips/${trip.id}/collab/notes/${noteId}`)
+      .set('Cookie', authCookie(user.id));
+    expect(del.status).toBe(200);
+    expect(fs.existsSync(path.join(uploadsDir, diskName))).toBe(false);
+  });
+
   it('COLLAB-028 — uploaded note file URL uses authenticated download path, not /uploads/', async () => {
     const { user } = createUser(testDb);
     const trip = createTrip(testDb, user.id);

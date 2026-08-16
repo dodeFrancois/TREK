@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
-import { CollabController } from './collab.controller';
+import { MulterModule } from '@nestjs/platform-express';
+import { CollabController, collabNoteFileFilter, MAX_NOTE_FILE_SIZE } from './collab.controller';
 import { CollabService } from './collab.service';
 import { CollabRpc } from './collab.rpc';
 import { PluginGuardsModule } from '../plugins/host/plugin-guards.module';
@@ -10,9 +11,25 @@ import { AuthModule } from '../auth/auth.module';
 import { AddonsModule } from '../addons/addons.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { McpSharedModule } from '../mcp-shared/mcp-shared.module';
+import { StorageModule } from '../storage/storage.module';
+import { StorageService } from '../storage/storage.service';
+import { buildStorageUploadOptions } from '../storage/storage-upload.factory';
 
 @Module({
-  imports: [McpSharedModule, NotificationsModule, PermissionsModule, AuthModule, RealtimeModule, PluginGuardsModule, AddonsModule],
+  imports: [
+    MulterModule.registerAsync({
+      imports: [StorageModule],
+      inject: [StorageService],
+      useFactory: (storage: StorageService) =>
+        buildStorageUploadOptions(storage, {
+          category: 'files',
+          maxSize: MAX_NOTE_FILE_SIZE,
+          defParamCharset: 'utf8', // parity with legacy routes/collab.ts — preserve non-ASCII original filenames
+          fileFilter: collabNoteFileFilter,
+        }),
+    }),
+    StorageModule,
+    McpSharedModule, NotificationsModule, PermissionsModule, AuthModule, RealtimeModule, PluginGuardsModule, AddonsModule],
   controllers: [CollabController],
   providers: [CollabService, CollabMcp, CollabRpc],
   // For in-container consumers (CollabRpc).
