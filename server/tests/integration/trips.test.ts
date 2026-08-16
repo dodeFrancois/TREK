@@ -1279,3 +1279,84 @@ describe('Trip bundle', () => {
     expect(memberView.body.packingItems.map((i: { name: string }) => i.name)).toEqual(['Tent']);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Cover upload parity (TRIP-P01…P05) — written BEFORE the storage-upload swap.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('Trip cover upload parity', () => {
+  const fsMod = require('fs') as typeof import('fs');
+  const pathMod = require('path') as typeof import('path');
+  const FIXTURE_IMG = pathMod.join(__dirname, '../fixtures/small-image.jpg');
+  const coversDir = pathMod.join(__dirname, '../../uploads/covers');
+
+  afterAll(() => {
+    fsMod.rmSync(coversDir, { recursive: true, force: true });
+  });
+
+  it('TRIP-P01 — cover upload returns /uploads/covers/<uuid> and writes the file', async () => {
+    const { user } = createUser(testDb);
+    const trip = createTrip(testDb, user.id);
+
+    const res = await request(app)
+      .post(`/api/trips/${trip.id}/cover`)
+      .set('Cookie', authCookie(user.id))
+      .attach('cover', FIXTURE_IMG, 'cover.png');
+    expect(res.status).toBe(201);
+    expect(res.body.cover_image).toMatch(/^\/uploads\/covers\/[0-9a-f-]{36}\.png$/);
+    const diskName = res.body.cover_image.replace('/uploads/covers/', '');
+    expect(fsMod.existsSync(pathMod.join(coversDir, diskName))).toBe(true);
+  });
+
+  it('TRIP-P02 — re-upload deletes the previous cover file', async () => {
+    const { user } = createUser(testDb);
+    const trip = createTrip(testDb, user.id);
+
+    const first = await request(app)
+      .post(`/api/trips/${trip.id}/cover`)
+      .set('Cookie', authCookie(user.id))
+      .attach('cover', FIXTURE_IMG, 'one.jpg');
+    const firstName = first.body.cover_image.replace('/uploads/covers/', '');
+    expect(fsMod.existsSync(pathMod.join(coversDir, firstName))).toBe(true);
+
+    const second = await request(app)
+      .post(`/api/trips/${trip.id}/cover`)
+      .set('Cookie', authCookie(user.id))
+      .attach('cover', FIXTURE_IMG, 'two.jpg');
+    expect(second.status).toBe(201);
+    expect(fsMod.existsSync(pathMod.join(coversDir, firstName))).toBe(false);
+  });
+
+  it('TRIP-P03 — no file → 400 "No image uploaded"', async () => {
+    const { user } = createUser(testDb);
+    const trip = createTrip(testDb, user.id);
+
+    const res = await request(app)
+      .post(`/api/trips/${trip.id}/cover`)
+      .set('Cookie', authCookie(user.id));
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('No image uploaded');
+  });
+
+  it('TRIP-P04 — non-image upload is 500 (plain-Error filter quirk — pinned, do not "fix")', async () => {
+    const { user } = createUser(testDb);
+    const trip = createTrip(testDb, user.id);
+
+    const res = await request(app)
+      .post(`/api/trips/${trip.id}/cover`)
+      .set('Cookie', authCookie(user.id))
+      .attach('cover', Buffer.from('plain text'), { filename: 'doc.txt', contentType: 'text/plain' });
+    expect(res.status).toBe(500);
+  });
+
+  it('TRIP-P05 — unknown trip → 404 "Trip not found"', async () => {
+    const { user } = createUser(testDb);
+
+    const res = await request(app)
+      .post('/api/trips/999999/cover')
+      .set('Cookie', authCookie(user.id))
+      .attach('cover', FIXTURE_IMG);
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe('Trip not found');
+  });
+});

@@ -2,9 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { UnsplashService } from '../../../src/nest/unsplash/unsplash.service';
 import { RuntimeEnvService } from '../../../src/nest/app-config/runtime-env.service';
 import { HttpException } from '@nestjs/common';
-import { INTERCEPTORS_METADATA } from '@nestjs/common/constants';
-import fs from 'fs';
-import path from 'path';
 import type { Request } from 'express';
 
 vi.mock('../../../src/nest/audit/client-ip', () => ({ getClientIp: vi.fn(() => '1.2.3.4') }));
@@ -19,7 +16,7 @@ const unsplashStub = {
   saveUnsplashCover: vi.fn().mockResolvedValue('mock-cover.jpg'),
 } as unknown as UnsplashService;
 
-import { TripsController } from '../../../src/nest/trips/trips.controller';
+import { TripsController, MAX_COVER_SIZE, TRIP_COVER_FILE_FILTER } from '../../../src/nest/trips/trips.controller';
 import type { AuditService } from '../../../src/nest/audit/audit.service';
 import type { TripsService } from '../../../src/nest/trips/trips.service';
 import type { CalendarService } from '../../../src/nest/calendar/calendar.service';
@@ -39,8 +36,9 @@ const audit = { writeAudit } as unknown as AuditService;
 // they were; the two that do pass a stub.
 // calendar and readModel are optional so the call sites that reach neither the
 // ICS route nor the bundle stay as they were; the ones that do pass a stub.
+const storageStub = { put: vi.fn().mockResolvedValue(undefined) } as unknown as import('../../../src/nest/storage/storage.service').StorageService;
 const tc = (s: TripsService, calendar?: Partial<CalendarService>, readModel?: Partial<TripReadModelService>) =>
-  new TripsController(s, audit, new RuntimeEnvService(), unsplashStub, (calendar ?? {}) as CalendarService, (readModel ?? {}) as TripReadModelService);
+  new TripsController(s, audit, new RuntimeEnvService(), unsplashStub, (calendar ?? {}) as CalendarService, (readModel ?? {}) as TripReadModelService, storageStub);
 
 function svc(o: Partial<TripsService> = {}): TripsService {
   return {
@@ -307,24 +305,25 @@ describe('TripsController (parity with the legacy /api/trips route)', () => {
 
   describe('POST /:id/cover', () => {
     const file = { filename: 'abc.jpg' } as Express.Multer.File;
-    it('404 without access, 403 without permission, 404 raw trip, 400 no file, else returns url', () => {
-      expect(thrown(() => tc(svc({ canAccessTrip: vi.fn().mockReturnValue(undefined) })).cover(user, '9', file))).toEqual({ status: 404, body: { error: 'Trip not found' } });
-      expect(thrown(() => tc(svc({ can: vi.fn().mockReturnValue(false) })).cover(user, '9', file))).toEqual({ status: 403, body: { error: 'No permission to change the cover image' } });
-      expect(thrown(() => tc(svc({ getRaw: vi.fn().mockReturnValue(undefined) } as Partial<TripsService>)).cover(user, '9', file))).toEqual({ status: 404, body: { error: 'Trip not found' } });
-      expect(thrown(() => tc(svc({ getRaw: vi.fn().mockReturnValue({ cover_image: null }) } as Partial<TripsService>)).cover(user, '9', undefined))).toEqual({ status: 400, body: { error: 'No image uploaded' } });
+    it('404 without access, 403 without permission, 404 raw trip, 400 no file, else commits + returns url', async () => {
+      expect(await thrownAsync(() => tc(svc({ canAccessTrip: vi.fn().mockReturnValue(undefined) })).cover(user, '9', file))).toEqual({ status: 404, body: { error: 'Trip not found' } });
+      expect(await thrownAsync(() => tc(svc({ can: vi.fn().mockReturnValue(false) })).cover(user, '9', file))).toEqual({ status: 403, body: { error: 'No permission to change the cover image' } });
+      expect(await thrownAsync(() => tc(svc({ getRaw: vi.fn().mockReturnValue(undefined) } as Partial<TripsService>)).cover(user, '9', file))).toEqual({ status: 404, body: { error: 'Trip not found' } });
+      expect(await thrownAsync(() => tc(svc({ getRaw: vi.fn().mockReturnValue({ cover_image: null }) } as Partial<TripsService>)).cover(user, '9', undefined))).toEqual({ status: 400, body: { error: 'No image uploaded' } });
       const deleteOldCover = vi.fn(); const updateCoverImage = vi.fn();
       const s = svc({ getRaw: vi.fn().mockReturnValue({ cover_image: '/old.jpg' }), deleteOldCover, updateCoverImage } as Partial<TripsService>);
-      expect(tc(s).cover(user, '9', file)).toEqual({ cover_image: '/uploads/covers/abc.jpg' });
+      expect(await tc(s).cover(user, '9', file)).toEqual({ cover_image: '/uploads/covers/abc.jpg' });
+      expect(storageStub.put).toHaveBeenCalledWith('covers', 'abc.jpg', { tmpPath: undefined });
       expect(deleteOldCover).toHaveBeenCalledWith('/old.jpg');
       expect(updateCoverImage).toHaveBeenCalledWith('9', '/uploads/covers/abc.jpg');
     });
 
-    it('403 in demo mode for a demo account', () => {
+    it('403 in demo mode for a demo account', async () => {
       const prev = process.env.DEMO_MODE;
       process.env.DEMO_MODE = 'true';
       isDemoEmail.mockReturnValueOnce(true);
       try {
-        expect(thrown(() => tc(svc()).cover(user, '9', file))).toEqual({
+        expect(await thrownAsync(() => tc(svc()).cover(user, '9', file))).toEqual({
           status: 403, body: { error: 'Uploads are disabled in demo mode. Self-host TREK for full functionality.' },
         });
       } finally {
@@ -334,69 +333,15 @@ describe('TripsController (parity with the legacy /api/trips route)', () => {
     });
 
     /**
-     * The multer options are a module-private const wired into the route through
-     * @UseInterceptors, so the handler tests above never reach them: a broken
-     * destination/filename/filter would still let every case in this file pass.
-     * Pulling the interceptor back off the route and reading the multer instance
-     * it built (multer keeps storage, limits and fileFilter verbatim) exercises
-     * the real callbacks instead of asserting an object literal.
+     * The multer options moved into trips.module.ts's MulterModule factory
+     * (storage engine + spool destination are covered by the storage-upload
+     * factory unit suite and TRIP-P01/P02 integration parity); the trips-owned
+     * piece that remains testable here is the exported cover fileFilter.
      */
-    type StorageCb = (err: Error | null, value: string) => void;
-    type CoverUpload = {
-      storage: {
-        getDestination: (req: unknown, file: Express.Multer.File, cb: StorageCb) => void;
-        getFilename: (req: unknown, file: Express.Multer.File, cb: StorageCb) => void;
-      };
-      limits: { fileSize: number };
-      fileFilter: (req: unknown, file: Express.Multer.File, cb: (err: Error | null, accept: boolean) => void) => void;
-    };
-    function coverUpload(): CoverUpload {
-      const [Interceptor] = Reflect.getMetadata(INTERCEPTORS_METADATA, TripsController.prototype.cover) as Array<new () => { multer: CoverUpload }>;
-      return new Interceptor().multer;
-    }
-    const coversDir = path.join('uploads', 'covers');
-
-    it('creates uploads/covers on the first upload and reuses it afterwards', () => {
-      // A fresh container has no uploads/covers, and multer does not create the
-      // destination itself, so without the mkdir the very first cover upload on
-      // a new instance fails with ENOENT.
-      const exists = vi.spyOn(fs, 'existsSync').mockReturnValue(false);
-      const mkdir = vi.spyOn(fs, 'mkdirSync').mockImplementation(() => undefined);
-      try {
-        const { getDestination } = coverUpload().storage;
-        const cb = vi.fn();
-        getDestination(req, file, cb);
-        expect(mkdir).toHaveBeenCalledWith(expect.stringContaining(coversDir), { recursive: true });
-        expect(cb).toHaveBeenCalledWith(null, expect.stringContaining(coversDir));
-        exists.mockReturnValue(true);
-        mkdir.mockClear();
-        getDestination(req, file, cb);
-        expect(mkdir).not.toHaveBeenCalled();
-        expect(cb).toHaveBeenLastCalledWith(null, expect.stringContaining(coversDir));
-      } finally {
-        exists.mockRestore();
-        mkdir.mockRestore();
-      }
-    });
-
-    it('gives every stored cover a fresh name and keeps the original extension', () => {
-      const { getFilename } = coverUpload().storage;
-      const cb = vi.fn();
-      const upload = { originalname: 'sunset.JPG' } as Express.Multer.File;
-      getFilename(req, upload, cb);
-      getFilename(req, upload, cb);
-      const [first, second] = cb.mock.calls.map((c) => c[1] as string);
-      // Keeping the client's name would let one trip's upload overwrite another's;
-      // dropping the extension leaves the static handler with no mime to serve.
-      expect(first).toMatch(/^[0-9a-f-]{36}\.JPG$/);
-      expect(second).not.toBe(first);
-    });
-
     it('accepts the four allowed image types and rejects svg, a faked extension and a non-image mime', () => {
-      const { fileFilter, limits } = coverUpload();
       const verdict = (originalname: string, mimetype: string) => {
         const cb = vi.fn();
-        fileFilter(req, { originalname, mimetype } as Express.Multer.File, cb);
+        TRIP_COVER_FILE_FILTER!(req, { originalname, mimetype } as Express.Multer.File, cb);
         return cb.mock.calls[0];
       };
       expect(verdict('a.jpg', 'image/jpeg')).toEqual([null, true]);
@@ -404,11 +349,14 @@ describe('TripsController (parity with the legacy /api/trips route)', () => {
       expect(verdict('a.WEBP', 'image/webp')).toEqual([null, true]);
       // svg passes the image/* prefix but runs script when the browser opens the
       // stored cover, so it is rejected even under an allowed extension.
-      expect(verdict('logo.png', 'image/svg+xml')).toEqual([expect.any(Error), false]);
+      expect(verdict('logo.png', 'image/svg+xml')).toEqual([expect.any(Error)]);
       // A binary renamed to an image mime must still fail on the extension.
-      expect(verdict('payload.exe', 'image/png')).toEqual([expect.any(Error), false]);
-      expect(verdict('a.png', 'application/octet-stream')).toEqual([expect.any(Error), false]);
-      expect(limits.fileSize).toBe(20 * 1024 * 1024);
+      expect(verdict('payload.exe', 'image/png')).toEqual([expect.any(Error)]);
+      expect(verdict('a.png', 'application/octet-stream')).toEqual([expect.any(Error)]);
+      // The quirk stays quirky: the rejection error carries NO statusCode, so
+      // the route answers 500 (pinned by TRIP-P04), not 400.
+      expect((verdict('logo.png', 'image/svg+xml')[0] as Error & { statusCode?: number }).statusCode).toBeUndefined();
+      expect(MAX_COVER_SIZE).toBe(20 * 1024 * 1024);
     });
   });
 
