@@ -112,7 +112,7 @@ export default defineConfig({
         'src/nest/reservations/**/*.ts': { statements: 92, branches: 83, functions: 96, lines: 96 },
         'src/nest/settings/**/*.ts': { statements: 85, branches: 68, functions: 99, lines: 87 },
         'src/nest/share/**/*.ts': { statements: 97, branches: 87, functions: 99, lines: 99 },
-        'src/nest/storage/**/*.ts': { statements: 93, branches: 83, functions: 96, lines: 94 },
+        'src/nest/storage/**/*.ts': { statements: 93, branches: 84, functions: 96, lines: 94 },
         'src/nest/system-notices/**/*.ts': { statements: 99, branches: 99, functions: 99, lines: 99 },
         'src/nest/tags/**/*.ts': { statements: 97, branches: 89, functions: 99, lines: 99 },
         'src/nest/todo/**/*.ts': { statements: 90, branches: 82, functions: 99, lines: 99 },
