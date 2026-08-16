@@ -82,6 +82,8 @@ import { WebauthnConfigService } from '../../../src/nest/auth/webauthn-config.se
 import { revokeUserSessions } from '../../../src/mcp/sessionManager';
 import { MailerService } from '../../../src/nest/notifications/mailer/mailer.service';
 import { EphemeralTokenService } from '../../../src/nest/auth/ephemeral-token.service';
+import { AllowedFileTypesService } from '../../../src/nest/files/allowed-file-types.service';
+import { DEFAULT_ALLOWED_EXTENSIONS } from '../../../src/nest/files/files.constants';
 
 // MailerService is injected since the notifications fold — a stub instead of a
 // module mock. sendPasswordResetEmail is the only thing auth reaches for.
@@ -103,6 +105,7 @@ const svc = new AuthService(
   new UserCleanupService(new DatabaseService(testDb), new BudgetService(new DatabaseService(testDb), new PermissionsService(new DatabaseService(testDb)), new ExchangeRatesService(), new RealtimeService())),
   mailerStub,
   new EphemeralTokenService(),
+  new AllowedFileTypesService(new DatabaseService(testDb)),
 );
 
 // ---------------------------------------------------------------------------
@@ -557,6 +560,17 @@ describe('getAppConfig', () => {
     expect(cfg.available_channels.inapp).toBe(true);
     expect(cfg.allowed_file_types).toContain('jpg');
     vi.unstubAllEnvs();
+  });
+
+  it('AUTH-DB-050b: fresh-install fallback matches DEFAULT_ALLOWED_EXTENSIONS (pkpass/md included)', () => {
+    // No allowed_file_types row: the config payload must advertise the same
+    // default list the upload filters actually enforce — the historical
+    // hardcoded copy dropped pkpass, pkpasses, md and markdown, so the client
+    // greyed out types the server accepts.
+    createUser(testDb);
+    testDb.prepare("DELETE FROM app_settings WHERE key = 'allowed_file_types'").run();
+    const cfg = svc.getAppConfig(null);
+    expect(cfg.allowed_file_types).toBe(DEFAULT_ALLOWED_EXTENSIONS);
   });
 
   it('AUTH-DB-051: authenticated caller gets the permissions block; app_settings rows flow through', () => {

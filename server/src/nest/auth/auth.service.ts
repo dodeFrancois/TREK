@@ -30,6 +30,7 @@ import { TripMembershipService } from '../trip-membership/trip-membership.servic
 import { WebauthnConfigService } from './webauthn-config.service';
 import { setAuthCookie, clearAuthCookie } from '../common/cookie';
 import { MailerService } from '../notifications/mailer/mailer.service';
+import { AllowedFileTypesService } from '../files/allowed-file-types.service';
 import { getAppUrl } from '../../app-config';
 import {
   ADMIN_SETTINGS_KEYS,
@@ -127,6 +128,7 @@ export class AuthService {
     private readonly userCleanup: UserCleanupService,
     private readonly mailer: MailerService,
     private readonly tokens: EphemeralTokenService,
+    private readonly allowedFileTypes: AllowedFileTypesService,
   ) {}
 
   // Cookie
@@ -290,7 +292,11 @@ export class AuthService {
       oidc_configured: oidcConfigured,
       oidc_display_name: oidcConfigured ? (oidcDisplayName || 'SSO') : undefined,
       require_mfa: requireMfaRow?.value === 'true',
-      allowed_file_types: this.db.get<{ value: string }>("SELECT value FROM app_settings WHERE key = 'allowed_file_types'")?.value || 'jpg,jpeg,png,gif,webp,heic,pdf,doc,docx,xls,xlsx,txt,csv',
+      // The canonical live-read: same query + DEFAULT_ALLOWED_EXTENSIONS
+      // fallback the upload filters use, so the client's picker and the
+      // server's acceptance can never drift (the historical inline copy here
+      // dropped pkpass, pkpasses, md and markdown).
+      allowed_file_types: this.allowedFileTypes.get(),
       // Whether the configuration belongs to whoever operates this install
       // rather than to its admin. The client uses it to stop offering settings
       // the server would refuse anyway — it is an honesty flag for the UI, never

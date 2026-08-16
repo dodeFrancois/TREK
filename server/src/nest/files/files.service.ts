@@ -45,9 +45,9 @@ export interface FileLink {
  * DatabaseService's canAccessTrip (the legacy verifyTripAccess re-export was a
  * plain wrapper over the same helper); the file_* permissions, path-resolution
  * guard, download-token auth and WebSocket broadcasts are unchanged. The
- * load-time constants live in files.constants.ts; the one out-of-DI consumer
- * path (module-scope multer configs) reaches getAllowedExtensions through
- * files.bridge.ts.
+ * load-time constants live in files.constants.ts; the admin allowed-types
+ * live-read is AllowedFileTypesService (the single query owner since the
+ * storage slice-2 consolidation).
  *
  * Two deliberate post-migration fixes over the legacy behavior: createFileLink
  * no longer swallows insert errors, and updateFile coerces an empty-string
@@ -72,13 +72,6 @@ export class FilesService {
 
   broadcast<E extends TrekWsTripEventName>(tripId: string, event: E, payload: TrekWsPayload<E>, socketId: string | undefined): void {
     this.realtime.broadcast(tripId, event, payload, socketId);
-  }
-
-  getAllowedExtensions(): string {
-    try {
-      const row = this.db.get<{ value: string }>("SELECT value FROM app_settings WHERE key = 'allowed_file_types'");
-      return row?.value || DEFAULT_ALLOWED_EXTENSIONS;
-    } catch { return DEFAULT_ALLOWED_EXTENSIONS; }
   }
 
   // ---------------------------------------------------------------------------

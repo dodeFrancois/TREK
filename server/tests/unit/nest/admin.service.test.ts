@@ -80,6 +80,7 @@ import type { RuntimeEnvService } from '../../../src/nest/app-config/runtime-env
 import { __clearVersionCacheForTests } from '../../../src/nest/admin/admin.helpers';
 import { makeNotificationsService, makeNotificationPreferencesService } from '../../helpers/notifications';
 import { EphemeralTokenService } from '../../../src/nest/auth/ephemeral-token.service';
+import { AllowedFileTypesService } from '../../../src/nest/files/allowed-file-types.service';
 
 const dbs = new DatabaseService(testDb);
 const realtime = new RealtimeService();
@@ -90,7 +91,7 @@ const userCleanup = new UserCleanupService(dbs, new BudgetService(dbs, permissio
 // and the mailer was missing entirely, so `auth` was built with its last four
 // collaborators shifted by one. Nothing failed, because none of the cases below
 // reach a path that uses them.
-const auth = new AuthService(dbs, permissions, new TripMembershipService(dbs), webauthn, userCleanup, new MailerService(dbs), new EphemeralTokenService());
+const auth = new AuthService(dbs, permissions, new TripMembershipService(dbs), webauthn, userCleanup, new MailerService(dbs), new EphemeralTokenService(), new AllowedFileTypesService(dbs));
 const svc = new AdminService(
   dbs,
   new AddonsService(dbs),

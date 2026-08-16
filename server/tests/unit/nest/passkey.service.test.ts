@@ -84,6 +84,7 @@ import { PasskeyService } from '../../../src/nest/auth/passkey.service';
 import { WebauthnConfigService } from '../../../src/nest/auth/webauthn-config.service';
 import { UserCleanupService } from '../../../src/nest/auth/user-cleanup.service';
 import { EphemeralTokenService } from '../../../src/nest/auth/ephemeral-token.service';
+import { AllowedFileTypesService } from '../../../src/nest/files/allowed-file-types.service';
 import { MailerService } from '../../../src/nest/notifications/mailer/mailer.service';
 
 // MailerService is injected since the notifications fold — a stub instead of a
@@ -113,6 +114,7 @@ const auth = new AuthService(
   new UserCleanupService(new DatabaseService(testDb), new BudgetService(new DatabaseService(testDb), new PermissionsService(new DatabaseService(testDb)), new ExchangeRatesService(), new RealtimeService())),
   mailerStub,
   new EphemeralTokenService(),
+  new AllowedFileTypesService(new DatabaseService(testDb)),
 );
 const svc = new PasskeyService(new DatabaseService(testDb), auth, webauthn);
 

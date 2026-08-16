@@ -103,6 +103,7 @@ import { AuthService } from '../../../src/nest/auth/auth.service';
 import { WebauthnConfigService } from '../../../src/nest/auth/webauthn-config.service';
 import { UserCleanupService } from '../../../src/nest/auth/user-cleanup.service';
 import { EphemeralTokenService } from '../../../src/nest/auth/ephemeral-token.service';
+import { AllowedFileTypesService } from '../../../src/nest/files/allowed-file-types.service';
 import { OidcService } from '../../../src/nest/oidc/oidc.service';
 import { MailerService } from '../../../src/nest/notifications/mailer/mailer.service';
 
@@ -123,6 +124,7 @@ const auth = new AuthService(
   new UserCleanupService(new DatabaseService(testDb), new BudgetService(new DatabaseService(testDb), new PermissionsService(new DatabaseService(testDb)), new ExchangeRatesService(), new RealtimeService())),
   mailerStub,
   new EphemeralTokenService(),
+  new AllowedFileTypesService(new DatabaseService(testDb)),
 );
 const svc = new OidcService(new DatabaseService(testDb), auth, membership);
 

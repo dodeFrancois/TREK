@@ -166,26 +166,28 @@ describe('files.constants', () => {
   });
 });
 
-// ── getAllowedExtensions ──────────────────────────────────────────────────────
+// ── allowed extensions (canonical owner: AllowedFileTypesService) ─────────────
+// FilesService.getAllowedExtensions was deleted in the storage slice-2
+// consolidation (it had no callers); the same four behaviors are pinned
+// against the single remaining query owner.
 
-describe('getAllowedExtensions', () => {
+describe('AllowedFileTypesService.get', () => {
   it('FILE-SVC-006: returns the app_settings value when set', () => {
     setAppSetting(testDb, 'allowed_file_types', 'pdf,txt');
-    expect(svc.getAllowedExtensions()).toBe('pdf,txt');
+    expect(new AllowedFileTypesService(new DatabaseService(testDb)).get()).toBe('pdf,txt');
   });
 
   it('FILE-SVC-007: returns the default when the row is absent', () => {
-    expect(svc.getAllowedExtensions()).toBe(DEFAULT_ALLOWED_EXTENSIONS);
+    expect(new AllowedFileTypesService(new DatabaseService(testDb)).get()).toBe(DEFAULT_ALLOWED_EXTENSIONS);
   });
 
   it('FILE-SVC-008: returns the default for an empty value (|| coercion, not ??)', () => {
     setAppSetting(testDb, 'allowed_file_types', '');
-    expect(svc.getAllowedExtensions()).toBe(DEFAULT_ALLOWED_EXTENSIONS);
+    expect(new AllowedFileTypesService(new DatabaseService(testDb)).get()).toBe(DEFAULT_ALLOWED_EXTENSIONS);
   });
 
   it('FILE-SVC-009: returns the default when the query throws (no app_settings table)', () => {
-    const bareSvc = new FilesService(new DatabaseService(bareDb), permissionsStub, new RealtimeService(), new EphemeralTokenService());
-    expect(bareSvc.getAllowedExtensions()).toBe(DEFAULT_ALLOWED_EXTENSIONS);
+    expect(new AllowedFileTypesService(new DatabaseService(bareDb)).get()).toBe(DEFAULT_ALLOWED_EXTENSIONS);
   });
 });
 

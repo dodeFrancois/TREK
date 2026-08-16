@@ -74,6 +74,7 @@ import { makeNotificationsService, makeNotificationPreferencesService } from './
 import { AddonsService } from '../../src/nest/addons/addons.service';
 import { notificationsStub } from './notifications';
 import { EphemeralTokenService } from '../../src/nest/auth/ephemeral-token.service';
+import { AllowedFileTypesService } from '../../src/nest/files/allowed-file-types.service';
 
 /**
  * Hand-wired counterpart of the boot-time discovery in McpRegistryService,
@@ -102,6 +103,7 @@ export function createMcpTestRegistry(): McpRegistry {
     new UserCleanupService(dbService, budgetService),
     new MailerService(dbService),
     new EphemeralTokenService(),
+    new AllowedFileTypesService(dbService),
   );
   const queryHelpersService = new QueryHelpersService(dbService);
   const daysService = new DaysService(dbService, permissionsService, realtimeService, queryHelpersService);
