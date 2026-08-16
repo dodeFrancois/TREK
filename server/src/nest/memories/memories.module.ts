@@ -21,6 +21,7 @@ import { PhotoProviderRegistry } from './photo-provider.registry';
 import { ImmichPhotoProvider } from './providers/immich.provider';
 import { SynologyPhotoProvider } from './providers/synology.provider';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { StorageModule } from '../storage/storage.module';
 
 /**
  * Memories (photo-providers) domain — mounted at /api/integrations/memories.
@@ -43,7 +44,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
  * adapters themselves so the set is readable in one place.
  */
 @Module({
-  imports: [NotificationsModule, AddonsModule, AuditModule, TrekPhotosModule, RealtimeModule, SchedulingModule],
+  imports: [NotificationsModule, AddonsModule, AuditModule, TrekPhotosModule, RealtimeModule, SchedulingModule, StorageModule],
   controllers: [UnifiedMemoriesController, ImmichMemoriesController, SynologyMemoriesController],
   providers: [
     MemoriesService,

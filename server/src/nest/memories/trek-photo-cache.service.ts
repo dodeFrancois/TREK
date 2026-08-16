@@ -5,6 +5,8 @@ import crypto from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { Response } from 'express';
 import { DatabaseService } from '../database/database.service';
+import { StorageService } from '../storage/storage.service';
+import { StorageNotFoundError } from '../storage/storage.types';
 import { UPLOADS_ROOT } from './uploads-root';
 
 const TREK_PHOTO_DIR = path.join(UPLOADS_ROOT, 'photos/trek');
@@ -36,7 +38,10 @@ function cachedFilePath(key: string): string {
 /** Disk + metadata cache for provider thumbnails and originals. */
 @Injectable()
 export class TrekPhotoCacheService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly storage: StorageService,
+  ) {}
 
   cacheKey(provider: string, assetId: string, kind: string, ownerId: number): string {
     return crypto.createHash('sha1').update(`${provider}:${assetId}:${kind}:${ownerId}`).digest('hex');
@@ -79,13 +84,21 @@ export class TrekPhotoCacheService {
     );
   }
 
-  serveFresh(res: Response, key: string): boolean {
+  async serveFresh(res: Response, key: string): Promise<boolean> {
     const entry = this.getFresh(key);
     if (!entry) return false;
 
     res.set('Content-Type', entry.contentType);
     res.set('Cache-Control', 'public, max-age=3600');
-    res.sendFile(entry.filePath);
+    try {
+      // send() keeps a pre-set Content-Type, so entry.contentType survives the
+      // .bin extension.
+      await this.storage.sendToResponse('photos-trek', `${key}.bin`, res);
+    } catch (err) {
+      // getFresh→send delete race: fall back like a cache miss.
+      if (err instanceof StorageNotFoundError && !res.headersSent) return false;
+      throw err;
+    }
     return true;
   }
 

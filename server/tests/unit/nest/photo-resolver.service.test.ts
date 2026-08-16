@@ -63,6 +63,9 @@ const cache = {
   setInFlight: vi.fn(),
   put: vi.fn(),
 };
+// Local bytes go through the storage facade (slice 3); the resolver only ever
+// addresses the 'journey' category with the 'journey/' prefix stripped.
+const storage = { exists: vi.fn(), sendToResponse: vi.fn() };
 
 const dbs = new DatabaseService(testDb);
 const repo = new TrekPhotosRepository(dbs);
@@ -80,6 +83,7 @@ const svc = new PhotoResolverService(
   thumbnails as unknown as ThumbnailService,
   cache as unknown as TrekPhotoCacheService,
   providers,
+  storage as unknown as import('../../../src/nest/storage/storage.service').StorageService,
 );
 
 function makeRes() {
@@ -111,6 +115,8 @@ beforeEach(() => {
   cache.serveFresh.mockReturnValue(false);
   cache.getInFlight.mockReturnValue(undefined);
   cache.cacheKey.mockReturnValue('k');
+  storage.exists.mockResolvedValue(false);
+  storage.sendToResponse.mockResolvedValue(undefined);
 });
 
 afterAll(() => testDb.close());
@@ -166,6 +172,64 @@ describe('streamPhoto — dispatch', () => {
 
     const row = testDb.prepare('SELECT thumbnail_path, width, height FROM trek_photos WHERE id = ?').get(id) as { thumbnail_path: string; width: number; height: number };
     expect(row).toEqual({ thumbnail_path: 'journey/thumbs/abc.jpg', width: 800, height: 600 });
+  });
+
+  it('RESOLVE-014: a local thumbnail hit streams through storage with the immutable headers', async () => {
+    const id = insertPhoto({ provider: 'local', file_path: 'journey/x.jpg', thumbnail_path: 'journey/thumbs/h.jpg' });
+    storage.exists.mockResolvedValue(true);
+    const res = makeRes();
+
+    await svc.streamPhoto(res as never, 1, id, 'thumbnail');
+
+    expect(storage.exists).toHaveBeenCalledWith('journey', 'thumbs/h.jpg');
+    expect(res.set).toHaveBeenCalledWith('Cache-Control', 'public, max-age=86400, immutable');
+    expect(res.set).toHaveBeenCalledWith('X-Content-Type-Options', 'nosniff');
+    expect(storage.sendToResponse).toHaveBeenCalledWith('journey', 'thumbs/h.jpg', res);
+  });
+
+  it('RESOLVE-015: a local original hit streams through storage with the day-long cache header', async () => {
+    const id = insertPhoto({ provider: 'local', file_path: 'journey/x.jpg' });
+    storage.exists.mockResolvedValue(true);
+    const res = makeRes();
+
+    await svc.streamPhoto(res as never, 1, id, 'original');
+
+    expect(res.set).toHaveBeenCalledWith('Cache-Control', 'public, max-age=86400');
+    expect(res.set).toHaveBeenCalledWith('X-Content-Type-Options', 'nosniff');
+    expect(storage.sendToResponse).toHaveBeenCalledWith('journey', 'x.jpg', res);
+  });
+
+  it('RESOLVE-016: a missing thumbnail falls through to the original for images', async () => {
+    const id = insertPhoto({ provider: 'local', file_path: 'journey/x.jpg', thumbnail_path: 'journey/thumbs/h.jpg' });
+    storage.exists.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    const res = makeRes();
+
+    await svc.streamPhoto(res as never, 1, id, 'thumbnail');
+
+    expect(storage.sendToResponse).toHaveBeenCalledWith('journey', 'x.jpg', res);
+  });
+
+  it('RESOLVE-017: a video whose recorded poster is gone 404s instead of falling through (#823)', async () => {
+    const id = insertPhoto({ provider: 'local', file_path: 'journey/clip.mp4', thumbnail_path: 'journey/thumbs/t.jpg', media_type: 'video' });
+    storage.exists.mockResolvedValue(false);
+    const res = makeRes();
+
+    await svc.streamPhoto(res as never, 1, id, 'thumbnail');
+
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith({ error: 'No poster available' });
+    expect(storage.sendToResponse).not.toHaveBeenCalled();
+  });
+
+  it('RESOLVE-018: a file_path outside journey/ reads as a local miss without touching storage', async () => {
+    const id = insertPhoto({ provider: 'local', file_path: 'nope/other.jpg' });
+    const res = makeRes();
+
+    await svc.streamPhoto(res as never, 1, id, 'original');
+
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith({ error: 'File not found' });
+    expect(storage.exists).not.toHaveBeenCalled();
   });
 
   it('RESOLVE-006: an immich original goes straight to the provider with the range header', async () => {

@@ -27,8 +27,13 @@ import { runMigrations } from '../../../src/db/migrations';
 import { DatabaseService } from '../../../src/nest/database/database.service';
 import { TrekPhotoCacheService, CACHE_TTL } from '../../../src/nest/memories/trek-photo-cache.service';
 import { UPLOADS_ROOT } from '../../../src/nest/memories/uploads-root';
+import { StorageNotFoundError } from '../../../src/nest/storage/storage.types';
+import type { StorageService } from '../../../src/nest/storage/storage.service';
 
-const svc = new TrekPhotoCacheService(new DatabaseService(testDb));
+// serveFresh is the one byte-serving method; the cache's disk internals
+// (getFresh/put/sweep) stay raw-fs until slice 4.
+const storage = { sendToResponse: vi.fn().mockResolvedValue(undefined) };
+const svc = new TrekPhotoCacheService(new DatabaseService(testDb), storage as unknown as StorageService);
 const CACHE_DIR = path.join(UPLOADS_ROOT, 'photos/trek');
 const written: string[] = [];
 
@@ -112,22 +117,32 @@ describe('put / getFresh', () => {
 });
 
 describe('serveFresh', () => {
-  it('CACHE-007: sends the cached file with a one-hour cache header', async () => {
+  it('CACHE-007: sends the cached bytes through storage with a one-hour cache header', async () => {
     const key = freshKey('serve');
     await svc.put(key, Buffer.from('bytes'), 'image/webp');
-    const res = { set: vi.fn(), sendFile: vi.fn() };
+    const res = { set: vi.fn() };
 
-    expect(svc.serveFresh(res as never, key)).toBe(true);
+    expect(await svc.serveFresh(res as never, key)).toBe(true);
     expect(res.set).toHaveBeenCalledWith('Content-Type', 'image/webp');
     expect(res.set).toHaveBeenCalledWith('Cache-Control', 'public, max-age=3600');
-    expect(res.sendFile).toHaveBeenCalledOnce();
+    expect(storage.sendToResponse).toHaveBeenCalledWith('photos-trek', `${key}.bin`, res);
   });
 
-  it('CACHE-008: reports a miss without touching the response', () => {
-    const res = { set: vi.fn(), sendFile: vi.fn() };
-    expect(svc.serveFresh(res as never, 'nothing-cached')).toBe(false);
+  it('CACHE-008: reports a miss without touching the response or storage', async () => {
+    storage.sendToResponse.mockClear();
+    const res = { set: vi.fn() };
+    expect(await svc.serveFresh(res as never, 'nothing-cached')).toBe(false);
     expect(res.set).not.toHaveBeenCalled();
-    expect(res.sendFile).not.toHaveBeenCalled();
+    expect(storage.sendToResponse).not.toHaveBeenCalled();
+  });
+
+  it('CACHE-013: a getFresh→send delete race reads as a miss, not a crash', async () => {
+    const key = freshKey('race');
+    await svc.put(key, Buffer.from('bytes'), 'image/webp');
+    storage.sendToResponse.mockRejectedValueOnce(new StorageNotFoundError(`photos/trek/${key}.bin`));
+    const res = { set: vi.fn(), headersSent: false };
+
+    expect(await svc.serveFresh(res as never, key)).toBe(false);
   });
 });
 
@@ -151,7 +166,7 @@ describe('the stampede guard', () => {
     // Load-bearing: a per-instance map would hand any second instance a private
     // guard and the dedup would be silently gone. The sweep cron injects the
     // container singleton now, but the invariant stays pinned.
-    const other = new TrekPhotoCacheService(new DatabaseService(testDb));
+    const other = new TrekPhotoCacheService(new DatabaseService(testDb), storage as unknown as StorageService);
     const promise = Promise.resolve<Buffer | null>(null);
     svc.setInFlight('shared-key', promise);
     expect(other.getInFlight('shared-key')).toBe(promise);
