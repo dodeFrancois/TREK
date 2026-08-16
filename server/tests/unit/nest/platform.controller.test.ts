@@ -236,6 +236,38 @@ describe('applyPlatformUploads', () => {
       expect(res.statusCode).toBe(404);
       expect(res.body).toBe('Not found');
     });
+
+    it('rethrows a non-miss send failure to the route error handler', async () => {
+      h.exists.mockResolvedValue(true);
+      h.verifyJwtAndLoadUser.mockReturnValue({ id: 1 });
+      const boom = new Error('disk on fire');
+      h.sendToResponse.mockRejectedValue(boom);
+      const res = makeRes();
+      const localNext = vi.fn();
+      await photoHandler()(
+        { params: { filename: 'a.jpg' }, headers: { authorization: 'Bearer jwt123' }, query: {} },
+        res,
+        localNext,
+      );
+      expect(localNext).toHaveBeenCalledWith(boom);
+      expect(res.statusCode).toBe(200); // untouched — finalhandler owns it now
+    });
+
+    it('does not write a second 404 when the send fails after headers were flushed', async () => {
+      h.exists.mockResolvedValue(true);
+      h.verifyJwtAndLoadUser.mockReturnValue({ id: 1 });
+      h.sendToResponse.mockRejectedValue(new StorageNotFoundError('photos/a.jpg'));
+      const res = makeRes();
+      (res as unknown as { headersSent: boolean }).headersSent = true;
+      const localNext = vi.fn();
+      await photoHandler()(
+        { params: { filename: 'a.jpg' }, headers: { authorization: 'Bearer jwt123' }, query: {} },
+        res,
+        localNext,
+      );
+      expect(res.status).not.toHaveBeenCalled();
+      expect(localNext).toHaveBeenCalledWith(expect.any(StorageNotFoundError));
+    });
   });
 });
 

@@ -46,9 +46,9 @@ import { PermissionsService } from '../../src/nest/permissions/permissions.servi
 let checkPermission: MockInstance;
 
 // Overridden in the container rather than path-mocked: the cache is a provider now.
-const serveFilePath = vi.fn();
+// serveKey hands the controller a bare photos-google storage name (slice 3).
+const serveKey = vi.fn();
 
-import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
 import { createTables } from '../../src/db/schema';
@@ -66,7 +66,7 @@ describe('Share-link e2e (real auth guard + real SQL over temp SQLite)', () => {
 
   async function build() {
     const moduleRef = await Test.createTestingModule({ imports: [DatabaseModule, ShareModule] })
-      .overrideProvider(PlacePhotoCacheService).useValue({ serveFilePath })
+      .overrideProvider(PlacePhotoCacheService).useValue({ serveKey })
       .compile();
     const nest = moduleRef.createNestApplication();
     nest.use(cookieParser());
@@ -97,7 +97,7 @@ describe('Share-link e2e (real auth guard + real SQL over temp SQLite)', () => {
     db.exec('DELETE FROM trips');
     tripId = Number(db.prepare('INSERT INTO trips (user_id, title) VALUES (1, ?)').run('Trip').lastInsertRowid);
     checkPermission.mockReturnValue(true);
-    serveFilePath.mockReset();
+    serveKey.mockReset();
   });
 
   afterAll(async () => {
@@ -166,29 +166,36 @@ describe('Share-link e2e (real auth guard + real SQL over temp SQLite)', () => {
   });
 
   describe('public place-photo proxy (/api/shared/:token/place-photo/:placeId/bytes)', () => {
-    const photoFile = path.join(os.tmpdir(), 'trek-share-photo.e2e.jpg');
+    // The controller streams (category 'photos-google', name) through the real
+    // storage facade, so the fixture has to live in the real photos-google root.
+    const photoName = 'trek-share-photo.e2e.jpg';
+    const photoFile = path.join(__dirname, '../../uploads/photos/google', photoName);
     const photoBytes = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]); // JPEG-ish header
 
-    beforeAll(() => fs.writeFileSync(photoFile, photoBytes));
+    beforeAll(() => {
+      fs.mkdirSync(path.dirname(photoFile), { recursive: true });
+      fs.writeFileSync(photoFile, photoBytes);
+    });
     afterAll(() => { try { fs.unlinkSync(photoFile); } catch { /* ignore */ } });
 
     it('streams cached bytes with no cookie (unguarded) for a valid token + place', async () => {
       const created = await request(server).post(`/api/trips/${tripId}/share-link`).set('Cookie', sessionCookie(1)).send({});
       db.prepare('INSERT INTO places (trip_id, name, image_url) VALUES (?, ?, ?)')
         .run(tripId, 'Louvre', '/api/maps/place-photo/ChIJabc/bytes');
-      serveFilePath.mockReturnValueOnce(photoFile);
+      serveKey.mockReturnValueOnce(photoName);
       const res = await request(server).get(`/api/shared/${created.body.token}/place-photo/ChIJabc/bytes`);
       expect(res.status).toBe(200);
       expect(res.headers['content-type']).toContain('image/jpeg');
       expect(res.headers['cache-control']).toContain('immutable');
       expect(Buffer.from(res.body)).toEqual(photoBytes);
-      expect(serveFilePath).toHaveBeenCalledWith('ChIJabc');
+      expect(serveKey).toHaveBeenCalledWith('ChIJabc');
     });
 
-    it('404 when the token/place does not resolve to a cached photo', async () => {
+    it('answers an empty 204 when the token/place does not resolve to a cached photo', async () => {
       const res = await request(server).get('/api/shared/bad/place-photo/ChIJabc/bytes');
-      expect(res.status).toBe(404);
-      expect(res.body).toEqual({ error: 'Photo not cached' });
+      expect(res.status).toBe(204);
+      expect(res.headers['cache-control']).toBe('no-store');
+      expect(res.text ?? '').toBe('');
     });
   });
 });

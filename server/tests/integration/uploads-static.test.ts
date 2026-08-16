@@ -246,6 +246,11 @@ describe('/uploads static parity — miss falls through to the Nest 404 envelope
 
 describe('/uploads static parity — all four mounts', () => {
   it('UPLOADS-P21 — covers/journey(nested)/places each serve a hit and 404 a miss', async () => {
+    // Fixtures are (re)written immediately before each request: other suites
+    // rm their whole category dir in afterAll (collections/trips → covers,
+    // collections → places, journey.test → journey), so a beforeAll-written
+    // file can vanish mid-run when the tier runs in parallel workers.
+    writeFixture(`covers/${NAME}`);
     const coverHit = await request(app).get(`/uploads/covers/${NAME}`);
     expect(coverHit.status).toBe(200);
     const coverMiss = await request(app).get('/uploads/covers/nope.png');
@@ -254,12 +259,14 @@ describe('/uploads static parity — all four mounts', () => {
 
     // Nested name — journey thumbs live at journey/thumbs/<hash>.jpg and are
     // served through the same mount; pins multi-segment storage keys.
+    writeFixture('journey/thumbs/uploads-static-parity.jpg');
     const journeyHit = await request(app).get('/uploads/journey/thumbs/uploads-static-parity.jpg');
     expect(journeyHit.status).toBe(200);
     expect(journeyHit.headers['content-type']).toBe('image/jpeg');
     const journeyMiss = await request(app).get('/uploads/journey/thumbs/nope.jpg');
     expect(journeyMiss.status).toBe(404);
 
+    writeFixture(`places/${NAME}`);
     const placeHit = await request(app).get(`/uploads/places/${NAME}`);
     expect(placeHit.status).toBe(200);
     const placeMiss = await request(app).get('/uploads/places/nope.png');

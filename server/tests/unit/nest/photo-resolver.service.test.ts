@@ -221,6 +221,18 @@ describe('streamPhoto — dispatch', () => {
     expect(storage.sendToResponse).not.toHaveBeenCalled();
   });
 
+  it('RESOLVE-019: a rejecting exists check (invalid key) reads as a local miss for thumb and original', async () => {
+    const id = insertPhoto({ provider: 'local', file_path: 'journey/x.jpg', thumbnail_path: 'journey/thumbs/h.jpg' });
+    storage.exists.mockRejectedValue(new Error('invalid storage key'));
+    const res = makeRes();
+
+    await svc.streamPhoto(res as never, 1, id, 'thumbnail');
+
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith({ error: 'File not found' });
+    expect(storage.sendToResponse).not.toHaveBeenCalled();
+  });
+
   it('RESOLVE-018: a file_path outside journey/ reads as a local miss without touching storage', async () => {
     const id = insertPhoto({ provider: 'local', file_path: 'nope/other.jpg' });
     const res = makeRes();
