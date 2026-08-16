@@ -570,24 +570,30 @@ describe('Shared trip — place photos in shared links (issue #1100)', () => {
     expect(Buffer.from(res.body)).toEqual(photoBytes);
   });
 
-  it('SHARE-019 — public proxy 404s for a placeId not in the shared trip', async () => {
+  // Every miss shape answers the same empty 204 (fix: mirrors the maps proxy,
+  // #1727 extended to shared pages). The service still collapses "not in
+  // trip" / "bad token" / "map disabled" into one indistinguishable null, so
+  // no authorization detail leaks through the status change.
+  it('SHARE-019 — public proxy answers an empty 204 for a placeId not in the shared trip', async () => {
     const { token } = await setupSharedPlaceWithPhoto();
     const res = await request(app).get(`/api/shared/${token}/place-photo/ChIJnotInTrip/bytes`);
-    expect(res.status).toBe(404);
-    expect(res.body).toEqual({ error: 'Photo not cached' });
+    expect(res.status).toBe(204);
+    expect(res.headers['cache-control']).toBe('no-store');
+    expect(res.text ?? '').toBe('');
   });
 
-  it('SHARE-020 — public proxy 404s for an invalid token', async () => {
+  it('SHARE-020 — public proxy answers an empty 204 for an invalid token', async () => {
     await setupSharedPlaceWithPhoto();
     const res = await request(app).get(`/api/shared/bad-token/place-photo/${encodeURIComponent(PLACE_ID)}/bytes`);
-    expect(res.status).toBe(404);
-    expect(res.body).toEqual({ error: 'Photo not cached' });
+    expect(res.status).toBe(204);
+    expect(res.headers['cache-control']).toBe('no-store');
+    expect(res.text ?? '').toBe('');
   });
 
   // Regression — GHSA-9hc8 sibling: place photos are part of the map/itinerary,
-  // so the proxy must 404 when the owner disabled the map, even with a valid
-  // token + cached bytes.
-  it('SHARE-025 — public place-photo proxy 404s when share_map=false', async () => {
+  // so the proxy must stream nothing when the owner disabled the map, even
+  // with a valid token + cached bytes.
+  it('SHARE-025 — public place-photo proxy streams nothing when share_map=false', async () => {
     const { user } = createUser(testDb);
     const trip = createTrip(testDb, user.id);
     const place = createPlace(testDb, trip.id, { name: 'Hidden Photo Place' });
@@ -600,7 +606,7 @@ describe('Shared trip — place photos in shared links (issue #1100)', () => {
     cachedFilePath = cached.filePath;
 
     const res = await request(app).get(`/api/shared/${token}/place-photo/${encodeURIComponent(PLACE_ID)}/bytes`);
-    expect(res.status).toBe(404);
-    expect(res.body).toEqual({ error: 'Photo not cached' });
+    expect(res.status).toBe(204);
+    expect(res.text ?? '').toBe('');
   });
 });

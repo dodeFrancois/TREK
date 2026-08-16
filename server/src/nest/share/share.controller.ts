@@ -89,14 +89,17 @@ export class SharedController {
    * image URLs to this route so thumbnails load without a session cookie (the
    * /api/maps bytes endpoint is JwtAuthGuard'd). The service validates the token
    * and that the place belongs to its trip; a miss streams nothing and answers
-   * 404. Declared before the bare ':token' read route. Streaming mirrors
-   * MapsController.placePhotoBytes (cached photos are always JPEG).
+   * an empty 204, mirroring MapsController.placePhotoBytes (#1727's rationale
+   * extended to shared pages: shared payloads keep this URL in place
+   * image_urls, so evicted cache entries would otherwise 404 once per place
+   * per render). Declared before the bare ':token' read route. Cached photos
+   * are always JPEG.
    */
   @Get(':token/place-photo/:placeId/bytes')
   async placePhotoBytes(@Param('token') token: string, @Param('placeId') placeId: string, @Res() res: Response): Promise<void> {
     const key = this.share.getSharedPlacePhotoKey(token, placeId);
     if (!key) {
-      res.status(404).json({ error: 'Photo not cached' });
+      this.emptyPhoto(res);
       return;
     }
     // Bytes are stream-piped like the maps handler; headers go on before the
@@ -108,14 +111,22 @@ export class SharedController {
     try {
       ({ stream } = await this.storage.getStream('photos-google', key));
     } catch {
-      // Cache-delete race — same terminal state as the old stream error path.
-      if (!res.headersSent) res.status(404).json({ error: 'Photo not cached' });
+      // Cache-delete race — same terminal state as the stream error path.
+      if (!res.headersSent) this.emptyPhoto(res);
       return;
     }
     stream.on('error', () => {
-      if (!res.headersSent) res.status(404).json({ error: 'Photo not cached' });
+      if (!res.headersSent) this.emptyPhoto(res);
     });
     stream.pipe(res);
+  }
+
+  // 204 for "no bytes to serve". Overrides the immutable Cache-Control the hit
+  // path already set — a photo that reappears in the cache must not stay hidden
+  // behind a month-old empty response.
+  private emptyPhoto(res: Response): void {
+    res.set('Cache-Control', 'no-store');
+    res.status(204).end();
   }
 
   @Get(':token')

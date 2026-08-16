@@ -89,8 +89,9 @@ describe('SharedController', () => {
         json: vi.fn(),
         set: vi.fn(),
         type: vi.fn(),
+        end: vi.fn(),
       };
-      return r as unknown as Response & { status: ReturnType<typeof vi.fn>; json: ReturnType<typeof vi.fn>; set: ReturnType<typeof vi.fn>; type: ReturnType<typeof vi.fn> };
+      return r as unknown as Response & { status: ReturnType<typeof vi.fn>; json: ReturnType<typeof vi.fn>; set: ReturnType<typeof vi.fn>; type: ReturnType<typeof vi.fn>; end: ReturnType<typeof vi.fn> };
     }
 
     // Braced body on purpose: mockReset() returns the mock, and a function
@@ -105,11 +106,16 @@ describe('SharedController', () => {
       return new SharedController(svc({ getSharedPlacePhotoKey: vi.fn().mockReturnValue(key) } as Partial<ShareService>), storageStub);
     }
 
-    it('404 without streaming when the photo is not cached for the token', async () => {
+    // #1727's rationale extended to public share pages: shared payloads keep
+    // this URL in place image_urls, so an evicted cache entry means one request
+    // per place per shared-page render — an empty 204 instead of 404 noise.
+    it('204 without a body when the photo is not cached for the token', async () => {
       const res = photoRes();
       await controller(null).placePhotoBytes('tok', 'p1', res);
-      expect(res.status).toHaveBeenCalledWith(404);
-      expect(res.json).toHaveBeenCalledWith({ error: 'Photo not cached' });
+      expect(res.status).toHaveBeenCalledWith(204);
+      expect(res.end).toHaveBeenCalled();
+      expect(res.json).not.toHaveBeenCalled();
+      expect(res.set).toHaveBeenLastCalledWith('Cache-Control', 'no-store');
       expect(getStream).not.toHaveBeenCalled();
     });
 
@@ -124,26 +130,30 @@ describe('SharedController', () => {
       expect(stream.pipe).toHaveBeenCalledWith(res);
     });
 
-    it('falls back to 404 when the stream cannot be opened (cache-delete race)', async () => {
+    it('falls back to an empty 204 when the stream cannot be opened (cache-delete race)', async () => {
       getStream.mockRejectedValue(new Error('storage object not found'));
       const res = photoRes();
       await controller('abc.jpg').placePhotoBytes('tok', 'p1', res);
-      expect(res.status).toHaveBeenCalledWith(404);
-      expect(res.json).toHaveBeenCalledWith({ error: 'Photo not cached' });
+      expect(res.status).toHaveBeenCalledWith(204);
+      expect(res.end).toHaveBeenCalled();
+      // The hit path already asked for a month of immutable caching — that
+      // header must not survive onto the empty answer.
+      expect(res.set).toHaveBeenLastCalledWith('Cache-Control', 'no-store');
     });
 
-    it('falls back to 404 when the stream errors before headers were sent', async () => {
+    it('falls back to an empty 204 when the stream errors before headers were sent', async () => {
       let onError: () => void = () => {};
       const stream = { on: vi.fn((ev: string, cb: () => void) => { if (ev === 'error') onError = cb; return stream; }), pipe: vi.fn() };
       getStream.mockResolvedValue({ stream, stat: { key: 'photos/google/abc.jpg', size: 5, mtimeMs: 0 } });
       const res = photoRes();
       await controller('abc.jpg').placePhotoBytes('tok', 'p1', res);
       onError();
-      expect(res.status).toHaveBeenCalledWith(404);
-      expect(res.json).toHaveBeenCalledWith({ error: 'Photo not cached' });
+      expect(res.status).toHaveBeenCalledWith(204);
+      expect(res.end).toHaveBeenCalled();
+      expect(res.set).toHaveBeenLastCalledWith('Cache-Control', 'no-store');
     });
 
-    it('does not re-send a 404 when the stream errors after headers were flushed', async () => {
+    it('does not re-send a 204 when the stream errors after headers were flushed', async () => {
       let onError: () => void = () => {};
       const stream = { on: vi.fn((ev: string, cb: () => void) => { if (ev === 'error') onError = cb; return stream; }), pipe: vi.fn() };
       getStream.mockResolvedValue({ stream, stat: { key: 'photos/google/abc.jpg', size: 5, mtimeMs: 0 } });
@@ -153,6 +163,7 @@ describe('SharedController', () => {
       onError();
       expect(res.status).not.toHaveBeenCalled();
       expect(res.json).not.toHaveBeenCalled();
+      expect(res.end).not.toHaveBeenCalled();
     });
   });
 });
