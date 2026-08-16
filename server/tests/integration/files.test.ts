@@ -152,19 +152,24 @@ describe('Upload file', () => {
     const { user } = createUser(testDb);
     const trip = createTrip(testDb, user.id);
 
-    const before = fs.existsSync(uploadsDir) ? fs.readdirSync(uploadsDir) : [];
+    const BIG = 51 * 1024 * 1024;
+    // Other suites share the real uploads/ tree when the whole tier runs in
+    // parallel, so the residue checks key on this upload's unique size rather
+    // than comparing whole-directory listings.
+    const bigFilesIn = (dir: string) =>
+      fs.existsSync(dir)
+        ? fs.readdirSync(dir).filter((f) => {
+            try { return fs.statSync(path.join(dir, f)).size === BIG; } catch { return false; }
+          })
+        : [];
     const res = await request(app)
       .post(`/api/trips/${trip.id}/files`)
       .set('Cookie', authCookie(user.id))
-      .attach('file', Buffer.alloc(51 * 1024 * 1024), { filename: 'big.pdf', contentType: 'application/pdf' });
+      .attach('file', Buffer.alloc(BIG), { filename: 'big.pdf', contentType: 'application/pdf' });
     expect(res.status).toBe(400);
     expect(res.body.error).toBe('File is too large');
-    const after = fs.existsSync(uploadsDir) ? fs.readdirSync(uploadsDir) : [];
-    expect(after).toEqual(before);
-    const spoolDir = path.join(__dirname, '../../uploads/.tmp');
-    if (fs.existsSync(spoolDir)) {
-      expect(fs.readdirSync(spoolDir).filter((f) => f.endsWith('.pdf'))).toEqual([]);
-    }
+    expect(bigFilesIn(uploadsDir)).toEqual([]);
+    expect(bigFilesIn(path.join(__dirname, '../../uploads/.tmp'))).toEqual([]);
   });
 
   it('FILE-P03 — non-ASCII original filenames are preserved (defParamCharset utf8)', async () => {
