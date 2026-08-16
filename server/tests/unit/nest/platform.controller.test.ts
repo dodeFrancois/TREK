@@ -5,23 +5,27 @@ import { NotFoundException } from '@nestjs/common';
 const h = vi.hoisted(() => ({
   verifyJwtAndLoadUser: vi.fn(),
   dbPrepare: vi.fn(),
-  existsSync: vi.fn(),
+  exists: vi.fn(),
+  sendToResponse: vi.fn(),
 }));
 
 vi.mock('../../../src/nest/auth/jwt-verify', () => ({ verifyJwtAndLoadUser: h.verifyJwtAndLoadUser }));
 vi.mock('../../../src/db/database', () => ({ db: { prepare: h.dbPrepare } }));
 
-vi.mock('node:fs', async (orig) => {
-  const real = (await orig()) as Record<string, unknown>;
-  return { ...real, default: { ...(real.default as object), existsSync: h.existsSync }, existsSync: h.existsSync };
-});
-
 import {
   applyPlatformUploads,
   applyPlatformSpa,
   applyPlatformStatic,
+  storageStaticHandler,
 } from '../../../src/nest/platform/platform.routes';
 import { SpaFallbackFilter } from '../../../src/nest/platform/spa-fallback.filter';
+import { StorageNotFoundError, StorageInvalidKeyError } from '../../../src/nest/storage/storage.types';
+import type { StorageService } from '../../../src/nest/storage/storage.service';
+
+// The serving swap addresses files as (category, name) on the injected facade;
+// these unit tests only assert routing/auth/error mapping, so a two-method stub
+// is the whole storage surface.
+const storage = { exists: h.exists, sendToResponse: h.sendToResponse } as unknown as StorageService;
 
 // Tagged sentinel for express.static — we only need to know it was registered on
 // the right path, not run it.
@@ -76,18 +80,24 @@ beforeEach(() => {
 });
 
 describe('applyPlatformUploads', () => {
-  it('registers the static avatar/cover/journey mounts + the files block', () => {
+  it('registers the four static mounts + the files block', () => {
     const { app, calls } = fakeApp();
-    applyPlatformUploads(app);
+    applyPlatformUploads(app, storage);
     const paths = calls.filter((c) => c.method === 'use').map((c) => c.path);
     expect(paths).toEqual(
-      expect.arrayContaining(['/uploads/avatars', '/uploads/covers', '/uploads/journey', '/uploads/files']),
+      expect.arrayContaining([
+        '/uploads/avatars',
+        '/uploads/covers',
+        '/uploads/journey',
+        '/uploads/places',
+        '/uploads/files',
+      ]),
     );
   });
 
   it('the /uploads/files block always answers 401', () => {
     const { app, calls } = fakeApp();
-    applyPlatformUploads(app);
+    applyPlatformUploads(app, storage);
     const filesBlock = calls.find((c) => c.path === '/uploads/files')!.handlers[0];
     const res = makeRes();
     filesBlock({}, res);
@@ -98,103 +108,216 @@ describe('applyPlatformUploads', () => {
   describe('GET /uploads/photos/:filename', () => {
     function photoHandler() {
       const { app, calls } = fakeApp();
-      applyPlatformUploads(app);
+      applyPlatformUploads(app, storage);
       return calls.find((c) => c.method === 'get' && c.path === '/uploads/photos/:filename')!.handlers[0];
     }
+    const next = vi.fn();
 
-    it('403 when the resolved path escapes the photos dir', () => {
-      // basename() strips the traversal, but feed a name that resolves outside by
-      // stubbing path indirectly is hard — instead exercise the existsSync 404 etc.
-      // The startsWith guard is defensive; cover it via a filename of '..'.
-      const handler = photoHandler();
+    it('403 when the basename is a bare traversal segment', async () => {
+      // Parity pin: the old resolve()+startsWith guard could only fire after
+      // basename() when the remaining segment was '..'.
       const res = makeRes();
-      // path.basename('..') === '..' -> join(photos,'..') resolves to uploads -> not under photos
-      handler({ params: { filename: '..' }, headers: {}, query: {} }, res);
+      await photoHandler()({ params: { filename: '..' }, headers: {}, query: {} }, res, next);
       expect(res.statusCode).toBe(403);
       expect(res.body).toBe('Forbidden');
+      expect(h.exists).not.toHaveBeenCalled();
     });
 
-    it('404 when the file does not exist', () => {
-      h.existsSync.mockReturnValue(false);
+    it('404 when the object does not exist — checked before auth', async () => {
+      h.exists.mockResolvedValue(false);
       const res = makeRes();
-      photoHandler()({ params: { filename: 'a.jpg' }, headers: {}, query: {} }, res);
+      await photoHandler()({ params: { filename: 'a.jpg' }, headers: {}, query: {} }, res, next);
+      expect(h.exists).toHaveBeenCalledWith('photos', 'a.jpg');
+      expect(res.statusCode).toBe(404);
+      expect(res.body).toBe('Not found');
+      expect(h.verifyJwtAndLoadUser).not.toHaveBeenCalled();
+    });
+
+    it('404 when the key is invalid (exists rejects) — still before auth', async () => {
+      h.exists.mockRejectedValue(new StorageInvalidKeyError('photos/.'));
+      const res = makeRes();
+      await photoHandler()({ params: { filename: '.' }, headers: {}, query: {} }, res, next);
       expect(res.statusCode).toBe(404);
       expect(res.body).toBe('Not found');
     });
 
-    it('401 when no token is supplied', () => {
-      h.existsSync.mockReturnValue(true);
+    it('401 when no token is supplied', async () => {
+      h.exists.mockResolvedValue(true);
       const res = makeRes();
-      photoHandler()({ params: { filename: 'a.jpg' }, headers: {}, query: {} }, res);
+      await photoHandler()({ params: { filename: 'a.jpg' }, headers: {}, query: {} }, res, next);
       expect(res.statusCode).toBe(401);
       expect(res.body).toBe('Authentication required');
     });
 
-    it('serves the file for a valid JWT session (Bearer header)', () => {
-      h.existsSync.mockReturnValue(true);
+    it('serves the file for a valid JWT session (Bearer header)', async () => {
+      h.exists.mockResolvedValue(true);
+      h.sendToResponse.mockResolvedValue(undefined);
       h.verifyJwtAndLoadUser.mockReturnValue({ id: 1 });
       const res = makeRes();
-      photoHandler()(
+      await photoHandler()(
         { params: { filename: 'a.jpg' }, headers: { authorization: 'Bearer jwt123' }, query: {} },
         res,
+        next,
       );
       expect(h.verifyJwtAndLoadUser).toHaveBeenCalledWith('jwt123');
-      expect(String(res.body)).toContain('FILE:');
+      expect(h.sendToResponse).toHaveBeenCalledWith('photos', 'a.jpg', res);
     });
 
-    it('reads the token from the query string when there is no Bearer header', () => {
-      h.existsSync.mockReturnValue(true);
+    it('reads the token from the query string when there is no Bearer header', async () => {
+      h.exists.mockResolvedValue(true);
+      h.sendToResponse.mockResolvedValue(undefined);
       h.verifyJwtAndLoadUser.mockReturnValue({ id: 1 });
       const res = makeRes();
-      photoHandler()({ params: { filename: 'a.jpg' }, headers: {}, query: { token: 'qtok' } }, res);
+      await photoHandler()({ params: { filename: 'a.jpg' }, headers: {}, query: { token: 'qtok' } }, res, next);
       expect(h.verifyJwtAndLoadUser).toHaveBeenCalledWith('qtok');
-      expect(String(res.body)).toContain('FILE:');
+      expect(h.sendToResponse).toHaveBeenCalledWith('photos', 'a.jpg', res);
     });
 
-    it('401 when the token is not a session and the photo row is missing', () => {
-      h.existsSync.mockReturnValue(true);
+    it('401 when the token is not a session and the photo row is missing', async () => {
+      h.exists.mockResolvedValue(true);
       h.verifyJwtAndLoadUser.mockReturnValue(null);
       h.dbPrepare.mockReturnValue({ get: vi.fn().mockReturnValue(undefined) });
       const res = makeRes();
-      photoHandler()({ params: { filename: 'a.jpg' }, headers: {}, query: { token: 'share1' } }, res);
+      await photoHandler()({ params: { filename: 'a.jpg' }, headers: {}, query: { token: 'share1' } }, res, next);
       expect(res.statusCode).toBe(401);
     });
 
-    it('401 when a share token does not cover the photo trip', () => {
-      h.existsSync.mockReturnValue(true);
+    it('401 when a share token does not cover the photo trip', async () => {
+      h.exists.mockResolvedValue(true);
       h.verifyJwtAndLoadUser.mockReturnValue(null);
       const photoStmt = { get: vi.fn().mockReturnValue({ trip_id: 7 }) };
       const shareStmt = { get: vi.fn().mockReturnValue({ trip_id: 8 }) };
       h.dbPrepare.mockImplementationOnce(() => photoStmt).mockImplementationOnce(() => shareStmt);
       const res = makeRes();
-      photoHandler()({ params: { filename: 'a.jpg' }, headers: {}, query: { token: 'share1' } }, res);
+      await photoHandler()({ params: { filename: 'a.jpg' }, headers: {}, query: { token: 'share1' } }, res, next);
       expect(res.statusCode).toBe(401);
     });
 
-    it('401 when there is no matching share token at all', () => {
-      h.existsSync.mockReturnValue(true);
+    it('401 when there is no matching share token at all', async () => {
+      h.exists.mockResolvedValue(true);
       h.verifyJwtAndLoadUser.mockReturnValue(null);
       const photoStmt = { get: vi.fn().mockReturnValue({ trip_id: 7 }) };
       const shareStmt = { get: vi.fn().mockReturnValue(undefined) };
       h.dbPrepare.mockImplementationOnce(() => photoStmt).mockImplementationOnce(() => shareStmt);
       const res = makeRes();
-      photoHandler()({ params: { filename: 'a.jpg' }, headers: {}, query: { token: 'share1' } }, res);
+      await photoHandler()({ params: { filename: 'a.jpg' }, headers: {}, query: { token: 'share1' } }, res, next);
       expect(res.statusCode).toBe(401);
     });
 
-    it('serves the file when the share token covers the photo trip', () => {
-      h.existsSync.mockReturnValue(true);
+    it('serves the file when the share token covers the photo trip', async () => {
+      h.exists.mockResolvedValue(true);
+      h.sendToResponse.mockResolvedValue(undefined);
       h.verifyJwtAndLoadUser.mockReturnValue(null);
       const photoStmt = { get: vi.fn().mockReturnValue({ trip_id: 7 }) };
       const shareStmt = { get: vi.fn().mockReturnValue({ trip_id: 7 }) };
       h.dbPrepare.mockImplementationOnce(() => photoStmt).mockImplementationOnce(() => shareStmt);
       const res = makeRes();
-      photoHandler()(
+      await photoHandler()(
         { params: { filename: 'a.jpg' }, headers: { authorization: 'Bearer share1' }, query: {} },
         res,
+        next,
       );
-      expect(String(res.body)).toContain('FILE:');
+      expect(h.sendToResponse).toHaveBeenCalledWith('photos', 'a.jpg', res);
     });
+
+    it('404 when the object vanishes between the exists check and the send', async () => {
+      // Approved deviation D7: the delete race maps to the same 404 text.
+      h.exists.mockResolvedValue(true);
+      h.verifyJwtAndLoadUser.mockReturnValue({ id: 1 });
+      h.sendToResponse.mockRejectedValue(new StorageNotFoundError('photos/a.jpg'));
+      const res = makeRes();
+      const resAny = res as unknown as { headersSent?: boolean };
+      resAny.headersSent = false;
+      await photoHandler()(
+        { params: { filename: 'a.jpg' }, headers: { authorization: 'Bearer jwt123' }, query: {} },
+        res,
+        next,
+      );
+      expect(res.statusCode).toBe(404);
+      expect(res.body).toBe('Not found');
+    });
+  });
+});
+
+describe('storageStaticHandler', () => {
+  const req = (over: Record<string, unknown> = {}) => ({ method: 'GET', path: '/x.png', ...over });
+
+  function run(over: Record<string, unknown> = {}) {
+    const handler = storageStaticHandler(storage, 'avatars');
+    const res = makeRes();
+    const next = vi.fn();
+    const out = handler(req(over) as never, res as never, next as never);
+    return { res, next, out };
+  }
+
+  it('serves a hit through sendToResponse with the decoded name', async () => {
+    h.sendToResponse.mockResolvedValue(undefined);
+    const { res, next, out } = run({ path: '//caf%C3%A9.png' });
+    await out;
+    expect(h.sendToResponse).toHaveBeenCalledWith('avatars', 'café.png', res);
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('non-GET/HEAD methods fall through without touching storage', async () => {
+    const { next } = run({ method: 'POST' });
+    expect(next).toHaveBeenCalledWith();
+    expect(h.sendToResponse).not.toHaveBeenCalled();
+  });
+
+  it('undecodable percent-encoding falls through', async () => {
+    const { next } = run({ path: '/%ZZ' });
+    expect(next).toHaveBeenCalledWith();
+    expect(h.sendToResponse).not.toHaveBeenCalled();
+  });
+
+  it('a miss calls next() with no args', async () => {
+    h.sendToResponse.mockRejectedValue(new StorageNotFoundError('avatars/x.png'));
+    const { next, out } = run();
+    await out;
+    expect(next).toHaveBeenCalledWith();
+  });
+
+  it('an invalid key calls next() with no args', async () => {
+    h.sendToResponse.mockRejectedValue(new StorageInvalidKeyError('avatars/..'));
+    const { next, out } = run();
+    await out;
+    expect(next).toHaveBeenCalledWith();
+  });
+
+  it('a send-layer 404 (stat→send race) falls through', async () => {
+    h.sendToResponse.mockRejectedValue(Object.assign(new Error('ENOENT'), { status: 404 }));
+    const { next, out } = run();
+    await out;
+    expect(next).toHaveBeenCalledWith();
+  });
+
+  it('EISDIR falls through', async () => {
+    h.sendToResponse.mockRejectedValue(Object.assign(new Error('dir'), { code: 'EISDIR' }));
+    const { next, out } = run();
+    await out;
+    expect(next).toHaveBeenCalledWith();
+  });
+
+  it('a client abort is swallowed', async () => {
+    h.sendToResponse.mockRejectedValue(Object.assign(new Error('aborted'), { code: 'ECONNABORTED' }));
+    const { next, out } = run();
+    await out;
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('a mid-stream write error is swallowed', async () => {
+    h.sendToResponse.mockRejectedValue(Object.assign(new Error('write EPIPE'), { syscall: 'write' }));
+    const { next, out } = run();
+    await out;
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('anything else goes to next(err) for finalhandler', async () => {
+    const boom = new Error('boom');
+    h.sendToResponse.mockRejectedValue(boom);
+    const { next, out } = run();
+    await out;
+    expect(next).toHaveBeenCalledWith(boom);
   });
 });
 

@@ -16,6 +16,7 @@ import { validateBodyContracts } from './nest/common/validate-body-contracts';
 import { validateRouteGuards } from './nest/common/validate-route-guards';
 import { validateManagedRoutes } from './nest/common/validate-managed-routes';
 import { TrekWsAdapter } from './nest/realtime/trek-ws.adapter';
+import { StorageService } from './nest/storage/storage.service';
 
 /**
  * Builds the unified TREK NestJS application that serves the ENTIRE surface — the
@@ -84,7 +85,10 @@ export async function buildApp(): Promise<INestApplication> {
   // config instead of reading process.env itself.
   const http = app.get<ConfigType<typeof httpConfig>>(httpConfig.KEY);
   applyGlobalMiddleware(instance, { http });
-  applyPlatformUploads(instance);
+  // Same pre-init consumption bridge as httpConfig above: the StorageService
+  // instance is resolvable before init, and the handlers only *register* here —
+  // per-request resolution runs after app.init() completed the registry load.
+  applyPlatformUploads(instance, app.get(StorageService));
   // The SDK discovery router (+ its addon gate). Container-built so its deps
   // are injected (same pre-init consumption bridge as httpConfig above), but
   // applied here as a PATHLESS app.use: the SDK router matches absolute

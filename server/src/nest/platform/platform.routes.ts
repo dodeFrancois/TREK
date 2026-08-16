@@ -1,31 +1,132 @@
 import express, { Request, Response, NextFunction } from 'express';
 import path from 'node:path';
-import fs from 'node:fs';
 
 import { readEnv } from '../../app-config';
 import { verifyJwtAndLoadUser } from '../auth/jwt-verify';
 import { db } from '../../db/database';
+import { StorageService } from '../storage/storage.service';
+import { StorageInvalidKeyError, StorageNotFoundError, type StorageCategory } from '../storage/storage.types';
 
 // Platform / transport routes extracted verbatim from createApp() (app.ts) so they can be
 // mounted on either the legacy Express app or the NestJS Express instance (strangler A6/A8).
 //
-// IMPORTANT — path resolution: the original blocks lived in src/app.ts, where __dirname
-// resolves to the directory of app.js (one level above the uploads/public anchor), so they
-// used '../uploads/...' and '../public'. This file lives three levels deeper
-// (src/nest/platform/), so __dirname is three levels deeper too. The relative prefixes are
-// therefore '../../../uploads/...' and '../../../public' — which resolve to the EXACT same
-// absolute paths as before. This is the only intentional change; everything else is byte-for-byte
-// identical. (rootDir/outDir preserve the tree, so the offset holds in both source/test and
-// compiled/dist execution — matching the other nest controllers that use '../../../uploads/...'.)
+// IMPORTANT — path resolution: the original block lived in src/app.ts, where __dirname
+// resolves to the directory of app.js (one level above the public anchor), so it used
+// '../public'. This file lives three levels deeper (src/nest/platform/), so __dirname is
+// three levels deeper too — hence '../../../public', which resolves to the EXACT same
+// absolute path as before. (rootDir/outDir preserve the tree, so the offset holds in both
+// source/test and compiled/dist execution.) The /uploads/* routes no longer anchor paths
+// here at all: they address files as (category, name) through StorageService (slice 3).
 
-const UPLOADS_DIR = path.join(__dirname, '../../../uploads');
 export const PUBLIC_DIR = path.join(__dirname, '../../../public');
+
+/**
+ * express.static replacement for the four public /uploads mounts (storage
+ * slice 3). Parity contract (spec §Serving): identical ETag / Last-Modified /
+ * conditional-GET / Range / HEAD behavior — res.sendFile inside
+ * storage.sendToResponse reads res.req, so the same send() machinery runs —
+ * and every MISS (not-found, invalid key, dot segment, directory) calls
+ * next() so the request falls through to the Nest router's standard 404
+ * envelope, exactly like express.static's fallthrough. 412/416/5xx go to
+ * next(err) with send's own http-errors — the same finalhandler path
+ * express.static uses.
+ */
+export function storageStaticHandler(storage: StorageService, category: StorageCategory): express.RequestHandler {
+  return (req: Request, res: Response, next: NextFunction) => {
+    // serve-static fallthrough: non-GET/HEAD pass straight through (no 405).
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      next();
+      return;
+    }
+    // Inside an app.use mount req.path is the mount-stripped, query-free
+    // pathname. Malformed percent-encoding falls through, matching
+    // serve-static's silent fallthrough on send's 400 decode error.
+    let decoded: string;
+    try {
+      decoded = decodeURIComponent(req.path);
+    } catch {
+      next();
+      return;
+    }
+    const name = decoded.replace(/^\/+/, '');
+    return storage.sendToResponse(category, name, res).catch((err: unknown) => {
+      // MISS contract: unknown object, invalid key ('' at the mount root,
+      // '..', dot segments, control chars) → Nest 404 envelope.
+      if (err instanceof StorageNotFoundError || err instanceof StorageInvalidKeyError) {
+        next();
+        return;
+      }
+      const e = err as { status?: number; code?: string; syscall?: string };
+      // stat→sendFile race (send 404) and directories: static falls through too.
+      if (e.status === 404 || e.code === 'EISDIR') {
+        next();
+        return;
+      }
+      // Client gone / bytes already on the wire: nothing useful to send —
+      // mirrors res.sendFile's own default callback (express response.js:454).
+      if (e.code === 'ECONNABORTED' || e.syscall === 'write') return;
+      next(err as Error);
+    });
+  };
+}
+
+async function servePhoto(storage: StorageService, req: Request, res: Response): Promise<void> {
+  const safeName = path.basename(req.params.filename);
+  // Parity: after basename(), the old resolve()+startsWith guard could only
+  // fire when the remaining segment was '..' — keep that exact 403.
+  if (safeName === '..') {
+    res.status(403).send('Forbidden');
+    return;
+  }
+  // Existence is (and was) checked BEFORE auth — the 404-vs-401 order is
+  // observable and pinned. Invalid keys ('.', dotfiles) read as a miss.
+  if (!(await storage.exists('photos', safeName).catch(() => false))) {
+    res.status(404).send('Not found');
+    return;
+  }
+  const sendPhoto = () =>
+    storage.sendToResponse('photos', safeName, res).catch((err: unknown) => {
+      // exists→send delete race: same 404 text as the miss branch.
+      if ((err instanceof StorageNotFoundError || err instanceof StorageInvalidKeyError) && !res.headersSent) {
+        res.status(404).send('Not found');
+        return;
+      }
+      throw err;
+    });
+
+  const authHeader = req.headers.authorization;
+  const rawToken = (req.query.token as string) || (authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null);
+  if (!rawToken) {
+    res.status(401).send('Authentication required');
+    return;
+  }
+
+  // JWT session path (with pv check).
+  const user = verifyJwtAndLoadUser(rawToken);
+  if (user) return sendPhoto();
+
+  // Share-token path: require the token to cover the exact trip the
+  // photo belongs to. Expired tokens fall through to 401.
+  const photo = db.prepare('SELECT trip_id FROM photos WHERE filename = ?').get(safeName) as { trip_id: number } | undefined;
+  if (!photo) {
+    res.status(401).send('Authentication required');
+    return;
+  }
+  const share = db
+    .prepare("SELECT trip_id FROM share_tokens WHERE token = ? AND (expires_at IS NULL OR expires_at > datetime('now'))")
+    .get(rawToken) as { trip_id: number } | undefined;
+  if (!share || share.trip_id !== photo.trip_id) {
+    res.status(401).send('Authentication required');
+    return;
+  }
+  return sendPhoto();
+}
 
 /**
  * Static + guarded /uploads/* routes. Must be applied BEFORE the API route mounts
  * (identical to its original position near the top of createApp).
  */
-export function applyPlatformUploads(app: express.Application): void {
+export function applyPlatformUploads(app: express.Application, storage: StorageService): void {
   // Static: avatars, covers, and journey photos.
   //
   // Security model (audit SEC-M9): these paths are unauthenticated by
@@ -44,48 +145,19 @@ export function applyPlatformUploads(app: express.Application): void {
   // not embedded in unauthenticated UI contexts, so that endpoint IS
   // gated (session JWT with pv, or a share token scoped to the photo's
   // trip).
-  app.use('/uploads/avatars', express.static(path.join(UPLOADS_DIR, 'avatars')));
-  app.use('/uploads/covers', express.static(path.join(UPLOADS_DIR, 'covers')));
-  app.use('/uploads/journey', express.static(path.join(UPLOADS_DIR, 'journey')));
-  app.use('/uploads/places', express.static(path.join(UPLOADS_DIR, 'places')));
+  app.use('/uploads/avatars', storageStaticHandler(storage, 'avatars'));
+  app.use('/uploads/covers', storageStaticHandler(storage, 'covers'));
+  app.use('/uploads/journey', storageStaticHandler(storage, 'journey'));
+  app.use('/uploads/places', storageStaticHandler(storage, 'places'));
 
   // Photos require either a valid logged-in session (via JWT with the
   // password_version gate) OR a share token that covers the SPECIFIC
   // photo's trip. Previously any share token for any trip could request
   // any photo filename by UUID — fine in practice because UUIDs are
   // unguessable, but the auth model was wrong.
-  app.get('/uploads/photos/:filename', (req: Request, res: Response) => {
-    const safeName = path.basename(req.params.filename);
-    const filePath = path.join(UPLOADS_DIR, 'photos', safeName);
-    const resolved = path.resolve(filePath);
-    if (!resolved.startsWith(path.resolve(UPLOADS_DIR, 'photos'))) {
-      return res.status(403).send('Forbidden');
-    }
-    // existsSync here is cheap and avoids a sendFile error frame; kept
-    // sync because the handler is already short-lived.
-    if (!fs.existsSync(resolved)) return res.status(404).send('Not found');
-
-    const authHeader = req.headers.authorization;
-    const rawToken = (req.query.token as string) || (authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null);
-    if (!rawToken) return res.status(401).send('Authentication required');
-
-    // JWT session path (with pv check).
-    const user = verifyJwtAndLoadUser(rawToken);
-    if (user) return res.sendFile(resolved);
-
-    // Share-token path: require the token to cover the exact trip the
-    // photo belongs to. Expired tokens fall through to 401.
-    const photo = db.prepare('SELECT trip_id FROM photos WHERE filename = ?').get(safeName) as { trip_id: number } | undefined;
-    if (!photo) return res.status(401).send('Authentication required');
-
-    const share = db.prepare(
-        "SELECT trip_id FROM share_tokens WHERE token = ? AND (expires_at IS NULL OR expires_at > datetime('now'))"
-    ).get(rawToken) as { trip_id: number } | undefined;
-    if (!share || share.trip_id !== photo.trip_id) {
-      return res.status(401).send('Authentication required');
-    }
-    res.sendFile(resolved);
-  });
+  app.get('/uploads/photos/:filename', (req: Request, res: Response, next: NextFunction) =>
+    servePhoto(storage, req, res).catch(next),
+  );
 
   // Block direct access to /uploads/files
   app.use('/uploads/files', (_req: Request, res: Response) => {
