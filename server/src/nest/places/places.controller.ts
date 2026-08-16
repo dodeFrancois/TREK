@@ -27,7 +27,8 @@ import { isUpdateConflict } from '../common/conflictResult';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { RequirePermission, TripAccessGuard } from '../permissions/trip-access.guard';
-import { PLACE_IMAGE_UPLOAD } from '../common/place-image-upload';
+import { PLACE_IMAGE_FILE_FILTER } from '../common/place-image-upload';
+import { StorageService } from '../storage/storage.service';
 import { placeImageUrl } from './place-image';
 import {
   PlaceBulkDeleteDto,
@@ -93,6 +94,7 @@ export class PlacesController {
   constructor(
     private readonly places: PlacesService,
     private readonly env: RuntimeEnvService,
+    private readonly storage: StorageService,
   ) {}
 
   private requireTrip(tripId: string, user: User) {
@@ -340,8 +342,8 @@ export class PlacesController {
 
   @Post(':id/image')
   @HttpCode(200)
-  @UseInterceptors(FileInterceptor('image', PLACE_IMAGE_UPLOAD))
-  uploadImage(
+  @UseInterceptors(FileInterceptor('image', { fileFilter: PLACE_IMAGE_FILE_FILTER }))
+  async uploadImage(
     @CurrentUser() user: User,
     @Param('tripId') tripId: string,
     @Param('id') id: string,
@@ -358,6 +360,9 @@ export class PlacesController {
     if (!file) {
       throw new HttpException({ error: 'No image uploaded' }, 400);
     }
+    // Commit the spooled upload to its final storage location (atomic
+    // same-volume rename) before the DB row references the final path.
+    await this.storage.put('places', file.filename, { tmpPath: file.path });
     // Reuse the existing image_url slot (the top-precedence thumbnail source); the
     // update path reclaims any previously uploaded file it replaces.
     const result = this.places.update(tripId, id, { image_url: placeImageUrl(file.filename) } as never);

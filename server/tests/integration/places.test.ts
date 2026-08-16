@@ -1046,7 +1046,12 @@ describe('Custom place image upload', () => {
       .set('Cookie', authCookie(user.id))
       .attach('image', FIXTURE_JPEG);
     expect(res.status).toBe(200);
-    expect(res.body.place.image_url).toMatch(/^\/uploads\/places\//);
+    expect(res.body.place.image_url).toMatch(/^\/uploads\/places\/[0-9a-f-]{36}\./);
+    // The bytes land at the final uploads/places path under the bare uuid name.
+    const fsMod = require('fs') as typeof import('fs');
+    const pathMod = require('path') as typeof import('path');
+    const diskName = res.body.place.image_url.replace('/uploads/places/', '');
+    expect(fsMod.existsSync(pathMod.join(__dirname, '../../uploads/places', diskName))).toBe(true);
 
     const cleared = await request(app)
       .put(`/api/trips/${trip.id}/places/${place.id}`)

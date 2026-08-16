@@ -18,11 +18,8 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { isDemoWriteBlocked, DEMO_WRITE_ERROR } from '../common/demo-write';
 import { RuntimeEnvService } from '../app-config/runtime-env.service';
-import type { Request } from 'express';
-import { diskStorage } from 'multer';
+import type { Options } from 'multer';
 import path from 'path';
-import fs from 'fs';
-import { v4 as uuidv4 } from 'uuid';
 import type { User } from '../../types';
 import { CollectionsService } from './collections.service';
 import { AddonGuard } from '../addons/addon.guard';
@@ -30,7 +27,8 @@ import { RequireAddon } from '../addons/require-addon.decorator';
 import { ADDON_IDS } from '../../addons';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
-import { PLACE_IMAGE_UPLOAD } from '../common/place-image-upload';
+import { PLACE_IMAGE_FILE_FILTER } from '../common/place-image-upload';
+import { StorageService } from '../storage/storage.service';
 import { placeImageUrl } from '../places/place-image';
 import {
   CollectionCreateDto,
@@ -56,23 +54,16 @@ import {
 } from './collections.dto';
 import { PlaceRatingDto } from '../places/places.dto';
 
-const MAX_COVER_SIZE = 20 * 1024 * 1024;
-const coversDir = path.join(__dirname, '../../../uploads/covers');
-const COVER_UPLOAD = {
-  storage: diskStorage({
-    destination: (_req, _file, cb) => {
-      if (!fs.existsSync(coversDir)) fs.mkdirSync(coversDir, { recursive: true });
-      cb(null, coversDir);
-    },
-    filename: (_req, file, cb) => cb(null, `${uuidv4()}${path.extname(file.originalname)}`),
-  }),
-  limits: { fileSize: MAX_COVER_SIZE },
-  fileFilter: (_req: Request, file: Express.Multer.File, cb: (err: Error | null, accept: boolean) => void) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    const allowed = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
-    if (file.mimetype.startsWith('image/') && !file.mimetype.includes('svg') && allowed.includes(ext)) cb(null, true);
-    else cb(new Error('Only jpg, png, gif, webp images allowed'), false);
-  },
+export const MAX_COVER_SIZE = 20 * 1024 * 1024;
+// Duplicated on purpose from trips.controller.ts (historical parity — no
+// drive-by consolidation). Quirk preserved: a plain Error without statusCode
+// maps to 500, not 400. Passed inline on the cover route; the storage engine
+// comes from collections.module.ts's storage-upload factory options.
+const COVER_FILE_FILTER: Options['fileFilter'] = (_req, file, cb) => {
+  const ext = path.extname(file.originalname).toLowerCase();
+  const allowed = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+  if (file.mimetype.startsWith('image/') && !file.mimetype.includes('svg') && allowed.includes(ext)) cb(null, true);
+  else cb(new Error('Only jpg, png, gif, webp images allowed'));
 };
 
 /**
@@ -89,7 +80,7 @@ const COVER_UPLOAD = {
 @UseGuards(AddonGuard, JwtAuthGuard)
 @RequireAddon(ADDON_IDS.COLLECTIONS, 'Collections')
 export class CollectionsController {
-  constructor(private readonly collections: CollectionsService, private readonly env: RuntimeEnvService) {}
+  constructor(private readonly collections: CollectionsService, private readonly env: RuntimeEnvService, private readonly storage: StorageService) {}
 
   // ── Lists ─────────────────────────────────────────────────────────────────
   @Get()
@@ -184,8 +175,8 @@ export class CollectionsController {
 
   @Post('places/:pid/image')
   @HttpCode(200)
-  @UseInterceptors(FileInterceptor('image', PLACE_IMAGE_UPLOAD))
-  uploadPlaceImage(
+  @UseInterceptors(FileInterceptor('image', { fileFilter: PLACE_IMAGE_FILE_FILTER }))
+  async uploadPlaceImage(
     @CurrentUser() user: User,
     @Param('pid') pid: string,
     @UploadedFile() file: Express.Multer.File | undefined,
@@ -195,6 +186,9 @@ export class CollectionsController {
       throw new HttpException(DEMO_WRITE_ERROR, 403);
     }
     if (!file) throw new HttpException({ error: 'No image uploaded' }, 400);
+    // Commit the spooled upload to its final storage location (atomic
+    // same-volume rename) before the DB row references the final path.
+    await this.storage.put('places', file.filename, { tmpPath: file.path });
     return this.collections.setPlaceImage(user.id, Number(pid), placeImageUrl(file.filename), socketId);
   }
 
@@ -360,12 +354,15 @@ export class CollectionsController {
   }
 
   @Post(':id/cover')
-  @UseInterceptors(FileInterceptor('cover', COVER_UPLOAD))
-  uploadCover(@CurrentUser() user: User, @Param('id') id: string, @UploadedFile() file: Express.Multer.File | undefined, @Headers('x-socket-id') socketId?: string) {
+  @UseInterceptors(FileInterceptor('cover', { fileFilter: COVER_FILE_FILTER }))
+  async uploadCover(@CurrentUser() user: User, @Param('id') id: string, @UploadedFile() file: Express.Multer.File | undefined, @Headers('x-socket-id') socketId?: string) {
     if (isDemoWriteBlocked(this.env, user.email)) {
       throw new HttpException(DEMO_WRITE_ERROR, 403);
     }
     if (!file) throw new HttpException({ error: 'No image uploaded' }, 400);
+    // Commit the spooled upload to its final storage location (atomic
+    // same-volume rename) before the DB row references the final path.
+    await this.storage.put('covers', file.filename, { tmpPath: file.path });
     const coverUrl = `/uploads/covers/${file.filename}`;
     return this.collections.setCollectionCover(user.id, Number(id), coverUrl, socketId);
   }
