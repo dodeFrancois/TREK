@@ -45,8 +45,8 @@ const checkPermission = vi.fn();
 const permissionsStub = { checkPermission } as unknown as PermissionsService;
 
 // Injected stub since the photo-cache fold (was a path mock of the module).
-const serveFilePath = vi.fn();
-const photoCacheStub = { serveFilePath } as unknown as PlacePhotoCacheService;
+const serveKey = vi.fn();
+const photoCacheStub = { serveKey } as unknown as PlacePhotoCacheService;
 
 import { createTables } from '../../../src/db/schema';
 import { runMigrations } from '../../../src/db/migrations';
@@ -71,7 +71,7 @@ beforeAll(() => {
 beforeEach(() => {
   resetTestDb(testDb);
   checkPermission.mockReset();
-  serveFilePath.mockReset();
+  serveKey.mockReset();
 });
 
 afterAll(() => {
@@ -377,41 +377,41 @@ describe('getSharedTripData', () => {
   });
 });
 
-// ── getSharedPlacePhotoPath ───────────────────────────────────────────────────
+// ── getSharedPlacePhotoKey ───────────────────────────────────────────────────
 
-describe('getSharedPlacePhotoPath', () => {
+describe('getSharedPlacePhotoKey', () => {
   it('SHARE-SVC-022: returns null for an unknown or expired token', () => {
-    expect(svc.getSharedPlacePhotoPath('nope', 'ChIJabc')).toBeNull();
+    expect(svc.getSharedPlacePhotoKey('nope', 'ChIJabc')).toBeNull();
     const { trip, token } = seedSharedTrip();
     testDb.prepare('UPDATE share_tokens SET expires_at = ? WHERE trip_id = ?').run('2020-01-01T00:00:00.000Z', trip.id);
-    expect(svc.getSharedPlacePhotoPath(token, 'ChIJabc')).toBeNull();
-    expect(serveFilePath).not.toHaveBeenCalled();
+    expect(svc.getSharedPlacePhotoKey(token, 'ChIJabc')).toBeNull();
+    expect(serveKey).not.toHaveBeenCalled();
   });
 
   it('SHARE-SVC-023: returns null when the owner disabled the map section', () => {
     const { trip, token } = seedSharedTrip({ share_map: false });
     const place = createPlace(testDb, trip.id);
     testDb.prepare('UPDATE places SET image_url = ? WHERE id = ?').run('/api/maps/place-photo/ChIJabc/bytes', place.id);
-    expect(svc.getSharedPlacePhotoPath(token, 'ChIJabc')).toBeNull();
-    expect(serveFilePath).not.toHaveBeenCalled();
+    expect(svc.getSharedPlacePhotoKey(token, 'ChIJabc')).toBeNull();
+    expect(serveKey).not.toHaveBeenCalled();
   });
 
   it('SHARE-SVC-024: returns null when no place in the trip carries the proxy URL', () => {
     const { token } = seedSharedTrip();
-    expect(svc.getSharedPlacePhotoPath(token, 'ChIJabc')).toBeNull();
-    expect(serveFilePath).not.toHaveBeenCalled();
+    expect(svc.getSharedPlacePhotoKey(token, 'ChIJabc')).toBeNull();
+    expect(serveKey).not.toHaveBeenCalled();
   });
 
-  it('SHARE-SVC-025: resolves via serveFilePath when the encoded placeId matches the stored URL', () => {
+  it('SHARE-SVC-025: resolves via serveKey when the encoded placeId matches the stored URL', () => {
     const { trip, token } = seedSharedTrip();
     const place = createPlace(testDb, trip.id);
     // Wikimedia pseudo-IDs contain characters that must round-trip encoded.
     const placeId = 'coords:48.8,2.3';
     testDb.prepare('UPDATE places SET image_url = ? WHERE id = ?')
       .run(`/api/maps/place-photo/${encodeURIComponent(placeId)}/bytes`, place.id);
-    serveFilePath.mockReturnValue('/cache/abc.jpg');
-    expect(svc.getSharedPlacePhotoPath(token, placeId)).toBe('/cache/abc.jpg');
-    expect(serveFilePath).toHaveBeenCalledWith(placeId);
+    serveKey.mockReturnValue('abc.jpg');
+    expect(svc.getSharedPlacePhotoKey(token, placeId)).toBe('abc.jpg');
+    expect(serveKey).toHaveBeenCalledWith(placeId);
   });
 });
 

@@ -297,14 +297,15 @@ export class ShareService {
   }
 
   /**
-   * Resolves the on-disk path for a cached place photo requested through a public
-   * share link. Validates that the token is valid + unexpired and that the place
-   * actually belongs to that token's trip (matched via the stored proxy URL, which
-   * covers both Google `placeId` and Wikimedia `coords:` pseudo-IDs without
-   * depending on google_place_id). Returns null — never throws — so the caller
-   * answers a plain 404, mirroring the authenticated bytes endpoint.
+   * Resolves the storage name (category 'photos-google') for a cached place
+   * photo requested through a public share link. Validates that the token is
+   * valid + unexpired and that the place actually belongs to that token's trip
+   * (matched via the stored proxy URL, which covers both Google `placeId` and
+   * Wikimedia `coords:` pseudo-IDs without depending on google_place_id).
+   * Returns null — never throws — so the caller answers a plain miss,
+   * mirroring the authenticated bytes endpoint.
    */
-  getSharedPlacePhotoPath(token: string, placeId: string): string | null {
+  getSharedPlacePhotoKey(token: string, placeId: string): string | null {
     const shareRow = this.dbs.get<{ trip_id: string; share_map: number }>(
       "SELECT trip_id, share_map FROM share_tokens WHERE token = ? AND (expires_at IS NULL OR expires_at > datetime('now'))",
       token,
@@ -319,6 +320,6 @@ export class ShareService {
     const place = this.dbs.get('SELECT 1 FROM places WHERE trip_id = ? AND image_url = ?', shareRow.trip_id, expectedUrl);
     if (!place) return null;
 
-    return this.photoCache.serveFilePath(placeId);
+    return this.photoCache.serveKey(placeId);
   }
 }

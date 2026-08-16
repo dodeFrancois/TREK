@@ -1,8 +1,9 @@
 import { Body, Controller, Delete, Get, HttpException, Param, Post, Res, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
-import { createReadStream } from 'node:fs';
+import type { Readable } from 'node:stream';
 import type { User } from '../../types';
 import { ShareService } from './share.service';
+import { StorageService } from '../storage/storage.service';
 import { ShareLinkDto } from './share.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -78,7 +79,10 @@ export class TripShareController {
 @Public('share-token validated: a shared trip link has to work for somebody without an account')
 @Controller('api/shared')
 export class SharedController {
-  constructor(private readonly share: ShareService) {}
+  constructor(
+    private readonly share: ShareService,
+    private readonly storage: StorageService,
+  ) {}
 
   /**
    * Public, token-scoped place-photo proxy. The shared payload rewrites place
@@ -89,15 +93,25 @@ export class SharedController {
    * MapsController.placePhotoBytes (cached photos are always JPEG).
    */
   @Get(':token/place-photo/:placeId/bytes')
-  placePhotoBytes(@Param('token') token: string, @Param('placeId') placeId: string, @Res() res: Response): void {
-    const fp = this.share.getSharedPlacePhotoPath(token, placeId);
-    if (!fp) {
+  async placePhotoBytes(@Param('token') token: string, @Param('placeId') placeId: string, @Res() res: Response): Promise<void> {
+    const key = this.share.getSharedPlacePhotoKey(token, placeId);
+    if (!key) {
       res.status(404).json({ error: 'Photo not cached' });
       return;
     }
+    // Bytes are stream-piped like the maps handler; headers go on before the
+    // stream attempt so an early failure overrides them exactly as the old
+    // createReadStream error event did.
     res.set('Cache-Control', 'public, max-age=2592000, immutable');
     res.type('image/jpeg');
-    const stream = createReadStream(fp);
+    let stream: Readable;
+    try {
+      ({ stream } = await this.storage.getStream('photos-google', key));
+    } catch {
+      // Cache-delete race — same terminal state as the old stream error path.
+      if (!res.headersSent) res.status(404).json({ error: 'Photo not cached' });
+      return;
+    }
     stream.on('error', () => {
       if (!res.headersSent) res.status(404).json({ error: 'Photo not cached' });
     });
