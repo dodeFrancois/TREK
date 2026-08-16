@@ -529,8 +529,8 @@ export class MapsService {
     return this.getPlacePhoto(userId, placeId, lat, lng, name) as Promise<MapsPlacePhotoResult>;
   }
 
-  photoBytesPath(placeId: string): string | null {
-    return this.photoCache.serveFilePath(placeId);
+  photoBytesKey(placeId: string): string | null {
+    return this.photoCache.serveKey(placeId);
   }
 
   reverse(lat: string, lng: string, lang?: string): Promise<MapsReverseResult> {

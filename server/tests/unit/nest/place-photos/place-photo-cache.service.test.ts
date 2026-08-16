@@ -109,6 +109,18 @@ describe('placePhotoCache.put() downscale guard', () => {
   });
 });
 
+describe('placePhotoCache.serveKey()', () => {
+  it('returns the bare <sha1>.jpg storage name when the photo is on disk', async () => {
+    fs.writeFileSync(filePathFor('p-key'), await makeJpeg(10, 10));
+    const hash = crypto.createHash('sha1').update('p-key').digest('hex');
+    expect(cache.serveKey('p-key')).toBe(`${hash}.jpg`);
+  });
+
+  it('returns null when nothing is cached', () => {
+    expect(cache.serveKey('p-missing')).toBeNull();
+  });
+});
+
 describe('placePhotoCache.removeIfUnreferenced()', () => {
   it('PPC-004: removes a cache entry that no place references', async () => {
     await cache.put('orphan', await makeJpeg(50, 50), null);

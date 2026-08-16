@@ -11,7 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type { Response } from 'express';
-import { createReadStream } from 'node:fs';
+import type { Readable } from 'node:stream';
 import type {
   MapsAutocompleteResult,
   MapsPlaceDetailsResult,
@@ -22,6 +22,7 @@ import type {
 } from '@trek/shared';
 import type { User } from '../../types';
 import { MapsService } from './maps.service';
+import { StorageService } from '../storage/storage.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { MapsSearchDto, MapsAutocompleteDto, MapsResolveUrlDto } from './maps.dto';
@@ -60,7 +61,10 @@ function toHttpException(err: unknown, fallbackMessage: string, defaultStatus: n
 @Controller('api/maps')
 @UseGuards(JwtAuthGuard)
 export class MapsController {
-  constructor(private readonly maps: MapsService) {}
+  constructor(
+    private readonly maps: MapsService,
+    private readonly storage: StorageService,
+  ) {}
 
   @Post('search')
   @HttpCode(200) // Express answers with res.json (200); Nest would otherwise default POST to 201.
@@ -166,9 +170,9 @@ export class MapsController {
   }
 
   @Get('place-photo/:placeId/bytes')
-  placePhotoBytes(@Param('placeId') placeId: string, @Res() res: Response): void {
-    const fp = this.maps.photoBytesPath(placeId);
-    if (!fp) {
+  async placePhotoBytes(@Param('placeId') placeId: string, @Res() res: Response): Promise<void> {
+    const key = this.maps.photoBytesKey(placeId);
+    if (!key) {
       // Same reasoning as the JSON endpoint above, and the bigger half of #1727:
       // places keep this URL in image_url, so a trip render asks for one photo per
       // place and every entry the cache sweep dropped answered 404 — a whole map
@@ -177,15 +181,21 @@ export class MapsController {
       this.emptyPhoto(res);
       return;
     }
-    // Stream the cached file directly instead of res.sendFile(): the send library
-    // bundled under @nestjs/platform-express rejects absolute Windows paths (drive
-    // letter, no `root`) with a NotFoundError that surfaced as an unhandled 500,
-    // even though the file exists. A plain read stream serves the bytes
-    // cross-platform. Cached photos are always JPEG (placePhotoCache writes
-    // `<hash>.jpg`).
+    // Bytes are stream-piped (spec §Serving pins this route's stream contract);
+    // headers go on before the stream attempt, matching the old createReadStream
+    // ordering — an early failure overrides them via emptyPhoto exactly as the
+    // old error event did. Cached photos are always JPEG (placePhotoCache
+    // writes `<hash>.jpg`).
     res.set('Cache-Control', 'public, max-age=2592000, immutable');
     res.type('image/jpeg');
-    const stream = createReadStream(fp);
+    let stream: Readable;
+    try {
+      ({ stream } = await this.storage.getStream('photos-google', key));
+    } catch {
+      // Cache-delete race — same terminal state as the old stream error path.
+      if (!res.headersSent) this.emptyPhoto(res);
+      return;
+    }
     stream.on('error', () => {
       if (!res.headersSent) this.emptyPhoto(res);
     });

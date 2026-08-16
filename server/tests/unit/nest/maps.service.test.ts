@@ -112,7 +112,7 @@ const photoCacheStub = {
   markError: (placeId: string, kind?: string) => mockCacheMarkError(placeId, kind),
   getInFlight: (placeId: string) => mockCacheGetInFlight(placeId),
   setInFlight: (placeId: string, p: Promise<any>) => mockCacheSetInFlight(placeId, p),
-  serveFilePath: (placeId: string) => mockServeFilePath(placeId),
+  serveKey: (placeId: string) => mockServeFilePath(placeId),
 } as unknown as PlacePhotoCacheService;
 
 import { db } from '../../../src/db/database';
@@ -2329,16 +2329,16 @@ describe('kill-switch settings reads', () => {
   });
 });
 
-describe('photoBytesPath', () => {
-  it('returns the cached file path from placePhotoCache', () => {
-    mockServeFilePath.mockReturnValue('/cache/p1.jpg');
-    expect(svc.photoBytesPath('p1')).toBe('/cache/p1.jpg');
+describe('photoBytesKey', () => {
+  it('returns the cached storage name from placePhotoCache', () => {
+    mockServeFilePath.mockReturnValue('abc.jpg');
+    expect(svc.photoBytesKey('p1')).toBe('abc.jpg');
     expect(mockServeFilePath).toHaveBeenCalledWith('p1');
   });
 
   it('returns null when nothing is cached', () => {
     mockServeFilePath.mockReturnValue(null);
-    expect(svc.photoBytesPath('p1')).toBeNull();
+    expect(svc.photoBytesKey('p1')).toBeNull();
   });
 });
 

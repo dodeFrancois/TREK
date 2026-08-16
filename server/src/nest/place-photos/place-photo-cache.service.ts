@@ -77,11 +77,15 @@ export class PlacePhotoCacheService implements OnModuleInit {
     }
   }
 
-  private filePath(placeId: string): string {
+  private fileName(placeId: string): string {
     // Hash to avoid filename collisions — coords:lat:lng pseudo-IDs contain characters that
     // collapse identically under sanitization (e.g. ':' and '.' both → '_')
     const hash = crypto.createHash('sha1').update(placeId).digest('hex');
-    return path.join(this.photoDir, `${hash}.jpg`);
+    return `${hash}.jpg`;
+  }
+
+  private filePath(placeId: string): string {
+    return path.join(this.photoDir, this.fileName(placeId));
   }
 
   private proxyUrl(placeId: string): string {
@@ -212,6 +216,16 @@ export class PlacePhotoCacheService implements OnModuleInit {
     if (!fs.existsSync(fp)) return null;
     this.knownOnDisk.add(placeId);
     return fp;
+  }
+
+  /**
+   * Storage name (category 'photos-google') for a cached photo, or null when
+   * not on disk. The registry's mode-aware prefix reproduces photoDir in both
+   * TREK_PLACE_PHOTO_DIR modes; the cache's own disk internals move onto
+   * storage in slice 4.
+   */
+  serveKey(placeId: string): string | null {
+    return this.serveFilePath(placeId) ? this.fileName(placeId) : null;
   }
 
   /**
