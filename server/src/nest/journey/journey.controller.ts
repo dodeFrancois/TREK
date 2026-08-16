@@ -16,11 +16,13 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor, FileFieldsInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
+import type { Options } from 'multer';
+import type { Request } from 'express';
 import path from 'node:path';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 import type { User } from '../../types';
+import { StorageService } from '../storage/storage.service';
 import { JourneyService } from './journey.service';
 import { AddonGuard } from '../addons/addon.guard';
 import { RequireAddon } from '../addons/require-addon.decorator';
@@ -36,73 +38,73 @@ import {
 import { isVideoMime, isVideoExtension, MAX_VIDEO_SIZE } from '../files/files.constants';
 import { AllowedFileTypesService } from '../files/allowed-file-types.service';
 
-const uploadsBase = path.join(__dirname, '../../../uploads/journey');
 /**
- * Journey image upload options, built from the container.
- *
- * Same reason as the trip-file factory: the fileFilter reads the operator's
- * allowed-extension list at request time. Note this config carries NO
- * defParamCharset, unlike the trip-file one; that difference is deliberate and
- * predates the move, so the two are not folded into one shared object.
+ * One filename hook for all four journey upload routes (consumed by
+ * journey.module.ts's storage-upload factory). Field routing is exact: the
+ * image routes only ever admit 'photos'/'cover' fields and the video route
+ * only 'video'/'poster' — any other part dies in multer with
+ * LIMIT_UNEXPECTED_FILE before this hook runs.
  */
-export function buildJourneyImageUploadOptions(allowedTypes: AllowedFileTypesService) {
-  return {
-    storage: diskStorage({
-      destination: (_req, _file, cb) => { if (!fs.existsSync(uploadsBase)) fs.mkdirSync(uploadsBase, { recursive: true }); cb(null, uploadsBase); },
-      filename: (_req, file, cb) => cb(null, `${crypto.randomUUID()}${path.extname(file.originalname).toLowerCase() || '.jpg'}`),
-    }),
-    limits: { fileSize: 20 * 1024 * 1024 },
-    fileFilter: (_req: unknown, file: Express.Multer.File, cb: (err: Error | null, accept: boolean) => void) => {
-      if (!file.mimetype.startsWith('image/') || file.mimetype.includes('svg')) {
-        const err: Error & { statusCode?: number } = new Error('Only image files are allowed');
-        err.statusCode = 400;
-        return cb(err, false);
-      }
-      const ext = path.extname(file.originalname).toLowerCase().replace('.', '');
-      const allowed = allowedTypes.get().split(',').map((e) => e.trim().toLowerCase());
-      if (!allowed.includes('*') && !allowed.includes(ext)) {
-        const err: Error & { statusCode?: number } = new Error(`File type .${ext} is not allowed`);
-        err.statusCode = 400;
-        return cb(err, false);
-      }
-      cb(null, true);
-    },
+export const journeyUploadFilename = (_req: Request, file: Express.Multer.File): string => {
+  // The poster is ALWAYS stored as .jpg, never the client-supplied extension:
+  // otherwise a poster declared image/* but named x.html / x.js would land on
+  // disk with that extension and be served inline same-origin (stored XSS,
+  // reachable via the public share proxy). The video extension is validated by
+  // the fileFilter, so it is safe to keep.
+  const ext =
+    file.fieldname === 'poster' ? '.jpg'
+    : file.fieldname === 'video' ? (path.extname(file.originalname).toLowerCase() || '.mp4')
+    : (path.extname(file.originalname).toLowerCase() || '.jpg');
+  return `${crypto.randomUUID()}${ext}`;
+};
+
+/**
+ * Journey image upload filter, built from the container.
+ *
+ * Same reason as the trip-file factory: it reads the operator's
+ * allowed-extension list at request time. The module's multer options carry NO
+ * defParamCharset, unlike the trip-file ones; that difference is deliberate
+ * and predates the move.
+ */
+export function journeyImageFileFilter(allowedTypes: AllowedFileTypesService): Options['fileFilter'] {
+  return (_req, file, cb) => {
+    if (!file.mimetype.startsWith('image/') || file.mimetype.includes('svg')) {
+      const err: Error & { statusCode?: number } = new Error('Only image files are allowed');
+      err.statusCode = 400;
+      return cb(err);
+    }
+    const ext = path.extname(file.originalname).toLowerCase().replace('.', '');
+    const allowed = allowedTypes.get().split(',').map((e) => e.trim().toLowerCase());
+    if (!allowed.includes('*') && !allowed.includes(ext)) {
+      const err: Error & { statusCode?: number } = new Error(`File type .${ext} is not allowed`);
+      err.statusCode = 400;
+      return cb(err);
+    }
+    cb(null, true);
   };
 }
 
 // Gallery video upload (#823): one video plus an optional client-captured poster
 // image, written to the same uploads/journey store. Larger cap than images since
 // phone clips are big; videos are stored as-is and streamed with HTTP Range.
-const VIDEO_UPLOAD = {
-  storage: diskStorage({
-    destination: (_req, _file, cb) => { if (!fs.existsSync(uploadsBase)) fs.mkdirSync(uploadsBase, { recursive: true }); cb(null, uploadsBase); },
-    filename: (_req, file, cb) => {
-      // The poster is ALWAYS stored as .jpg, never the client-supplied extension:
-      // otherwise a poster declared image/* but named x.html / x.js would land on
-      // disk with that extension and be served inline same-origin (stored XSS,
-      // reachable via the public share proxy). The video extension is validated by
-      // the fileFilter, so it is safe to keep.
-      const ext = file.fieldname === 'poster' ? '.jpg' : (path.extname(file.originalname).toLowerCase() || '.mp4');
-      cb(null, `${crypto.randomUUID()}${ext}`);
-    },
-  }),
-  limits: { fileSize: MAX_VIDEO_SIZE },
-  fileFilter: (_req: unknown, file: Express.Multer.File, cb: (err: Error | null, accept: boolean) => void) => {
-    const reject = (msg: string) => {
-      const err: Error & { statusCode?: number } = new Error(msg);
-      err.statusCode = 400;
-      cb(err, false);
-    };
-    if (file.fieldname === 'poster') {
-      if (!file.mimetype.startsWith('image/') || file.mimetype.includes('svg')) return reject('Poster must be an image');
-      return cb(null, true);
-    }
-    // 'video' field
-    const ext = path.extname(file.originalname).toLowerCase().replace('.', '');
-    if (!isVideoMime(file.mimetype)) return reject('Only video files are allowed');
-    if (!isVideoExtension(ext)) return reject(`Video type .${ext} is not allowed`);
-    cb(null, true);
-  },
+// Passed inline on the video route; the storage engine (spool destination +
+// journeyUploadFilename) is inherited from the module options via the
+// interceptor's shallow merge.
+const VIDEO_FILE_FILTER: Options['fileFilter'] = (_req, file, cb) => {
+  const reject = (msg: string) => {
+    const err: Error & { statusCode?: number } = new Error(msg);
+    err.statusCode = 400;
+    cb(err);
+  };
+  if (file.fieldname === 'poster') {
+    if (!file.mimetype.startsWith('image/') || file.mimetype.includes('svg')) return reject('Poster must be an image');
+    return cb(null, true);
+  }
+  // 'video' field
+  const ext = path.extname(file.originalname).toLowerCase().replace('.', '');
+  if (!isVideoMime(file.mimetype)) return reject('Only video files are allowed');
+  if (!isVideoExtension(ext)) return reject(`Video type .${ext} is not allowed`);
+  cb(null, true);
 };
 
 /**
@@ -120,7 +122,29 @@ const VIDEO_UPLOAD = {
 @UseGuards(AddonGuard, JwtAuthGuard)
 @RequireAddon(ADDON_IDS.JOURNEY, 'Journey')
 export class JourneyController {
-  constructor(private readonly journey: JourneyService) {}
+  constructor(
+    private readonly journey: JourneyService,
+    private readonly storage: StorageService,
+  ) {}
+
+  /**
+   * Commit spooled multer files to their final uploads/journey location. On any
+   * failure: best-effort removal of both spool leftovers and already-committed
+   * names, then rethrow (500) — so a DB row never references a missing file.
+   */
+  private async commitJourneyUploads(files: Express.Multer.File[]): Promise<void> {
+    try {
+      for (const f of files) await this.storage.put('journey', f.filename, { tmpPath: f.path });
+    } catch (err) {
+      for (const f of files) {
+        if (f.path) { try { fs.unlinkSync(f.path); } catch { /* best-effort */ } }
+      }
+      for (const f of files) {
+        await this.storage.delete('journey', f.filename).catch(() => {});
+      }
+      throw err;
+    }
+  }
 
   // ── Static prefix routes (before /:id) ──────────────────────────────────
   @Get()
@@ -176,6 +200,9 @@ export class JourneyController {
     if (!files?.length) {
       throw new HttpException({ error: 'No files uploaded' }, 400);
     }
+    // Commit to final storage BEFORE the addPhoto loop: the Immich mirror below
+    // reads each file at its final uploads/journey path.
+    await this.commitJourneyUploads(files);
     const results: unknown[] = [];
     for (const file of files) {
       const relativePath = `journey/${file.filename}`;
@@ -268,10 +295,11 @@ export class JourneyController {
   // ── Gallery (prefix /:id/gallery — before /:id) ─────────────────────────
   @Post(':id/gallery/photos')
   @UseInterceptors(FilesInterceptor('photos'))
-  uploadGalleryPhotos(@CurrentUser() user: User, @Param('id') id: string, @UploadedFiles() files: Express.Multer.File[] | undefined) {
+  async uploadGalleryPhotos(@CurrentUser() user: User, @Param('id') id: string, @UploadedFiles() files: Express.Multer.File[] | undefined) {
     if (!files?.length) {
       throw new HttpException({ error: 'No files uploaded' }, 400);
     }
+    await this.commitJourneyUploads(files);
     const filePaths = files.map((f) => ({ path: `journey/${f.filename}` }));
     const photos = this.journey.uploadGalleryPhotos(Number(id), user.id, filePaths);
     if (!photos.length) {
@@ -281,8 +309,13 @@ export class JourneyController {
   }
 
   @Post(':id/gallery/video')
-  @UseInterceptors(FileFieldsInterceptor([{ name: 'video', maxCount: 1 }, { name: 'poster', maxCount: 1 }], VIDEO_UPLOAD))
-  uploadGalleryVideo(
+  @UseInterceptors(FileFieldsInterceptor(
+    [{ name: 'video', maxCount: 1 }, { name: 'poster', maxCount: 1 }],
+    // Inherits the module's storage engine (spool + journeyUploadFilename) via
+    // the interceptor's shallow options merge; overrides only cap and filter.
+    { limits: { fileSize: MAX_VIDEO_SIZE }, fileFilter: VIDEO_FILE_FILTER },
+  ))
+  async uploadGalleryVideo(
     @CurrentUser() user: User,
     @Param('id') id: string,
     @UploadedFiles() files: { video?: Express.Multer.File[]; poster?: Express.Multer.File[] } | undefined,
@@ -290,8 +323,8 @@ export class JourneyController {
   ) {
     const video = files?.video?.[0];
     const poster = files?.poster?.[0];
-    // multer already wrote both parts; clean them up on any rejection so a POST to
-    // a journey the user can't edit doesn't orphan a 500 MB clip on disk (#823).
+    // multer already spooled both parts; clean them up on a pre-commit rejection
+    // so a bad POST doesn't orphan a 500 MB clip (#823).
     const cleanup = () => {
       for (const f of [video, poster]) {
         if (f?.path) { try { fs.unlinkSync(f.path); } catch { /* best-effort */ } }
@@ -301,6 +334,7 @@ export class JourneyController {
       cleanup();
       throw new HttpException({ error: 'No video uploaded' }, 400);
     }
+    await this.commitJourneyUploads(poster ? [video, poster] : [video]);
     const durationMs = body?.duration_ms != null ? Number(body.duration_ms) : null;
     const photos = this.journey.uploadGalleryPhotos(Number(id), user.id, [{
       path: `journey/${video.filename}`,
@@ -309,7 +343,11 @@ export class JourneyController {
       durationMs: durationMs != null && Number.isFinite(durationMs) ? durationMs : null,
     }]);
     if (!photos.length) {
-      cleanup();
+      // The parts are already committed (file.path is consumed), so the
+      // pre-commit unlink cleanup would silently orphan them — delete the
+      // final objects instead. Same observable outcome as before: bytes gone.
+      await this.storage.delete('journey', video.filename).catch(() => {});
+      if (poster) await this.storage.delete('journey', poster.filename).catch(() => {});
       throw new HttpException({ error: 'Not allowed' }, 403);
     }
     return { photos };
@@ -371,10 +409,11 @@ export class JourneyController {
   @Post(':id/cover')
   @HttpCode(200) // Express answers cover with res.json (200).
   @UseInterceptors(FileInterceptor('cover'))
-  cover(@CurrentUser() user: User, @Param('id') id: string, @UploadedFile() file: Express.Multer.File | undefined) {
+  async cover(@CurrentUser() user: User, @Param('id') id: string, @UploadedFile() file: Express.Multer.File | undefined) {
     if (!file) {
       throw new HttpException({ error: 'No file uploaded' }, 400);
     }
+    await this.commitJourneyUploads([file]);
     const result = this.journey.updateJourney(Number(id), user.id, { cover_image: `journey/${file.filename}` });
     if (!result) {
       throw new HttpException({ error: 'Journey not found' }, 404);

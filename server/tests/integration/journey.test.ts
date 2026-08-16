@@ -1008,3 +1008,154 @@ describe('Photo upload validation', () => {
     expect(res.body.error).toBe('No files uploaded');
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Upload parity (JOURNEY-P01…P09) — entry photos, gallery photos, video+poster,
+// journey cover. Written BEFORE the storage-upload swap to pin behavior.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('Journey upload parity', () => {
+  const fsMod = require('fs') as typeof import('fs');
+  const pathMod = require('path') as typeof import('path');
+  const FIXTURE_IMG = pathMod.join(__dirname, '../fixtures/small-image.jpg');
+  const journeyDir = pathMod.join(__dirname, '../../uploads/journey');
+
+  afterAll(() => {
+    fsMod.rmSync(journeyDir, { recursive: true, force: true });
+  });
+
+  it('JOURNEY-P01 — entry photo upload stores journey/<uuid> with a lowercased extension', async () => {
+    const { user } = createUser(testDb);
+    const journey = createJourney(testDb, user.id);
+    const entry = createJourneyEntry(testDb, journey.id, user.id, { entry_date: '2026-04-01' });
+
+    const res = await request(app)
+      .post(`/api/journeys/entries/${entry.id}/photos`)
+      .set('Cookie', authCookie(user.id))
+      .attach('photos', FIXTURE_IMG, 'PHOTO.JPG');
+    expect(res.status).toBe(201);
+    expect(res.body.photos).toHaveLength(1);
+    expect(res.body.photos[0].file_path).toMatch(/^journey\/[0-9a-f-]{36}\.jpg$/);
+    const diskName = res.body.photos[0].file_path.replace(/^journey\//, '');
+    expect(fsMod.existsSync(pathMod.join(journeyDir, diskName))).toBe(true);
+  });
+
+  it('JOURNEY-P02 — extensionless originalname falls back to .jpg (wildcard allowlist)', async () => {
+    const { user } = createUser(testDb);
+    const journey = createJourney(testDb, user.id);
+    const entry = createJourneyEntry(testDb, journey.id, user.id, { entry_date: '2026-04-01' });
+    // The admin allowlist rejects the empty extension before the filename
+    // fallback can run; the wildcard makes the fallback reachable so it is
+    // actually pinned here.
+    testDb.prepare("INSERT OR REPLACE INTO app_settings (key, value) VALUES ('allowed_file_types', '*')").run();
+
+    const res = await request(app)
+      .post(`/api/journeys/entries/${entry.id}/photos`)
+      .set('Cookie', authCookie(user.id))
+      .attach('photos', fsMod.readFileSync(FIXTURE_IMG), { filename: 'noext', contentType: 'image/jpeg' });
+    expect(res.status).toBe(201);
+    expect(res.body.photos[0].file_path).toMatch(/^journey\/[0-9a-f-]{36}\.jpg$/);
+  });
+
+  it('JOURNEY-P03 — non-image entry upload is rejected 400', async () => {
+    const { user } = createUser(testDb);
+    const journey = createJourney(testDb, user.id);
+    const entry = createJourneyEntry(testDb, journey.id, user.id, { entry_date: '2026-04-01' });
+
+    const res = await request(app)
+      .post(`/api/journeys/entries/${entry.id}/photos`)
+      .set('Cookie', authCookie(user.id))
+      .attach('photos', Buffer.from('plain text'), { filename: 'doc.txt', contentType: 'text/plain' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Only image files are allowed');
+  });
+
+  it('JOURNEY-P04 — gallery photo upload stores journey/<uuid> paths', async () => {
+    const { user } = createUser(testDb);
+    const journey = createJourney(testDb, user.id);
+
+    const res = await request(app)
+      .post(`/api/journeys/${journey.id}/gallery/photos`)
+      .set('Cookie', authCookie(user.id))
+      .attach('photos', FIXTURE_IMG);
+    expect(res.status).toBe(201);
+    expect(res.body.photos.length).toBeGreaterThan(0);
+  });
+
+  it('JOURNEY-P05 — non-contributor gallery upload is 403 and files remain on disk (no cleanup today)', async () => {
+    const { user: owner } = createUser(testDb);
+    const { user: other } = createUser(testDb);
+    const journey = createJourney(testDb, owner.id);
+
+    const before = fsMod.existsSync(journeyDir) ? fsMod.readdirSync(journeyDir).length : 0;
+    const res = await request(app)
+      .post(`/api/journeys/${journey.id}/gallery/photos`)
+      .set('Cookie', authCookie(other.id))
+      .attach('photos', FIXTURE_IMG);
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('Not allowed');
+    const after = fsMod.existsSync(journeyDir) ? fsMod.readdirSync(journeyDir).length : 0;
+    expect(after).toBe(before + 1);
+  });
+
+  it('JOURNEY-P06 — video+poster upload: poster is ALWAYS stored as .jpg (stored-XSS pin)', async () => {
+    const { user } = createUser(testDb);
+    const journey = createJourney(testDb, user.id);
+
+    const res = await request(app)
+      .post(`/api/journeys/${journey.id}/gallery/video`)
+      .set('Cookie', authCookie(user.id))
+      .attach('video', Buffer.from('fake video bytes'), { filename: 'clip.MP4', contentType: 'video/mp4' })
+      .attach('poster', fsMod.readFileSync(FIXTURE_IMG), { filename: 'poster.png', contentType: 'image/png' });
+    expect(res.status).toBe(201);
+    expect(res.body.photos).toHaveLength(1);
+    expect(res.body.photos[0].file_path).toMatch(/^journey\/[0-9a-f-]{36}\.mp4$/);
+    expect(res.body.photos[0].thumbnail_path).toMatch(/^journey\/[0-9a-f-]{36}\.jpg$/);
+  });
+
+  it('JOURNEY-P07 — poster-only video upload is 400 with no files left anywhere', async () => {
+    const { user } = createUser(testDb);
+    const journey = createJourney(testDb, user.id);
+
+    const before = fsMod.existsSync(journeyDir) ? fsMod.readdirSync(journeyDir).length : 0;
+    const res = await request(app)
+      .post(`/api/journeys/${journey.id}/gallery/video`)
+      .set('Cookie', authCookie(user.id))
+      .attach('poster', fsMod.readFileSync(FIXTURE_IMG), { filename: 'poster.png', contentType: 'image/png' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('No video uploaded');
+    const after = fsMod.existsSync(journeyDir) ? fsMod.readdirSync(journeyDir).length : 0;
+    expect(after).toBe(before);
+  });
+
+  it('JOURNEY-P08 — non-contributor video upload is 403 and BOTH files are removed', async () => {
+    const { user: owner } = createUser(testDb);
+    const { user: other } = createUser(testDb);
+    const journey = createJourney(testDb, owner.id);
+
+    const before = fsMod.existsSync(journeyDir) ? fsMod.readdirSync(journeyDir).length : 0;
+    const res = await request(app)
+      .post(`/api/journeys/${journey.id}/gallery/video`)
+      .set('Cookie', authCookie(other.id))
+      .attach('video', Buffer.from('fake video bytes'), { filename: 'clip.mp4', contentType: 'video/mp4' })
+      .attach('poster', fsMod.readFileSync(FIXTURE_IMG), { filename: 'poster.png', contentType: 'image/png' });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('Not allowed');
+    const after = fsMod.existsSync(journeyDir) ? fsMod.readdirSync(journeyDir).length : 0;
+    expect(after).toBe(before);
+  });
+
+  it('JOURNEY-P09 — cover upload stores journey/<uuid> into cover_image', async () => {
+    const { user } = createUser(testDb);
+    const journey = createJourney(testDb, user.id);
+
+    const res = await request(app)
+      .post(`/api/journeys/${journey.id}/cover`)
+      .set('Cookie', authCookie(user.id))
+      .attach('cover', FIXTURE_IMG);
+    expect(res.status).toBe(200);
+    expect(res.body.cover_image).toMatch(/^journey\/[0-9a-f-]{36}\.jpg$/);
+    const diskName = res.body.cover_image.replace(/^journey\//, '');
+    expect(fsMod.existsSync(pathMod.join(journeyDir, diskName))).toBe(true);
+  });
+});
