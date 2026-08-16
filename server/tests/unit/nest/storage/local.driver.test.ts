@@ -63,17 +63,30 @@ describe('LocalDriver specifics', () => {
     expect(() => driver.getLocalPath('../escape')).toThrow(StorageInvalidKeyError);
   });
 
-  it('cleans spool leftovers only at boot, never on reload-style init', () => {
+  it('cleans aged spool leftovers only at boot, never on reload-style init', () => {
     const driver = new LocalDriver({ id: 'spool', root: tmp() });
     driver.init();
     const stray = path.join(driver.getSpoolDir(), 'leftover.part');
     fs.writeFileSync(stray, 'in-flight upload');
+    // Crash leftover: old enough to clear the reap age gate.
+    const old = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    fs.utimesSync(stray, old, old);
 
     driver.init(); // reload(): must NOT delete an in-flight upload's spool file
     expect(fs.existsSync(stray)).toBe(true);
 
     driver.init({ cleanSpool: true }); // boot: crash leftovers are reclaimed
     expect(fs.existsSync(stray)).toBe(false);
+  });
+
+  it('the boot spool sweep spares fresh entries (another process may be mid-upload)', () => {
+    const driver = new LocalDriver({ id: 'spool-fresh', root: tmp() });
+    driver.init();
+    const inflight = path.join(driver.getSpoolDir(), 'inflight.part');
+    fs.writeFileSync(inflight, 'spooling right now');
+
+    driver.init({ cleanSpool: true });
+    expect(fs.existsSync(inflight)).toBe(true);
   });
 
   it('creates its root, spool, and category prefix dirs at init', () => {

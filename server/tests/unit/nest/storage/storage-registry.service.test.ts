@@ -237,6 +237,10 @@ describe('StorageRegistryService reload', () => {
 
     fs.mkdirSync(path.dirname(stray), { recursive: true });
     fs.writeFileSync(stray, 'crash leftover');
+    // Aged past the reap gate: the boot sweep spares fresh entries (another
+    // process may be spooling into the same tree — see LocalDriver.init).
+    const old = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    fs.utimesSync(stray, old, old);
     const { registry } = makeRegistry({ uploadsDir: uploadsRoot });
     expect(fs.existsSync(stray)).toBe(false); // boot reclaimed it
 

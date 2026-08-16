@@ -16,6 +16,8 @@ import {
 } from '../storage.types';
 
 const SPOOL_DIR_NAME = '.tmp';
+/** Boot spool-reap age gate: entries younger than this survive the sweep. */
+const SPOOL_REAP_AGE_MS = 60 * 60 * 1000;
 
 function errnoCode(err: unknown): string | undefined {
   return (err as NodeJS.ErrnoException).code;
@@ -65,7 +67,18 @@ export class LocalDriver implements StorageDriver {
     }
     if (opts.cleanSpool) {
       for (const entry of fs.readdirSync(this.spoolDir())) {
-        fs.rmSync(path.join(this.spoolDir(), entry), { recursive: true, force: true });
+        const entryPath = path.join(this.spoolDir(), entry);
+        // Age gate: only reap entries older than the threshold. Crash leftovers
+        // are always old by the next boot; a fresh entry belongs to another
+        // process spooling into the same tree right now (the vitest integration
+        // workers share uploads/, and a second worker booting mid-upload must
+        // not delete the first one's in-flight spool file).
+        try {
+          if (Date.now() - fs.statSync(entryPath).mtimeMs < SPOOL_REAP_AGE_MS) continue;
+        } catch {
+          continue; // raced away already — nothing to reap
+        }
+        fs.rmSync(entryPath, { recursive: true, force: true });
       }
     }
   }
