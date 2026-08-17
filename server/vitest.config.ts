@@ -70,7 +70,7 @@ export default defineConfig({
         'src/nest/atlas/**/*.ts': { statements: 91, branches: 78, functions: 96, lines: 93 },
         'src/nest/audit/**/*.ts': { statements: 92, branches: 79, functions: 99, lines: 96 },
         'src/nest/auth/**/*.ts': { statements: 93, branches: 85, functions: 95, lines: 96 },
-        'src/nest/backup/**/*.ts': { statements: 96, branches: 92, functions: 99, lines: 98 },
+        'src/nest/backup/**/*.ts': { statements: 97, branches: 93, functions: 99, lines: 98 },
         'src/nest/booking-import/**/*.ts': { statements: 50, branches: 28, functions: 64, lines: 53 },
         'src/nest/budget/**/*.ts': { statements: 91, branches: 77, functions: 97, lines: 95 },
         'src/nest/calendar/**/*.ts': { statements: 96, branches: 93, functions: 99, lines: 99 },
