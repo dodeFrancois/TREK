@@ -1,11 +1,15 @@
 /**
- * TrekPhotoCacheService — the disk + metadata cache for provider assets.
+ * TrekPhotoCacheService — the storage + metadata cache for provider assets.
  *
  * It had no suite of its own: it lived in services/memories/, which the
  * coverage gate does not measure, so a cache that silently stopped evicting or
  * stopped deduping concurrent fetches would not have failed anything. The
  * stampede guard in particular is the reason the in-flight map is module-scoped
  * rather than an instance field.
+ *
+ * Slice 4: the cache addresses storage as ('photos-trek', '<key>.bin') over a
+ * stub-registry fixture rooted in a throwaway dir — the real uploads tree is
+ * never touched.
  */
 import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from 'vitest';
 
@@ -26,22 +30,18 @@ import { createTables } from '../../../src/db/schema';
 import { runMigrations } from '../../../src/db/migrations';
 import { DatabaseService } from '../../../src/nest/database/database.service';
 import { TrekPhotoCacheService, CACHE_TTL } from '../../../src/nest/memories/trek-photo-cache.service';
-import { UPLOADS_ROOT } from '../../../src/nest/memories/uploads-root';
 import { StorageNotFoundError } from '../../../src/nest/storage/storage.types';
-import type { StorageService } from '../../../src/nest/storage/storage.service';
+import { makeStorageFixture } from '../../helpers/storage-fixture';
 
-// serveFresh is the one byte-serving method; the cache's disk internals
-// (getFresh/put/sweep) stay raw-fs until slice 4.
-const storage = { sendToResponse: vi.fn().mockResolvedValue(undefined) };
-const svc = new TrekPhotoCacheService(new DatabaseService(testDb), storage as unknown as StorageService);
-const CACHE_DIR = path.join(UPLOADS_ROOT, 'photos/trek');
-const written: string[] = [];
+const fx = makeStorageFixture('photos/trek/');
+const svc = new TrekPhotoCacheService(new DatabaseService(testDb), fx.storage);
+const CACHE_DIR = path.join(fx.root, 'photos/trek');
+const binPath = (key: string) => path.join(CACHE_DIR, `${key}.bin`);
+let counter = 0;
 
-/** Unique per case so parallel files cannot collide on the shared cache dir. */
+/** Unique per case so cases cannot collide on the shared fixture dir. */
 function freshKey(label: string): string {
-  const key = svc.cacheKey('test', `${label}-${process.pid}-${written.length}`, 'thumbnail', 1);
-  written.push(key);
-  return key;
+  return svc.cacheKey('test', `${label}-${counter++}`, 'thumbnail', 1);
 }
 
 beforeAll(() => {
@@ -54,10 +54,8 @@ beforeEach(() => {
 });
 
 afterAll(() => {
-  for (const key of written) {
-    try { fs.unlinkSync(path.join(CACHE_DIR, `${key}.bin`)); } catch { /* never written */ }
-  }
   testDb.close();
+  fx.cleanup();
 });
 
 describe('cacheKey', () => {
@@ -71,18 +69,18 @@ describe('cacheKey', () => {
 });
 
 describe('put / getFresh', () => {
-  it('CACHE-002: a stored entry comes back with its content type and a real file', async () => {
+  it('CACHE-002: a stored entry comes back with its content type and a real object', async () => {
     const key = freshKey('hit');
     await svc.put(key, Buffer.from('jpegbytes'), 'image/jpeg');
 
-    const entry = svc.getFresh(key);
+    const entry = await svc.getFresh(key);
     expect(entry).not.toBeNull();
     expect(entry!.contentType).toBe('image/jpeg');
-    expect(fs.readFileSync(entry!.filePath).toString()).toBe('jpegbytes');
+    expect(fs.readFileSync(binPath(key)).toString()).toBe('jpegbytes');
   });
 
-  it('CACHE-003: an unknown key is a miss, not an error', () => {
-    expect(svc.getFresh('no-such-key')).toBeNull();
+  it('CACHE-003: an unknown key is a miss, not an error', async () => {
+    expect(await svc.getFresh('no-such-key')).toBeNull();
   });
 
   it('CACHE-004: an entry past its TTL is a miss and its metadata row is dropped', async () => {
@@ -91,16 +89,16 @@ describe('put / getFresh', () => {
     testDb.prepare('UPDATE trek_photo_cache_meta SET fetched_at = ? WHERE cache_key = ?')
       .run(Date.now() - CACHE_TTL - 1000, key);
 
-    expect(svc.getFresh(key)).toBeNull();
+    expect(await svc.getFresh(key)).toBeNull();
     expect(testDb.prepare('SELECT 1 FROM trek_photo_cache_meta WHERE cache_key = ?').get(key)).toBeUndefined();
   });
 
-  it('CACHE-005: metadata without its file is a miss and the row is dropped', () => {
+  it('CACHE-005: metadata without its object is a miss and the row is dropped', async () => {
     const key = 'orphan-meta-row';
     testDb.prepare('INSERT INTO trek_photo_cache_meta (cache_key, content_type, fetched_at) VALUES (?, ?, ?)')
       .run(key, 'image/jpeg', Date.now());
 
-    expect(svc.getFresh(key)).toBeNull();
+    expect(await svc.getFresh(key)).toBeNull();
     expect(testDb.prepare('SELECT 1 FROM trek_photo_cache_meta WHERE cache_key = ?').get(key)).toBeUndefined();
   });
 
@@ -111,8 +109,8 @@ describe('put / getFresh', () => {
 
     const rows = testDb.prepare('SELECT content_type FROM trek_photo_cache_meta WHERE cache_key = ?').all(key);
     expect(rows).toHaveLength(1);
-    expect(svc.getFresh(key)!.contentType).toBe('image/png');
-    expect(fs.readFileSync(svc.getFresh(key)!.filePath).toString()).toBe('second');
+    expect((await svc.getFresh(key))!.contentType).toBe('image/png');
+    expect(fs.readFileSync(binPath(key)).toString()).toBe('second');
   });
 });
 
@@ -120,29 +118,34 @@ describe('serveFresh', () => {
   it('CACHE-007: sends the cached bytes through storage with a one-hour cache header', async () => {
     const key = freshKey('serve');
     await svc.put(key, Buffer.from('bytes'), 'image/webp');
+    const send = vi.spyOn(fx.storage, 'sendToResponse').mockResolvedValueOnce(undefined);
     const res = { set: vi.fn() };
 
     expect(await svc.serveFresh(res as never, key)).toBe(true);
     expect(res.set).toHaveBeenCalledWith('Content-Type', 'image/webp');
     expect(res.set).toHaveBeenCalledWith('Cache-Control', 'public, max-age=3600');
-    expect(storage.sendToResponse).toHaveBeenCalledWith('photos-trek', `${key}.bin`, res);
+    expect(send).toHaveBeenCalledWith('photos-trek', `${key}.bin`, res);
+    send.mockRestore();
   });
 
   it('CACHE-008: reports a miss without touching the response or storage', async () => {
-    storage.sendToResponse.mockClear();
+    const send = vi.spyOn(fx.storage, 'sendToResponse');
     const res = { set: vi.fn() };
     expect(await svc.serveFresh(res as never, 'nothing-cached')).toBe(false);
     expect(res.set).not.toHaveBeenCalled();
-    expect(storage.sendToResponse).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+    send.mockRestore();
   });
 
   it('CACHE-013: a getFresh→send delete race reads as a miss, not a crash', async () => {
     const key = freshKey('race');
     await svc.put(key, Buffer.from('bytes'), 'image/webp');
-    storage.sendToResponse.mockRejectedValueOnce(new StorageNotFoundError(`photos/trek/${key}.bin`));
+    const send = vi.spyOn(fx.storage, 'sendToResponse')
+      .mockRejectedValueOnce(new StorageNotFoundError(`photos/trek/${key}.bin`));
     const res = { set: vi.fn(), headersSent: false };
 
     expect(await svc.serveFresh(res as never, key)).toBe(false);
+    send.mockRestore();
   });
 });
 
@@ -166,7 +169,7 @@ describe('the stampede guard', () => {
     // Load-bearing: a per-instance map would hand any second instance a private
     // guard and the dedup would be silently gone. The sweep cron injects the
     // container singleton now, but the invariant stays pinned.
-    const other = new TrekPhotoCacheService(new DatabaseService(testDb), storage as unknown as StorageService);
+    const other = new TrekPhotoCacheService(new DatabaseService(testDb), fx.storage);
     const promise = Promise.resolve<Buffer | null>(null);
     svc.setInFlight('shared-key', promise);
     expect(other.getInFlight('shared-key')).toBe(promise);
@@ -174,28 +177,40 @@ describe('the stampede guard', () => {
 });
 
 describe('sweepExpired', () => {
-  it('CACHE-011: drops rows and files past twice the TTL and leaves fresh ones alone', async () => {
+  it('CACHE-011: drops rows and objects past twice the TTL and leaves fresh ones alone', async () => {
     const staleKey = freshKey('sweep-stale');
     const freshKeyId = freshKey('sweep-fresh');
     await svc.put(staleKey, Buffer.from('old'), 'image/jpeg');
     await svc.put(freshKeyId, Buffer.from('new'), 'image/jpeg');
     testDb.prepare('UPDATE trek_photo_cache_meta SET fetched_at = ? WHERE cache_key = ?')
       .run(Date.now() - CACHE_TTL * 2 - 1000, staleKey);
-    const staleFile = path.join(CACHE_DIR, `${staleKey}.bin`);
 
-    svc.sweepExpired();
+    await svc.sweepExpired();
 
     expect(testDb.prepare('SELECT 1 FROM trek_photo_cache_meta WHERE cache_key = ?').get(staleKey)).toBeUndefined();
-    expect(fs.existsSync(staleFile)).toBe(false);
+    expect(fs.existsSync(binPath(staleKey))).toBe(false);
     expect(testDb.prepare('SELECT 1 FROM trek_photo_cache_meta WHERE cache_key = ?').get(freshKeyId)).toBeDefined();
   });
 
-  it('CACHE-012: survives a metadata row whose file is already gone', () => {
+  it('CACHE-012: survives a metadata row whose object is already gone', async () => {
     const key = 'sweep-orphan';
     testDb.prepare('INSERT INTO trek_photo_cache_meta (cache_key, content_type, fetched_at) VALUES (?, ?, ?)')
       .run(key, 'image/jpeg', Date.now() - CACHE_TTL * 3);
 
-    expect(() => svc.sweepExpired()).not.toThrow();
+    await expect(svc.sweepExpired()).resolves.toBeUndefined();
     expect(testDb.prepare('SELECT 1 FROM trek_photo_cache_meta WHERE cache_key = ?').get(key)).toBeUndefined();
+  });
+
+  it('CACHE-014: a row-less .bin object survives the DB-driven sweep (parity pin — fix #4 reclaims it)', async () => {
+    const key = freshKey('rowless');
+    await svc.put(key, Buffer.from('leaked'), 'image/jpeg');
+    testDb.prepare('DELETE FROM trek_photo_cache_meta WHERE cache_key = ?').run(key);
+    // Old enough that the list-driven fix-#4 sweep WILL reclaim it — today's
+    // DB-driven sweep never visits it (the getFresh-expiry leak, spec rev 3.2).
+    const old = (Date.now() - CACHE_TTL * 3) / 1000;
+    fs.utimesSync(binPath(key), old, old);
+
+    await svc.sweepExpired();
+    expect(fs.existsSync(binPath(key))).toBe(true);
   });
 });

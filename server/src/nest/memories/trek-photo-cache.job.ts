@@ -19,15 +19,19 @@ export class TrekPhotoCacheJob implements OnApplicationBootstrap {
   onApplicationBootstrap(): void {
     if (!this.registrar.isEnabled()) return;
     // Run once immediately on startup to evict any entries left over from a previous run
-    try {
-      this.cache.sweepExpired();
-    } catch { /* cache dir may not exist yet — harmless */ }
-    this.registrar.register('trek-photo-cache', '0 */2 * * *', () => this.tick(), { timezone: 'none' });
+    void (async () => {
+      try {
+        await this.cache.sweepExpired();
+      } catch { /* cache dir may not exist yet — harmless */ }
+    })();
+    this.registrar.register('trek-photo-cache', '0 */2 * * *', () => {
+      void this.tick();
+    }, { timezone: 'none' });
   }
 
-  tick(): void {
+  async tick(): Promise<void> {
     try {
-      this.cache.sweepExpired();
+      await this.cache.sweepExpired();
     } catch (err: unknown) {
       logError(`Trek photo cache cleanup: ${err instanceof Error ? err.message : err}`);
     }
