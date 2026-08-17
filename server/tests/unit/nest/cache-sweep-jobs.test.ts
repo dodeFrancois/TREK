@@ -80,10 +80,10 @@ describe('PlacePhotoCacheJob', () => {
     expect(registrar.register).toHaveBeenCalledWith('place-photo-cache', '30 3 * * *', expect.any(Function));
   });
 
-  it('CSJOB-006 — logs only when something was removed', () => {
-    make(0).job.sweep();
+  it('CSJOB-006 — logs only when something was removed', async () => {
+    await make(0).job.sweep();
     expect(logMock.logInfo).not.toHaveBeenCalled();
-    make(3).job.sweep();
+    await make(3).job.sweep();
     expect(logMock.logInfo).toHaveBeenCalledWith('Place-photo cache cleanup: removed 3 orphaned file(s)/row(s)');
   });
 

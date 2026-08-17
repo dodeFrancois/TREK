@@ -1887,9 +1887,8 @@ describe('getPlacePhoto (fetch stubbed)', () => {
   it('MAPS-043b: returns cached photo when disk cache returns a hit', async () => {
     const placeId = `coords:cache-test-${Date.now()}`;
     const cachedUrl = `/api/maps/place-photo/${encodeURIComponent(placeId)}/bytes`;
-    mockCacheGet.mockReturnValue({
+    mockCacheGet.mockResolvedValue({
       photoUrl: cachedUrl,
-      filePath: `/tmp/${placeId}.jpg`,
       attribution: null,
     });
     const fetchMock = vi.fn();

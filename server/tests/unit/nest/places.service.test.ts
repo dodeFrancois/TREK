@@ -368,32 +368,32 @@ describe('updateMany', () => {
 // ── remove ────────────────────────────────────────────────────────────────────
 
 describe('remove', () => {
-  it('PLACE-SVC-017 — deletes a place and returns true', () => {
+  it('PLACE-SVC-017 — deletes a place and returns true', async () => {
     const { user } = createUser(testDb);
     const trip = createTrip(testDb, user.id);
     const place = createPlace(testDb, trip.id, { name: 'To Delete' }) as any;
-    expect(svc.remove(String(trip.id), String(place.id))).toBe(true);
+    expect(await svc.remove(String(trip.id), String(place.id))).toBe(true);
     expect(svc.get(String(trip.id), String(place.id))).toBeNull();
   });
 
-  it('PLACE-SVC-018 — returns false for non-existent place', () => {
+  it('PLACE-SVC-018 — returns false for non-existent place', async () => {
     const { user } = createUser(testDb);
     const trip = createTrip(testDb, user.id);
-    expect(svc.remove(String(trip.id), '99999')).toBe(false);
+    expect(await svc.remove(String(trip.id), '99999')).toBe(false);
   });
 
-  it('PLACE-SVC-019 — deleting one place does not remove others', () => {
+  it('PLACE-SVC-019 — deleting one place does not remove others', async () => {
     const { user } = createUser(testDb);
     const trip = createTrip(testDb, user.id);
     const p1 = createPlace(testDb, trip.id, { name: 'Keep' }) as any;
     const p2 = createPlace(testDb, trip.id, { name: 'Remove' }) as any;
-    svc.remove(String(trip.id), String(p2.id));
+    await svc.remove(String(trip.id), String(p2.id));
     const remaining = svc.list(String(trip.id), {}) as any[];
     expect(remaining).toHaveLength(1);
     expect(remaining[0].id).toBe(p1.id);
   });
 
-  it('PLACE-SVC-019c — the linked expense goes with the place (#1298)', () => {
+  it('PLACE-SVC-019c — the linked expense goes with the place (#1298)', async () => {
     const { user } = createUser(testDb);
     const trip = createTrip(testDb, user.id);
     const place = createPlace(testDb, trip.id, { name: 'Louvre' }) as any;
@@ -404,13 +404,13 @@ describe('remove', () => {
 
     // Read the link before the delete — that is what the controller broadcasts.
     expect(svc.linkedExpenseIds(trip.id, [place.id])).toEqual([linked]);
-    expect(svc.remove(String(trip.id), String(place.id))).toBe(true);
+    expect(await svc.remove(String(trip.id), String(place.id))).toBe(true);
 
     const rows = testDb.prepare('SELECT id FROM budget_items ORDER BY id').all() as { id: number }[];
     expect(rows.map(r => r.id)).toEqual([untouched, standalone]);
   });
 
-  it('PLACE-SVC-019d — removeMany takes the expense of every deleted place with it', () => {
+  it('PLACE-SVC-019d — removeMany takes the expense of every deleted place with it', async () => {
     const { user } = createUser(testDb);
     const trip = createTrip(testDb, user.id);
     const a = createPlace(testDb, trip.id, { name: 'A' }) as any;
@@ -421,7 +421,7 @@ describe('remove', () => {
     }
 
     expect(svc.linkedExpenseIds(trip.id, [a.id, b.id])).toHaveLength(2);
-    svc.removeMany(String(trip.id), [a.id, b.id]);
+    await svc.removeMany(String(trip.id), [a.id, b.id]);
 
     const rows = testDb.prepare('SELECT place_id FROM budget_items').all() as { place_id: number }[];
     expect(rows.map(r => r.place_id)).toEqual([keep.id]);
@@ -438,14 +438,14 @@ describe('remove', () => {
     expect(svc.linkedExpenseIds(trip.id, [])).toEqual([]);
   });
 
-  it('PLACE-SVC-019b — reclaims the photo cache for the deleted place', () => {
+  it('PLACE-SVC-019b — reclaims the photo cache for the deleted place', async () => {
     removeIfUnreferencedSpy.mockClear();
     const { user } = createUser(testDb);
     const trip = createTrip(testDb, user.id);
     const place = createPlace(testDb, trip.id, { name: 'With Photo' }) as any;
     testDb.prepare('UPDATE places SET google_place_id = ? WHERE id = ?').run('ChIJgid', place.id);
 
-    svc.remove(String(trip.id), String(place.id));
+    await svc.remove(String(trip.id), String(place.id));
 
     expect(removeIfUnreferencedSpy).toHaveBeenCalledWith('ChIJgid');
   });
@@ -454,7 +454,7 @@ describe('remove', () => {
 // ── removeMany ────────────────────────────────────────────────────────────────
 
 describe('removeMany', () => {
-  it('PLACE-SVC-056 — deletes the trip-scoped ids in one transaction and reports them', () => {
+  it('PLACE-SVC-056 — deletes the trip-scoped ids in one transaction and reports them', async () => {
     const { user } = createUser(testDb);
     const trip = createTrip(testDb, user.id);
     const other = createTrip(testDb, user.id);
@@ -462,16 +462,16 @@ describe('removeMany', () => {
     const b = createPlace(testDb, trip.id, { name: 'B' }) as any;
     const foreign = createPlace(testDb, other.id, { name: 'Foreign' }) as any;
 
-    const deleted = svc.removeMany(String(trip.id), [a.id, b.id, foreign.id, 99999]);
+    const deleted = await svc.removeMany(String(trip.id), [a.id, b.id, foreign.id, 99999]);
 
     expect(deleted.sort()).toEqual([a.id, b.id].sort());
     expect(svc.get(String(other.id), String(foreign.id))).not.toBeNull();
   });
 
-  it('PLACE-SVC-057 — returns [] for an empty id list', () => {
+  it('PLACE-SVC-057 — returns [] for an empty id list', async () => {
     const { user } = createUser(testDb);
     const trip = createTrip(testDb, user.id);
-    expect(svc.removeMany(String(trip.id), [])).toEqual([]);
+    expect(await svc.removeMany(String(trip.id), [])).toEqual([]);
   });
 });
 
@@ -942,7 +942,7 @@ describe('custom place image reclaim', () => {
     expect(fs.existsSync(fileA)).toBe(false);
   });
 
-  it('PLACE-SVC-048 — remove unlinks the uploaded image', () => {
+  it('PLACE-SVC-048 — remove unlinks the uploaded image', async () => {
     const { user } = createUser(testDb);
     const trip = createTrip(testDb, user.id);
     const place = createPlace(testDb, trip.id, { name: 'Photo' }) as any;
@@ -950,11 +950,11 @@ describe('custom place image reclaim', () => {
     testDb.prepare('UPDATE places SET image_url = ? WHERE id = ?').run('/uploads/places/svc-delete.jpg', place.id);
     expect(fs.existsSync(fileA)).toBe(true);
 
-    svc.remove(String(trip.id), String(place.id));
+    await svc.remove(String(trip.id), String(place.id));
     expect(fs.existsSync(fileA)).toBe(false);
   });
 
-  it('PLACE-SVC-049 — a collection_places reference keeps the file when the trip place is deleted', () => {
+  it('PLACE-SVC-049 — a collection_places reference keeps the file when the trip place is deleted', async () => {
     const { user } = createUser(testDb);
     const trip = createTrip(testDb, user.id);
     const place = createPlace(testDb, trip.id, { name: 'Shared Photo' }) as any;
@@ -966,7 +966,7 @@ describe('custom place image reclaim', () => {
       .run(col.lastInsertRowid, user.id, 'Shared Photo', '/uploads/places/svc-shared.jpg');
     expect(fs.existsSync(fileA)).toBe(true);
 
-    svc.remove(String(trip.id), String(place.id));
+    await svc.remove(String(trip.id), String(place.id));
     expect(fs.existsSync(fileA)).toBe(true);
 
     // resetTestDb does not clear collections; drop what this test inserted and its file.

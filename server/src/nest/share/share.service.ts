@@ -305,7 +305,7 @@ export class ShareService {
    * Returns null — never throws — so the caller answers a plain miss,
    * mirroring the authenticated bytes endpoint.
    */
-  getSharedPlacePhotoKey(token: string, placeId: string): string | null {
+  async getSharedPlacePhotoKey(token: string, placeId: string): Promise<string | null> {
     const shareRow = this.dbs.get<{ trip_id: string; share_map: number }>(
       "SELECT trip_id, share_map FROM share_tokens WHERE token = ? AND (expires_at IS NULL OR expires_at > datetime('now'))",
       token,

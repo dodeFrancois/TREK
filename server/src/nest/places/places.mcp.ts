@@ -234,7 +234,7 @@ export class PlacesMcp {
     try { this.journey.onPlaceDeleted(placeId); } catch { /* non-fatal */ } // sync journeys before the row is gone
     // The link is gone once the place is, so read it first (#1298).
     const expenseIds = this.places.linkedExpenseIds(tripId, [placeId]);
-    const deleted = this.places.remove(String(tripId), String(placeId));
+    const deleted = await this.places.remove(String(tripId), String(placeId));
     if (!deleted) return { content: [{ type: 'text' as const, text: 'Place not found.' }], isError: true };
     this.guards.safeBroadcast(tripId, 'place:deleted', { placeId });
     for (const itemId of expenseIds) this.guards.safeBroadcast(tripId, 'budget:deleted', { itemId });
@@ -346,7 +346,7 @@ export class PlacesMcp {
     }
     // The link is gone once the places are, so read it first (#1298).
     const expenseIds = this.places.linkedExpenseIds(tripId, scoped);
-    const deleted = this.places.removeMany(String(tripId), placeIds);
+    const deleted = await this.places.removeMany(String(tripId), placeIds);
     for (const id of deleted) this.guards.safeBroadcast(tripId, 'place:deleted', { placeId: id });
     for (const itemId of expenseIds) this.guards.safeBroadcast(tripId, 'budget:deleted', { itemId });
     return ok({ deleted, count: deleted.length });

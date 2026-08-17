@@ -79,6 +79,7 @@ import { PlacePhotoCacheService } from '../../../src/nest/place-photos/place-pho
 import { JourneyDomainService } from '../../../src/nest/journey/journey-domain.service';
 import { TrekPhotosRepository } from '../../../src/nest/photos/trek-photos.repository';
 import { RuntimeEnvService } from '../../../src/nest/app-config/runtime-env.service';
+import { makeStorageFixture } from '../../helpers/storage-fixture';
 import { QueryHelpersService } from '../../../src/nest/query-helpers/query-helpers.service';
 import fs from 'fs';
 import { notificationsStub } from '../../helpers/notifications';
@@ -96,7 +97,7 @@ const daysSvc = new DaysService(dbs(), new PermissionsService(dbs()), new Realti
 // missing collaborator would look like a pass while swallowing a TypeError.
 // One PlacePhotoCacheService for both PlacesService and MapsService, matching
 // production, where the in-flight dedup only works on a shared instance.
-const photoCache = new PlacePhotoCacheService(dbs(), new RuntimeEnvService());
+const photoCache = new PlacePhotoCacheService(dbs(), makeStorageFixture('photos/google/').storage);
 const placesSvc = new PlacesService(
   dbs(),
   new PermissionsService(dbs()),

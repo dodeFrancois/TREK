@@ -51,13 +51,27 @@ import { createUser, createTrip, addTripMember, createDay, createPlace, createDa
 import { authCookie } from '../helpers/auth';
 import { PlacePhotoCacheService } from '../../src/nest/place-photos/place-photo-cache.service';
 import { DatabaseService } from '../../src/nest/database/database.service';
-import { RuntimeEnvService } from '../../src/nest/app-config/runtime-env.service';
 import { db as sharedDb } from '../../src/db/database';
+import { LocalDriver } from '../../src/nest/storage/drivers/local.driver';
+import { StorageService } from '../../src/nest/storage/storage.service';
+import type { StorageRegistryService, ResolvedCategory } from '../../src/nest/storage/storage-registry.service';
+import { DEFAULT_UPLOADS_ROOT, GLOBAL_TEMP_DIR } from '../../src/nest/storage/storage-paths';
 
 // A real instance over the same connection the app uses — these cases write a
-// cache entry and then read it back through the HTTP route.
-const placePhotoCache = new PlacePhotoCacheService(new DatabaseService(sharedDb), new RuntimeEnvService());
+// cache entry and then read it back through the HTTP route, so the stub
+// storage must be rooted where the app's registry serves 'photos-google'
+// from (mode A: uploads/photos/google).
+const uploadsDriver = new LocalDriver({ id: 'share-test-local', root: DEFAULT_UPLOADS_ROOT });
+uploadsDriver.init({ ensurePrefixes: ['photos/google/'], cleanSpool: false });
+const testStorage = new StorageService({
+  resolve: (): ResolvedCategory => ({ driver: uploadsDriver, keyPrefix: 'photos/google/', backendName: 'share-test-local' }),
+  tempDir: () => GLOBAL_TEMP_DIR,
+  replicaFailures: () => [],
+} as unknown as StorageRegistryService);
+const placePhotoCache = new PlacePhotoCacheService(new DatabaseService(sharedDb), testStorage);
 import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
 
 let nestApp: INestApplication;
 let app: Application;
@@ -561,8 +575,8 @@ describe('Shared trip — place photos in shared links (issue #1100)', () => {
 
   it('SHARE-018 — public proxy streams cached bytes for a valid token + place (no cookie)', async () => {
     const { token } = await setupSharedPlaceWithPhoto();
-    const cached = await placePhotoCache.put(PLACE_ID, photoBytes, null);
-    cachedFilePath = cached.filePath;
+    await placePhotoCache.put(PLACE_ID, photoBytes, null);
+    cachedFilePath = path.join(DEFAULT_UPLOADS_ROOT, 'photos/google', `${crypto.createHash('sha1').update(PLACE_ID).digest('hex')}.jpg`);
 
     const res = await request(app).get(`/api/shared/${token}/place-photo/${encodeURIComponent(PLACE_ID)}/bytes`);
     expect(res.status).toBe(200);
@@ -602,8 +616,8 @@ describe('Shared trip — place photos in shared links (issue #1100)', () => {
       .post(`/api/trips/${trip.id}/share-link`)
       .set('Cookie', authCookie(user.id))
       .send({ share_map: false });
-    const cached = await placePhotoCache.put(PLACE_ID, photoBytes, null);
-    cachedFilePath = cached.filePath;
+    await placePhotoCache.put(PLACE_ID, photoBytes, null);
+    cachedFilePath = path.join(DEFAULT_UPLOADS_ROOT, 'photos/google', `${crypto.createHash('sha1').update(PLACE_ID).digest('hex')}.jpg`);
 
     const res = await request(app).get(`/api/shared/${token}/place-photo/${encodeURIComponent(PLACE_ID)}/bytes`);
     expect(res.status).toBe(204);

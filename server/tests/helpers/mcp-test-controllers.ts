@@ -75,6 +75,7 @@ import { AddonsService } from '../../src/nest/addons/addons.service';
 import { notificationsStub } from './notifications';
 import { EphemeralTokenService } from '../../src/nest/auth/ephemeral-token.service';
 import { AllowedFileTypesService } from '../../src/nest/files/allowed-file-types.service';
+import { makeStorageFixture } from './storage-fixture';
 
 /**
  * Hand-wired counterpart of the boot-time discovery in McpRegistryService,
@@ -112,7 +113,7 @@ export function createMcpTestRegistry(): McpRegistry {
   const collabService = new CollabService(dbService, permissionsService, realtimeService, notificationsStub());
   // Exactly one instance, shared by maps, places and share: its stampede guard
   // and its on-disk set only work if all three readers see the same maps.
-  const placePhotoCache = new PlacePhotoCacheService(dbService, new RuntimeEnvService());
+  const placePhotoCache = new PlacePhotoCacheService(dbService, makeStorageFixture('photos/google/').storage);
   const mapsService = new MapsService(dbService, placePhotoCache);
   const journeyDomain = new JourneyDomainService(dbService, realtimeService, new TrekPhotosRepository(dbService));
   // The last three were previously omitted, which left them `undefined` at

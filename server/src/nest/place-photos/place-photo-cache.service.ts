@@ -1,11 +1,9 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { Jimp, JimpMime } from 'jimp';
 import crypto from 'node:crypto';
-import fs from 'node:fs';
-import fsPromises from 'node:fs/promises';
-import path from 'node:path';
+import { Readable } from 'node:stream';
 import { DatabaseService } from '../database/database.service';
-import { RuntimeEnvService } from '../app-config/runtime-env.service';
+import { StorageService } from '../storage/storage.service';
 
 // How long a "no photo for this place" answer stays remembered. Nothing about it
 // changes until a photo appears upstream, so it is worth keeping: without it every
@@ -31,7 +29,6 @@ const JPEG_QUALITY = 80;
 
 interface CachedPhoto {
   photoUrl: string;
-  filePath: string;
   attribution: string | null;
 }
 
@@ -44,38 +41,25 @@ interface CachedPhoto {
  * simultaneous requests for the same uncached place would both call the
  * provider. That is the reason the nightly sweep (PlacePhotoCacheJob) injects
  * this container singleton rather than constructing its own.
+ *
+ * Bytes live in the 'photos-google' storage category as '<sha1>.jpg' names.
+ * The registry's mode-aware prefix reproduces both TREK_PLACE_PHOTO_DIR
+ * layouts (unset: uploads/photos/google; set: that dir, bare keys), so the
+ * cache itself is mode-agnostic.
  */
 @Injectable()
-export class PlacePhotoCacheService implements OnModuleInit {
+export class PlacePhotoCacheService {
   /** Provider calls that failed recently — in memory only, so a restart retries. */
   private readonly recentFailures = new Map<string, number>();
   /** In-flight dedup: stops a stampede when several requests miss the same placeId at once. */
-  private readonly inFlight = new Map<string, Promise<{ filePath: string; attribution: string | null } | null>>();
-  /** placeIds whose file was confirmed on disk this session — saves an existsSync per hit. */
+  private readonly inFlight = new Map<string, Promise<{ attribution: string | null } | null>>();
+  /** placeIds whose object was confirmed in storage this session — saves a stat per hit. */
   private readonly knownOnDisk = new Set<string>();
 
   constructor(
     private readonly db: DatabaseService,
-    private readonly env: RuntimeEnvService,
+    private readonly storage: StorageService,
   ) {}
-
-  /**
-   * Overridable for tests (mirrors the TREK_DB_FILE seam) so the suite never
-   * touches the real uploads tree. Read per call rather than frozen at import:
-   * the tests that set TREK_PLACE_PHOTO_DIR do so after this module loads.
-   */
-  private get photoDir(): string {
-    return this.env.env().paths.placePhotoDir || path.join(__dirname, '../../../uploads/photos/google');
-  }
-
-  /** Ensure the upload dir exists once at startup, so put() never needs a sync FS call. */
-  onModuleInit(): void {
-    try {
-      fs.mkdirSync(this.photoDir, { recursive: true });
-    } catch {
-      /* already exists */
-    }
-  }
 
   private fileName(placeId: string): string {
     // Hash to avoid filename collisions — coords:lat:lng pseudo-IDs contain characters that
@@ -84,15 +68,11 @@ export class PlacePhotoCacheService implements OnModuleInit {
     return `${hash}.jpg`;
   }
 
-  private filePath(placeId: string): string {
-    return path.join(this.photoDir, this.fileName(placeId));
-  }
-
   private proxyUrl(placeId: string): string {
     return `/api/maps/place-photo/${encodeURIComponent(placeId)}/bytes`;
   }
 
-  get(placeId: string): CachedPhoto | null {
+  async get(placeId: string): Promise<CachedPhoto | null> {
     const row = this.db.get<{ attribution: string | null }>(
       'SELECT attribution FROM google_place_photo_meta WHERE place_id = ? AND error_at IS NULL',
       placeId,
@@ -100,19 +80,17 @@ export class PlacePhotoCacheService implements OnModuleInit {
 
     if (!row) return null;
 
-    const fp = this.filePath(placeId);
-
     if (!this.knownOnDisk.has(placeId)) {
-      // First time this placeId is checked this session — verify the file exists on disk.
+      // First time this placeId is checked this session — verify the object exists.
       // (Guards against volume wipes or manual deletion between server restarts.)
-      if (!fs.existsSync(fp)) {
+      if (!(await this.storage.exists('photos-google', this.fileName(placeId)))) {
         this.db.run('DELETE FROM google_place_photo_meta WHERE place_id = ?', placeId);
         return null;
       }
       this.knownOnDisk.add(placeId);
     }
 
-    return { photoUrl: this.proxyUrl(placeId), filePath: fp, attribution: row.attribution };
+    return { photoUrl: this.proxyUrl(placeId), attribution: row.attribution };
   }
 
   getErrored(placeId: string): boolean {
@@ -174,12 +152,8 @@ export class PlacePhotoCacheService implements OnModuleInit {
   }
 
   async put(placeId: string, bytes: Buffer, attribution: string | null): Promise<CachedPhoto> {
-    const fp = this.filePath(placeId);
-    const tmp = fp + '.tmp';
-
     const resized = await this.downscale(bytes);
-    await fsPromises.writeFile(tmp, resized);
-    await fsPromises.rename(tmp, fp);
+    await this.storage.put('photos-google', this.fileName(placeId), Readable.from(resized));
 
     this.knownOnDisk.add(placeId);
     this.recentFailures.delete(placeId);
@@ -189,19 +163,14 @@ export class PlacePhotoCacheService implements OnModuleInit {
       placeId, attribution, Date.now(),
     );
 
-    return { photoUrl: this.proxyUrl(placeId), filePath: fp, attribution };
+    return { photoUrl: this.proxyUrl(placeId), attribution };
   }
 
-  getInFlight(
-    placeId: string,
-  ): Promise<{ filePath: string; attribution: string | null } | null> | undefined {
+  getInFlight(placeId: string): Promise<{ attribution: string | null } | null> | undefined {
     return this.inFlight.get(placeId);
   }
 
-  setInFlight(
-    placeId: string,
-    promise: Promise<{ filePath: string; attribution: string | null } | null>,
-  ): void {
+  setInFlight(placeId: string, promise: Promise<{ attribution: string | null } | null>): void {
     this.inFlight.set(placeId, promise);
     promise
       .finally(() => this.inFlight.delete(placeId))
@@ -210,22 +179,16 @@ export class PlacePhotoCacheService implements OnModuleInit {
       });
   }
 
-  serveFilePath(placeId: string): string | null {
-    if (this.knownOnDisk.has(placeId)) return this.filePath(placeId);
-    const fp = this.filePath(placeId);
-    if (!fs.existsSync(fp)) return null;
-    this.knownOnDisk.add(placeId);
-    return fp;
-  }
-
   /**
    * Storage name (category 'photos-google') for a cached photo, or null when
-   * not on disk. The registry's mode-aware prefix reproduces photoDir in both
-   * TREK_PLACE_PHOTO_DIR modes; the cache's own disk internals move onto
-   * storage in slice 4.
+   * the object is missing.
    */
-  serveKey(placeId: string): string | null {
-    return this.serveFilePath(placeId) ? this.fileName(placeId) : null;
+  async serveKey(placeId: string): Promise<string | null> {
+    const name = this.fileName(placeId);
+    if (this.knownOnDisk.has(placeId)) return name;
+    if (!(await this.storage.exists('photos-google', name))) return null;
+    this.knownOnDisk.add(placeId);
+    return name;
   }
 
   /**
@@ -249,12 +212,10 @@ export class PlacePhotoCacheService implements OnModuleInit {
     return !!row;
   }
 
-  private deleteEntry(placeId: string): void {
-    try {
-      fs.unlinkSync(this.filePath(placeId));
-    } catch {
+  private async deleteEntry(placeId: string): Promise<void> {
+    await this.storage.delete('photos-google', this.fileName(placeId)).catch(() => {
       /* already gone */
-    }
+    });
     this.db.run('DELETE FROM google_place_photo_meta WHERE place_id = ?', placeId);
     this.knownOnDisk.delete(placeId);
   }
@@ -263,41 +224,37 @@ export class PlacePhotoCacheService implements OnModuleInit {
    * Drop a cache entry if no place references it anymore. Called after a place delete
    * for prompt reclamation; the nightly sweep is the catch-all for every other path.
    */
-  removeIfUnreferenced(placeId: string): void {
+  async removeIfUnreferenced(placeId: string): Promise<void> {
     if (this.isReferenced(placeId)) return;
-    this.deleteEntry(placeId);
+    await this.deleteEntry(placeId);
   }
 
   /**
    * Reclaim orphaned cache files + meta rows. Runs on startup and nightly (scheduler).
-   * Two passes: (1) meta rows no place references; (2) stray .jpg files with no meta row.
+   * Two passes: (1) meta rows no place references; (2) stray .jpg objects with no meta row.
    */
-  sweepOrphans(): number {
+  async sweepOrphans(): Promise<number> {
     let removed = 0;
 
     const rows = this.db.all<{ place_id: string }>('SELECT place_id FROM google_place_photo_meta');
     const keepFiles = new Set<string>();
     for (const { place_id } of rows) {
       if (this.isReferenced(place_id)) {
-        keepFiles.add(`${crypto.createHash('sha1').update(place_id).digest('hex')}.jpg`);
+        keepFiles.add(this.fileName(place_id));
       } else {
-        this.deleteEntry(place_id);
+        await this.deleteEntry(place_id);
         removed++;
       }
     }
 
-    // Pass 2: files on disk that no surviving meta row maps to (e.g. left over from a
-    // crash between writeFile and the DB upsert, or a meta row deleted out-of-band).
-    let entries: string[];
-    try {
-      entries = fs.readdirSync(this.photoDir);
-    } catch {
-      entries = [];
-    }
-    for (const entry of entries) {
-      if (!entry.endsWith('.jpg') || keepFiles.has(entry)) continue;
+    // Pass 2: objects that no surviving meta row maps to (e.g. left over from a
+    // crash between the object write and the DB upsert, or a meta row deleted
+    // out-of-band). list() recurses where the old readdirSync didn't — skip
+    // nested keys so a subdirectory of a relocated cache dir is never swept.
+    for await (const stat of this.storage.list('photos-google')) {
+      if (stat.key.includes('/') || !stat.key.endsWith('.jpg') || keepFiles.has(stat.key)) continue;
       try {
-        fs.unlinkSync(path.join(this.photoDir, entry));
+        await this.storage.delete('photos-google', stat.key);
         removed++;
       } catch {
         /* race */

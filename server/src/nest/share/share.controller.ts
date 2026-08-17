@@ -97,7 +97,7 @@ export class SharedController {
    */
   @Get(':token/place-photo/:placeId/bytes')
   async placePhotoBytes(@Param('token') token: string, @Param('placeId') placeId: string, @Res() res: Response): Promise<void> {
-    const key = this.share.getSharedPlacePhotoKey(token, placeId);
+    const key = await this.share.getSharedPlacePhotoKey(token, placeId);
     if (!key) {
       this.emptyPhoto(res);
       return;

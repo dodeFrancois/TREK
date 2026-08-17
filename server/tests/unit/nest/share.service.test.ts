@@ -380,29 +380,29 @@ describe('getSharedTripData', () => {
 // ── getSharedPlacePhotoKey ───────────────────────────────────────────────────
 
 describe('getSharedPlacePhotoKey', () => {
-  it('SHARE-SVC-022: returns null for an unknown or expired token', () => {
-    expect(svc.getSharedPlacePhotoKey('nope', 'ChIJabc')).toBeNull();
+  it('SHARE-SVC-022: returns null for an unknown or expired token', async () => {
+    expect(await svc.getSharedPlacePhotoKey('nope', 'ChIJabc')).toBeNull();
     const { trip, token } = seedSharedTrip();
     testDb.prepare('UPDATE share_tokens SET expires_at = ? WHERE trip_id = ?').run('2020-01-01T00:00:00.000Z', trip.id);
-    expect(svc.getSharedPlacePhotoKey(token, 'ChIJabc')).toBeNull();
+    expect(await svc.getSharedPlacePhotoKey(token, 'ChIJabc')).toBeNull();
     expect(serveKey).not.toHaveBeenCalled();
   });
 
-  it('SHARE-SVC-023: returns null when the owner disabled the map section', () => {
+  it('SHARE-SVC-023: returns null when the owner disabled the map section', async () => {
     const { trip, token } = seedSharedTrip({ share_map: false });
     const place = createPlace(testDb, trip.id);
     testDb.prepare('UPDATE places SET image_url = ? WHERE id = ?').run('/api/maps/place-photo/ChIJabc/bytes', place.id);
-    expect(svc.getSharedPlacePhotoKey(token, 'ChIJabc')).toBeNull();
+    expect(await svc.getSharedPlacePhotoKey(token, 'ChIJabc')).toBeNull();
     expect(serveKey).not.toHaveBeenCalled();
   });
 
-  it('SHARE-SVC-024: returns null when no place in the trip carries the proxy URL', () => {
+  it('SHARE-SVC-024: returns null when no place in the trip carries the proxy URL', async () => {
     const { token } = seedSharedTrip();
-    expect(svc.getSharedPlacePhotoKey(token, 'ChIJabc')).toBeNull();
+    expect(await svc.getSharedPlacePhotoKey(token, 'ChIJabc')).toBeNull();
     expect(serveKey).not.toHaveBeenCalled();
   });
 
-  it('SHARE-SVC-025: resolves via serveKey when the encoded placeId matches the stored URL', () => {
+  it('SHARE-SVC-025: resolves via serveKey when the encoded placeId matches the stored URL', async () => {
     const { trip, token } = seedSharedTrip();
     const place = createPlace(testDb, trip.id);
     // Wikimedia pseudo-IDs contain characters that must round-trip encoded.
@@ -410,7 +410,7 @@ describe('getSharedPlacePhotoKey', () => {
     testDb.prepare('UPDATE places SET image_url = ? WHERE id = ?')
       .run(`/api/maps/place-photo/${encodeURIComponent(placeId)}/bytes`, place.id);
     serveKey.mockReturnValue('abc.jpg');
-    expect(svc.getSharedPlacePhotoKey(token, placeId)).toBe('abc.jpg');
+    expect(await svc.getSharedPlacePhotoKey(token, placeId)).toBe('abc.jpg');
     expect(serveKey).toHaveBeenCalledWith(placeId);
   });
 });

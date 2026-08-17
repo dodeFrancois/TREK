@@ -52,13 +52,14 @@ import { JourneyDomainService } from '../../../src/nest/journey/journey-domain.s
 import { TrekPhotosRepository } from '../../../src/nest/photos/trek-photos.repository';
 import { RuntimeEnvService } from '../../../src/nest/app-config/runtime-env.service';
 import { notificationsStub } from '../../helpers/notifications';
+import { makeStorageFixture } from '../../helpers/storage-fixture';
 
 const dbs = new DatabaseService(testDb);
 const realtime = new RealtimeService();
 const runtimeEnv = new RuntimeEnvService();
 // One cache instance shared by maps and places, the way the container wires it:
 // the service's stampede guard only works if there is exactly one of them.
-const photoCache = new PlacePhotoCacheService(dbs, runtimeEnv);
+const photoCache = new PlacePhotoCacheService(dbs, makeStorageFixture('photos/google/').storage);
 
 const packing = new PackingService(dbs, new PermissionsService(dbs), realtime, notificationsStub());
 const places = new PlacesService(

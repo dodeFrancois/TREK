@@ -171,7 +171,7 @@ export class MapsController {
 
   @Get('place-photo/:placeId/bytes')
   async placePhotoBytes(@Param('placeId') placeId: string, @Res() res: Response): Promise<void> {
-    const key = this.maps.photoBytesKey(placeId);
+    const key = await this.maps.photoBytesKey(placeId);
     if (!key) {
       // Same reasoning as the JSON endpoint above, and the bigger half of #1727:
       // places keep this URL in image_url, so a trip render asks for one photo per

@@ -263,7 +263,7 @@ describe('MapsController (parity with the legacy /api/maps route)', () => {
     // from #1727 — an uncached photo answers 204 with an empty body instead.
     it('204 without a body when the photo is not cached', async () => {
       const res = makeRes();
-      await makeController({ photoBytesKey: () => null }).placePhotoBytes('p1', res);
+      await makeController({ photoBytesKey: async () => null }).placePhotoBytes('p1', res);
       expect(res.status).toHaveBeenCalledWith(204);
       expect(res.end).toHaveBeenCalled();
       expect(res.json).not.toHaveBeenCalled();
@@ -274,7 +274,7 @@ describe('MapsController (parity with the legacy /api/maps route)', () => {
       const stream = makeStream();
       getStream.mockResolvedValue({ stream, stat: { key: 'photos/google/abc.jpg', size: 5, mtimeMs: 0 } });
       const res = makeRes();
-      await makeController({ photoBytesKey: () => 'abc.jpg' }).placePhotoBytes('p1', res);
+      await makeController({ photoBytesKey: async () => 'abc.jpg' }).placePhotoBytes('p1', res);
       expect(res.set).toHaveBeenCalledWith('Cache-Control', 'public, max-age=2592000, immutable');
       expect(res.type).toHaveBeenCalledWith('image/jpeg');
       expect(getStream).toHaveBeenCalledWith('photos-google', 'abc.jpg');
@@ -284,7 +284,7 @@ describe('MapsController (parity with the legacy /api/maps route)', () => {
     it('falls back to an empty 204 when the stream cannot be opened (cache-delete race)', async () => {
       getStream.mockRejectedValue(new Error('storage object not found'));
       const res = makeRes();
-      await makeController({ photoBytesKey: () => 'abc.jpg' }).placePhotoBytes('p1', res);
+      await makeController({ photoBytesKey: async () => 'abc.jpg' }).placePhotoBytes('p1', res);
       expect(res.status).toHaveBeenCalledWith(204);
       expect(res.end).toHaveBeenCalled();
       // The hit path already asked for a month of immutable caching — that header
@@ -298,7 +298,7 @@ describe('MapsController (parity with the legacy /api/maps route)', () => {
       const stream = { on: vi.fn((ev: string, cb: () => void) => { if (ev === 'error') onError = cb; return stream; }), pipe: vi.fn() };
       getStream.mockResolvedValue({ stream, stat: { key: 'photos/google/abc.jpg', size: 5, mtimeMs: 0 } });
       const res = makeRes();
-      await makeController({ photoBytesKey: () => 'abc.jpg' }).placePhotoBytes('p1', res);
+      await makeController({ photoBytesKey: async () => 'abc.jpg' }).placePhotoBytes('p1', res);
       onError();
       expect(res.status).toHaveBeenCalledWith(204);
       expect(res.end).toHaveBeenCalled();
@@ -311,7 +311,7 @@ describe('MapsController (parity with the legacy /api/maps route)', () => {
       getStream.mockResolvedValue({ stream, stat: { key: 'photos/google/abc.jpg', size: 5, mtimeMs: 0 } });
       const res = makeRes();
       (res as { headersSent: boolean }).headersSent = true;
-      await makeController({ photoBytesKey: () => 'abc.jpg' }).placePhotoBytes('p1', res);
+      await makeController({ photoBytesKey: async () => 'abc.jpg' }).placePhotoBytes('p1', res);
       onError();
       expect(res.status).not.toHaveBeenCalled();
       expect(res.end).not.toHaveBeenCalled();

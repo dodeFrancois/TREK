@@ -60,7 +60,7 @@ export class PlaceEnrichmentController {
    * local — no provider is contacted, so it needs no rate limit.
    */
   @Get('credit/:key')
-  credit(@Param('key') key: string): { credit: string | null } {
+  credit(@Param('key') key: string): Promise<{ credit: string | null }> {
     return this.enrichment.credit(key);
   }
 }

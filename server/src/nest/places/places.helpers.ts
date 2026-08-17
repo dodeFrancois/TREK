@@ -101,13 +101,13 @@ export interface KmlImportOptions {
 // Reclaim a deleted place's cached marker photo if nothing else references it.
 // The cache key is the Google place_id, or — for coordinate-only places — the
 // pseudo-id embedded in the stored proxy URL (/api/maps/place-photo/{id}/bytes).
-export function reclaimPhotoCache(cache: PlacePhotoCacheService, googlePlaceId: string | null, imageUrl: string | null): void {
+export async function reclaimPhotoCache(cache: PlacePhotoCacheService, googlePlaceId: string | null, imageUrl: string | null): Promise<void> {
   const candidates = new Set<string>();
   if (googlePlaceId) candidates.add(googlePlaceId);
   const m = imageUrl?.match(/^\/api\/maps\/place-photo\/(.+)\/bytes$/);
   if (m) { try { candidates.add(decodeURIComponent(m[1])); } catch { /* malformed url */ } }
   for (const id of candidates) {
-    try { cache.removeIfUnreferenced(id); } catch { /* best-effort */ }
+    try { await cache.removeIfUnreferenced(id); } catch { /* best-effort */ }
   }
 }
 

@@ -190,8 +190,8 @@ describe('Place enrichment e2e (real auth guard + real validation pipe)', () => 
 
   it('200 with the stored credit for a cached picture', async () => {
     const photoCache = app.get(PlacePhotoCacheService);
-    vi.spyOn(photoCache, 'get').mockReturnValueOnce({
-      photoUrl: '/x', filePath: '/tmp/x', attribution: 'Alice · CC BY-SA 4.0',
+    vi.spyOn(photoCache, 'get').mockResolvedValueOnce({
+      photoUrl: '/x', attribution: 'Alice · CC BY-SA 4.0',
     });
 
     const res = await request(server)

@@ -357,7 +357,7 @@ export class PlacesService {
     return rows.map(r => r.id);
   }
 
-  remove(tripId: string, placeId: string): boolean {
+  async remove(tripId: string, placeId: string): Promise<boolean> {
     const place = this.dbs.get<{ google_place_id: string | null; image_url: string | null }>(
       'SELECT google_place_id, image_url FROM places WHERE id = ? AND trip_id = ?', placeId, tripId,
     );
@@ -369,12 +369,12 @@ export class PlacesService {
       this.dbs.run('DELETE FROM budget_items WHERE trip_id = ? AND place_id = ?', tripId, placeId);
       this.dbs.run('DELETE FROM places WHERE id = ?', placeId);
     });
-    reclaimPhotoCache(this.photoCache, place.google_place_id, place.image_url);
+    await reclaimPhotoCache(this.photoCache, place.google_place_id, place.image_url);
     reclaimPlaceImage(place.image_url);
     return true;
   }
 
-  removeMany(tripId: string, ids: number[]): number[] {
+  async removeMany(tripId: string, ids: number[]): Promise<number[]> {
     if (ids.length === 0) return [];
     const selectStmt = this.dbs.prepare('SELECT google_place_id, image_url FROM places WHERE id = ? AND trip_id = ?');
     const deleteStmt = this.dbs.prepare('DELETE FROM places WHERE id = ?');
@@ -393,7 +393,7 @@ export class PlacesService {
     });
     // Reclaim after the transaction commits so isReferenced() sees the final place set.
     for (const row of reclaimable) {
-      reclaimPhotoCache(this.photoCache, row.google_place_id, row.image_url);
+      await reclaimPhotoCache(this.photoCache, row.google_place_id, row.image_url);
       reclaimPlaceImage(row.image_url);
     }
     return deleted;

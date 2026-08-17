@@ -70,6 +70,7 @@ import { UnsplashService } from '../../src/nest/unsplash/unsplash.service';
 import { PlacePhotoCacheService } from '../../src/nest/place-photos/place-photo-cache.service';
 import { TrekPhotosRepository } from '../../src/nest/photos/trek-photos.repository';
 import { RuntimeEnvService } from '../../src/nest/app-config/runtime-env.service';
+import { makeStorageFixture } from './storage-fixture';
 
 /**
  * Hand-wired counterpart of the PluginsModule DI graph for no-Nest tests
@@ -95,7 +96,7 @@ export function createPluginRpcHostFactory(dbs: DatabaseService): PluginRpcHostF
   const collab = new CollabService(dbs, permissions, realtime, notificationsStub());
   const vacay = new VacayService(dbs, realtime, notificationsStub());
   const days = new DaysService(dbs, permissions, realtime, queryHelpers);
-  const photoCache = new PlacePhotoCacheService(dbs, new RuntimeEnvService());
+  const photoCache = new PlacePhotoCacheService(dbs, makeStorageFixture('photos/google/').storage);
   const unsplash = new UnsplashService(dbs, new RuntimeEnvService());
   const journey = new JourneyDomainService(dbs, realtime, new TrekPhotosRepository(dbs));
   const places = new PlacesService(dbs, permissions, realtime, new MapsService(dbs, photoCache), queryHelpers, unsplash, photoCache, journey);

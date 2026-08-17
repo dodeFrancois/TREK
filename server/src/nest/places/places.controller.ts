@@ -272,7 +272,7 @@ export class PlacesController {
 
   @Post('bulk-delete')
   @HttpCode(200) // Express answers bulk-delete with res.json (200), unlike the 201 imports.
-  bulkDelete(
+  async bulkDelete(
     @CurrentUser() user: User,
     @Param('tripId') tripId: string,
     @Body() body: PlaceBulkDeleteDto,
@@ -293,7 +293,7 @@ export class PlacesController {
     for (const id of scoped) this.places.onDeleted(id);
     // Read the linked expenses before the delete — afterwards the link is gone (#1298).
     const expenseIds = this.places.linkedExpenseIds(tripId, scoped);
-    const deleted = this.places.removeMany(tripId, ids);
+    const deleted = await this.places.removeMany(tripId, ids);
     for (const id of deleted) {
       this.places.broadcast(tripId, 'place:deleted', { placeId: id }, socketId);
     }
@@ -452,7 +452,7 @@ export class PlacesController {
   @Delete(':id')
   @UseGuards(TripAccessGuard)
   @RequirePermission('place_edit')
-  remove(@CurrentUser() user: User, @Param('tripId') tripId: string, @Param('id') id: string, @Headers('x-socket-id') socketId?: string) {
+  async remove(@CurrentUser() user: User, @Param('tripId') tripId: string, @Param('id') id: string, @Headers('x-socket-id') socketId?: string) {
     // Scope the id to the trip before the hook (see bulkDelete), then sync the
     // journey ahead of the actual delete.
     if (!this.places.get(tripId, id)) {
@@ -460,7 +460,7 @@ export class PlacesController {
     }
     this.places.onDeleted(Number(id));
     const expenseIds = this.places.linkedExpenseIds(tripId, [id]);
-    if (!this.places.remove(tripId, id)) {
+    if (!(await this.places.remove(tripId, id))) {
       throw new HttpException({ error: 'Place not found' }, 404);
     }
     this.places.broadcast(tripId, 'place:deleted', { placeId: Number(id) }, socketId);

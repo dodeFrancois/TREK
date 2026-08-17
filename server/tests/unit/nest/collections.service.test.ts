@@ -53,14 +53,14 @@ import { PermissionsService } from '../../../src/nest/permissions/permissions.se
 import { RealtimeService } from '../../../src/nest/realtime/realtime.service';
 import { CollectionsService } from '../../../src/nest/collections/collections.service';
 import { PlacePhotoCacheService } from '../../../src/nest/place-photos/place-photo-cache.service';
-import { RuntimeEnvService } from '../../../src/nest/app-config/runtime-env.service';
+import { makeStorageFixture } from '../../helpers/storage-fixture';
 import { PLACE_IMAGES_DIR } from '../../../src/nest/places/place-image';
 import { notificationsStub } from '../../helpers/notifications';
 
 const svc = new CollectionsService(new DatabaseService(testDb), new PermissionsService(new DatabaseService(testDb)), new RealtimeService(), notificationsStub(notifSend));
 // The real cache: these cases assert what removeIfUnreferenced actually does
 // about collection_places (#1081), so a stub would assert nothing.
-const photoCache = new PlacePhotoCacheService(new DatabaseService(testDb), new RuntimeEnvService());
+const photoCache = new PlacePhotoCacheService(new DatabaseService(testDb), makeStorageFixture('photos/google/').storage);
 const removeIfUnreferenced = (id: string) => photoCache.removeIfUnreferenced(id);
 
 function clearCollections() {
@@ -501,22 +501,22 @@ describe('owner_id semantics', () => {
 // ── Photo-cache guard ────────────────────────────────────────────────────────
 
 describe('photo-cache widening', () => {
-  it('COLLECTIONS-SVC-042: a collection_places row keeps a photo no places row references', () => {
+  it('COLLECTIONS-SVC-042: a collection_places row keeps a photo no places row references', async () => {
     const u = createUser(testDb).user;
     const col = svc.createCollection(u.id, { name: 'Photos' });
     // cache meta for place_id 'gp-x', referenced ONLY by a collection_places row.
     testDb.prepare('INSERT INTO google_place_photo_meta (place_id, attribution, fetched_at) VALUES (?, ?, ?)').run('gp-x', null, Date.now());
     svc.savePlace(u.id, { collection_id: col.id, name: 'Cached', google_place_id: 'gp-x' });
 
-    removeIfUnreferenced('gp-x'); // would evict if isReferenced ignored collection_places
+    await removeIfUnreferenced('gp-x'); // would evict if isReferenced ignored collection_places
 
     const meta = testDb.prepare('SELECT 1 FROM google_place_photo_meta WHERE place_id = ?').get('gp-x');
     expect(meta).toBeDefined();
   });
 
-  it('COLLECTIONS-SVC-043: an unreferenced photo is still reclaimable', () => {
+  it('COLLECTIONS-SVC-043: an unreferenced photo is still reclaimable', async () => {
     testDb.prepare('INSERT INTO google_place_photo_meta (place_id, attribution, fetched_at) VALUES (?, ?, ?)').run('gp-orphan', null, Date.now());
-    removeIfUnreferenced('gp-orphan');
+    await removeIfUnreferenced('gp-orphan');
     const meta = testDb.prepare('SELECT 1 FROM google_place_photo_meta WHERE place_id = ?').get('gp-orphan');
     expect(meta).toBeUndefined();
   });

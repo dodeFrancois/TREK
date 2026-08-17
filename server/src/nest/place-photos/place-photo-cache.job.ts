@@ -20,13 +20,15 @@ export class PlacePhotoCacheJob implements OnApplicationBootstrap {
   onApplicationBootstrap(): void {
     if (!this.registrar.isEnabled()) return;
     // Run once on startup to reclaim orphans left over from before this sweeper existed.
-    this.sweep();
-    this.registrar.register('place-photo-cache', '30 3 * * *', () => this.sweep());
+    void this.sweep();
+    this.registrar.register('place-photo-cache', '30 3 * * *', () => {
+      void this.sweep();
+    });
   }
 
-  sweep(): void {
+  async sweep(): Promise<void> {
     try {
-      const removed = this.cache.sweepOrphans();
+      const removed = await this.cache.sweepOrphans();
       if (removed > 0) logInfo(`Place-photo cache cleanup: removed ${removed} orphaned file(s)/row(s)`);
     } catch (err: unknown) {
       logError(`Place-photo cache cleanup: ${err instanceof Error ? err.message : err}`);

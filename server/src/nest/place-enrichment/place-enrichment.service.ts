@@ -269,7 +269,7 @@ export class PlaceEnrichmentService {
     const placeId = req.placeId?.trim() || `coords:${req.lat}:${req.lng}`;
     const lang = req.lang;
 
-    const cached = this.readCache(placeId, lang);
+    const cached = await this.readCache(placeId, lang);
     if (cached) return cached;
 
     // One details lookup feeds all three halves: the pictures need its Commons
@@ -318,8 +318,8 @@ export class PlaceEnrichmentService {
    * obligation does not end there — the place inspector reads this so a picture
    * that was chosen weeks ago still names whoever made it.
    */
-  credit(key: string): { credit: string | null } {
-    return { credit: this.photoCache.get(key)?.attribution ?? null };
+  async credit(key: string): Promise<{ credit: string | null }> {
+    return { credit: (await this.photoCache.get(key))?.attribution ?? null };
   }
 
   /**
@@ -492,7 +492,7 @@ export class PlaceEnrichmentService {
     credit: string | null,
     fetchBytes: () => Promise<Buffer | null>,
   ): Promise<string | null> {
-    const hit = this.photoCache.get(key);
+    const hit = await this.photoCache.get(key);
     if (hit) return hit.photoUrl;
 
     const bytes = await withPhotoFetchSlot(fetchBytes);
@@ -662,7 +662,7 @@ export class PlaceEnrichmentService {
 
   // ── Result cache ───────────────────────────────────────────────────────────
 
-  private readCache(placeId: string, lang: string | undefined): CachedEnrichment | null {
+  private async readCache(placeId: string, lang: string | undefined): Promise<CachedEnrichment | null> {
     try {
       const row = this.database.get<{ payload_json: string; fetched_at: number }>(
         'SELECT payload_json, fetched_at FROM place_details_cache WHERE place_id = ? AND lang = ? AND expanded = ?',
@@ -679,7 +679,8 @@ export class PlaceEnrichmentService {
       // them. Treat any loss as a stale entry and rebuild, rather than serving
       // the survivors: filtering alone would leave the column empty for the rest
       // of the week for a place that has pictures perfectly available.
-      const photos = parsed.photos.filter((photo) => this.photoCache.get(photo.key));
+      const checks = await Promise.all(parsed.photos.map((photo) => this.photoCache.get(photo.key)));
+      const photos = parsed.photos.filter((_, i) => checks[i]);
       if (photos.length !== parsed.photos.length) return null;
 
       const value: CachedEnrichment = {
