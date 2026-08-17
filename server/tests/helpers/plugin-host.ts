@@ -98,7 +98,7 @@ export function createPluginRpcHostFactory(dbs: DatabaseService): PluginRpcHostF
   const days = new DaysService(dbs, permissions, realtime, queryHelpers);
   const photoCache = new PlacePhotoCacheService(dbs, makeStorageFixture('photos/google/').storage);
   const generalStorage = makeStorageFixture('').storage;
-  const unsplash = new UnsplashService(dbs, new RuntimeEnvService());
+  const unsplash = new UnsplashService(dbs, new RuntimeEnvService(), generalStorage);
   const journey = new JourneyDomainService(dbs, realtime, new TrekPhotosRepository(dbs));
   const places = new PlacesService(dbs, permissions, realtime, new MapsService(dbs, photoCache), queryHelpers, unsplash, photoCache, journey, generalStorage);
   const collections = new CollectionsService(dbs, permissions, realtime, notificationsStub(), generalStorage);
@@ -110,7 +110,7 @@ export function createPluginRpcHostFactory(dbs: DatabaseService): PluginRpcHostF
   const llmConfig = new LlmConfigResolver(new SettingsService(dbs), dbs, addons);
   const oauth = new PluginOAuthService(dbs);
   const accommodations = new AccommodationsService(dbs, permissions, realtime);
-  const trips = new TripsService(dbs, reservations, days, permissions, budget, vacay, realtime, unsplash);
+  const trips = new TripsService(dbs, reservations, days, permissions, budget, vacay, realtime, unsplash, generalStorage);
   const members = new TripMembersService(dbs, budget, new UserCleanupService(dbs, budget), permissions, realtime, notificationsStub());
   const guards = new PluginGuards(dbs, permissions, addons);
 

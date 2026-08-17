@@ -82,6 +82,7 @@ import { RuntimeEnvService } from '../../../src/nest/app-config/runtime-env.serv
 import { makeStorageFixture } from '../../helpers/storage-fixture';
 import { QueryHelpersService } from '../../../src/nest/query-helpers/query-helpers.service';
 import fs from 'fs';
+import path from 'path';
 import { notificationsStub } from '../../helpers/notifications';
 import { EphemeralTokenService } from '../../../src/nest/auth/ephemeral-token.service';
 
@@ -98,13 +99,14 @@ const daysSvc = new DaysService(dbs(), new PermissionsService(dbs()), new Realti
 // One PlacePhotoCacheService for both PlacesService and MapsService, matching
 // production, where the in-flight dedup only works on a shared instance.
 const photoCache = new PlacePhotoCacheService(dbs(), makeStorageFixture('photos/google/').storage);
+const coversFx = makeStorageFixture('covers/');
 const placesSvc = new PlacesService(
   dbs(),
   new PermissionsService(dbs()),
   new RealtimeService(),
   new MapsService(dbs(), photoCache),
   new QueryHelpersService(dbs()),
-  new UnsplashService(dbs(), new RuntimeEnvService()),
+  new UnsplashService(dbs(), new RuntimeEnvService(), coversFx.storage),
   photoCache,
   new JourneyDomainService(dbs(), new RealtimeService(), new TrekPhotosRepository(dbs())),
   makeStorageFixture('').storage,
@@ -121,6 +123,7 @@ const svc = new TripsService(
   new VacayService(dbs(), new RealtimeService(), notificationsStub()),
   new RealtimeService(),
   undefined as never, // unsplash — not exercised here
+  coversFx.storage,
 );
 const membersSvc = new TripMembersService(dbs(), budgetSvc, new UserCleanupService(dbs(), budgetSvc), new PermissionsService(dbs()), new RealtimeService(), notificationsStub());
 const readModelSvc = new TripReadModelService(
@@ -372,38 +375,39 @@ describe('generateDays', () => {
 // ── deleteOldCover — path containment ──────────────────────────────────────────
 
 describe('deleteOldCover', () => {
-  it('TRIP-SVC-COVER-001: never unlinks outside uploads/covers for a crafted cover_image', () => {
-    const existsSpy = vi.spyOn(fs, 'existsSync').mockReturnValue(true);
-    const unlinkSpy = vi.spyOn(fs, 'unlinkSync').mockImplementation(() => {});
-    try {
-      // Attacker-controlled values aimed at auth-gated sibling upload dirs.
-      svc.deleteOldCover('/uploads/files/victim.pdf');
-      svc.deleteOldCover('/uploads/covers/../files/secret.pdf');
-      svc.deleteOldCover('/uploads/avatars/someone.png');
+  it('TRIP-SVC-COVER-001: never deletes outside the covers category for a crafted cover_image', async () => {
+    // Attacker-controlled values aimed at auth-gated sibling upload dirs — the
+    // basename + category addressing keeps every delete inside covers/.
+    const filesDir = path.join(coversFx.root, 'files');
+    const avatarsDir = path.join(coversFx.root, 'avatars');
+    fs.mkdirSync(filesDir, { recursive: true });
+    fs.mkdirSync(avatarsDir, { recursive: true });
+    const secret = path.join(filesDir, 'secret.pdf');
+    const someone = path.join(avatarsDir, 'someone.png');
+    fs.writeFileSync(secret, 'pdf');
+    fs.writeFileSync(someone, 'png');
 
-      for (const call of unlinkSpy.mock.calls) {
-        const target = String(call[0]);
-        expect(target).toMatch(/[\\/]uploads[\\/]covers[\\/]/); // stays in covers
-        expect(target).not.toMatch(/[\\/]files[\\/]/);
-        expect(target).not.toMatch(/[\\/]avatars[\\/]/);
-      }
-    } finally {
-      existsSpy.mockRestore();
-      unlinkSpy.mockRestore();
-    }
+    await svc.deleteOldCover('/uploads/files/secret.pdf');
+    await svc.deleteOldCover('/uploads/covers/../files/secret.pdf');
+    await svc.deleteOldCover('/uploads/avatars/someone.png');
+
+    expect(fs.existsSync(secret)).toBe(true);
+    expect(fs.existsSync(someone)).toBe(true);
   });
 
-  it('TRIP-SVC-COVER-002: deletes a legitimate cover file', () => {
-    const existsSpy = vi.spyOn(fs, 'existsSync').mockReturnValue(true);
-    const unlinkSpy = vi.spyOn(fs, 'unlinkSync').mockImplementation(() => {});
-    try {
-      svc.deleteOldCover('/uploads/covers/abc123.jpg');
-      expect(unlinkSpy).toHaveBeenCalledTimes(1);
-      expect(String(unlinkSpy.mock.calls[0][0])).toMatch(/[\\/]covers[\\/]abc123\.jpg$/);
-    } finally {
-      existsSpy.mockRestore();
-      unlinkSpy.mockRestore();
-    }
+  it('TRIP-SVC-COVER-002: deletes a legitimate cover file', async () => {
+    const coversDir = path.join(coversFx.root, 'covers');
+    fs.mkdirSync(coversDir, { recursive: true });
+    const cover = path.join(coversDir, 'abc123.jpg');
+    fs.writeFileSync(cover, 'jpeg');
+
+    await svc.deleteOldCover('/uploads/covers/abc123.jpg');
+    expect(fs.existsSync(cover)).toBe(false);
+  });
+
+  it('TRIP-SVC-COVER-003: an external https cover URL is tolerated (no throw)', async () => {
+    await expect(svc.deleteOldCover('https://example.com/some/pic.jpg')).resolves.toBeUndefined();
+    await expect(svc.deleteOldCover(null)).resolves.toBeUndefined();
   });
 });
 
@@ -1017,6 +1021,7 @@ describe('quirk fixes', () => {
       new VacayService(dbs(), new RealtimeService(), notificationsStub()),
       new RealtimeService(),
       undefined as never,
+      coversFx.storage,
     );
   }
 

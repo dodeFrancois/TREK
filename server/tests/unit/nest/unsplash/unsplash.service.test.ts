@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import os from 'os';
 import fs from 'fs';
 import path from 'path';
 
@@ -17,9 +16,11 @@ import { UnsplashService } from '../../../../src/nest/unsplash/unsplash.service'
 import { DatabaseService } from '../../../../src/nest/database/database.service';
 import { RuntimeEnvService } from '../../../../src/nest/app-config/runtime-env.service';
 import { db } from '../../../../src/db/database';
+import { makeStorageFixture } from '../../../helpers/storage-fixture';
 
 // Same four entry points, now methods. The db mock above still feeds them.
-const svc = new UnsplashService(new DatabaseService(db), new RuntimeEnvService());
+const coverFx = makeStorageFixture('covers/');
+const svc = new UnsplashService(new DatabaseService(db), new RuntimeEnvService(), coverFx.storage);
 const searchUnsplashPhotos = svc.searchUnsplashPhotos.bind(svc);
 const getUnsplashKey = svc.getUnsplashKey.bind(svc);
 const saveUnsplashCover = svc.saveUnsplashCover.bind(svc);
@@ -130,33 +131,37 @@ describe('unsplashService.getUnsplashKey', () => {
 });
 
 describe('unsplashService.saveUnsplashCover', () => {
-  const dir = path.join(os.tmpdir(), 'trek-unsplash-cover-test');
-  afterEach(() => { try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* ignore */ } });
+  const coversDir = path.join(coverFx.root, 'covers');
+  const writtenCovers = () => (fs.existsSync(coversDir) ? fs.readdirSync(coversDir) : []);
+  afterEach(() => { try { fs.rmSync(coversDir, { recursive: true, force: true }); } catch { /* ignore */ } });
 
   it('UNSPLASH-005: rejects a non-Unsplash host before any fetch', async () => {
-    await expect(saveUnsplashCover('https://evil.example.com/x.jpg', dir)).rejects.toThrow('Not an Unsplash image URL');
+    await expect(saveUnsplashCover('https://evil.example.com/x.jpg')).rejects.toThrow('Not an Unsplash image URL');
     expect(safeFetch).not.toHaveBeenCalled();
   });
 
-  it('UNSPLASH-006: downloads an Unsplash image and writes it locally', async () => {
+  it('UNSPLASH-006: downloads an Unsplash image and stores it under covers', async () => {
     safeFetch.mockResolvedValue(fakeRes({ ok: true, type: 'image/jpeg', bytes: 1234 }));
-    const filename = await saveUnsplashCover('https://images.unsplash.com/photo-1?w=1080', dir);
+    const filename = await saveUnsplashCover('https://images.unsplash.com/photo-1?w=1080');
     expect(filename).toMatch(/\.jpg$/);
-    expect(fs.existsSync(path.join(dir, filename))).toBe(true);
+    expect(fs.existsSync(path.join(coversDir, filename))).toBe(true);
   });
 
-  it('UNSPLASH-007: rejects an unsupported content type', async () => {
+  it('UNSPLASH-007: rejects an unsupported content type without writing', async () => {
     safeFetch.mockResolvedValue(fakeRes({ ok: true, type: 'text/html' }));
-    await expect(saveUnsplashCover('https://images.unsplash.com/photo-1', dir)).rejects.toThrow(/Unsupported cover image type/);
+    await expect(saveUnsplashCover('https://images.unsplash.com/photo-1')).rejects.toThrow(/Unsupported cover image type/);
+    expect(writtenCovers()).toEqual([]);
   });
 
-  it('UNSPLASH-008: rejects an oversized image', async () => {
+  it('UNSPLASH-008: rejects an oversized image without writing', async () => {
     safeFetch.mockResolvedValue(fakeRes({ ok: true, type: 'image/png', bytes: 16 * 1024 * 1024 }));
-    await expect(saveUnsplashCover('https://images.unsplash.com/photo-1', dir)).rejects.toThrow('Cover image too large');
+    await expect(saveUnsplashCover('https://images.unsplash.com/photo-1')).rejects.toThrow('Cover image too large');
+    expect(writtenCovers()).toEqual([]);
   });
 
   it('UNSPLASH-009: throws when the download fails', async () => {
     safeFetch.mockResolvedValue(fakeRes({ ok: false, status: 404 }));
-    await expect(saveUnsplashCover('https://images.unsplash.com/photo-1', dir)).rejects.toThrow(/HTTP 404/);
+    await expect(saveUnsplashCover('https://images.unsplash.com/photo-1')).rejects.toThrow(/HTTP 404/);
+    expect(writtenCovers()).toEqual([]);
   });
 });

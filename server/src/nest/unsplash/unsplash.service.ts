@@ -1,11 +1,11 @@
-import path from 'path';
-import fs from 'fs';
+import { Readable } from 'node:stream';
 import { v4 as uuidv4 } from 'uuid';
 import { Injectable } from '@nestjs/common';
 import { safeFetch } from '../../utils/ssrfGuard';
 import { decrypt_api_key } from '../common/crypto/apiKeyCrypto';
 import { DatabaseService } from '../database/database.service';
 import { RuntimeEnvService } from '../app-config/runtime-env.service';
+import { StorageService } from '../storage/storage.service';
 
 interface UnsplashSearchResponse {
   results?: {
@@ -50,6 +50,7 @@ export class UnsplashService {
   constructor(
     private readonly db: DatabaseService,
     private readonly env: RuntimeEnvService,
+    private readonly storage: StorageService,
   ) {}
 
   /**
@@ -138,13 +139,14 @@ export class UnsplashService {
 }
 
 /**
- * Download a chosen Unsplash cover from its CDN into destDir so the cover is
- * stored locally (offline + CDN link-rot safe) instead of hot-linked. Only the
- * Unsplash image CDN host is accepted, and the request goes through the SSRF
- * guard. Returns the saved filename. Throws on a non-Unsplash host, a failed
- * download, an unsupported content type, or an oversized image.
+ * Download a chosen Unsplash cover from its CDN into the 'covers' storage
+ * category so the cover is stored locally (offline + CDN link-rot safe)
+ * instead of hot-linked. Only the Unsplash image CDN host is accepted, and the
+ * request goes through the SSRF guard. Returns the saved filename. Throws on a
+ * non-Unsplash host, a failed download, an unsupported content type, or an
+ * oversized image — validation runs before any write.
  */
-  async saveUnsplashCover(url: string, destDir: string): Promise<string> {
+  async saveUnsplashCover(url: string): Promise<string> {
     if (!this.isUnsplashCoverUrl(url)) throw new Error('Not an Unsplash image URL');
   const res = await safeFetch(url);
   if (!res.ok) throw new Error(`Unsplash image download failed (HTTP ${res.status})`);
@@ -153,9 +155,8 @@ export class UnsplashService {
   if (!ext) throw new Error(`Unsupported cover image type: ${type || 'unknown'}`);
   const buf = Buffer.from(await res.arrayBuffer());
   if (buf.byteLength > MAX_COVER_BYTES) throw new Error('Cover image too large');
-  if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
   const filename = `${uuidv4()}${ext}`;
-  fs.writeFileSync(path.join(destDir, filename), buf);
+  await this.storage.put('covers', filename, Readable.from(buf));
   return filename;
 }
 }

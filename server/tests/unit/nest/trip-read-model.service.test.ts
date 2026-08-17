@@ -88,7 +88,7 @@ const photoCache = new PlacePhotoCacheService(dbs(), makeStorageFixture('photos/
 const placesSvc = new PlacesService(
   dbs(), new PermissionsService(dbs()), new RealtimeService(),
   new MapsService(dbs(), photoCache), new QueryHelpersService(dbs()),
-  new UnsplashService(dbs(), new RuntimeEnvService()), photoCache,
+  new UnsplashService(dbs(), new RuntimeEnvService(), makeStorageFixture('').storage), photoCache,
   new JourneyDomainService(dbs(), new RealtimeService(), new TrekPhotosRepository(dbs())),
   makeStorageFixture('').storage,
 );

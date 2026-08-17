@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { UnsplashService } from './unsplash.service';
 import { AppConfigModule } from '../app-config/app-config.module';
+import { StorageModule } from '../storage/storage.module';
 
 /** Unsplash cover search and download. No controller of its own — trips and
  *  places both reach it. Deliberately NOT @Global, matching PermissionsModule:
@@ -8,7 +9,7 @@ import { AppConfigModule } from '../app-config/app-config.module';
  *  AppConfigModule is imported explicitly because @Global only applies to
  *  modules that are in the graph, which a single-domain TestingModule is not. */
 @Module({
-  imports: [AppConfigModule],
+  imports: [AppConfigModule, StorageModule],
   providers: [UnsplashService],
   exports: [UnsplashService],
 })

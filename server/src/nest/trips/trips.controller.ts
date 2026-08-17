@@ -40,7 +40,6 @@ import { TripReadModelService } from '../trip-read-model/trip-read-model.service
 export const MAX_COVER_SIZE = 20 * 1024 * 1024;
 // Still needed by the Unsplash cover download (a raw-fs writer until the
 // caches/downloads slice); the multer destination moved to the storage spool.
-const coversDir = path.join(__dirname, '../../../uploads/covers');
 // Consumed by trips.module.ts's MulterModule factory. Quirk preserved on
 // purpose: a plain Error without statusCode maps to 500, not 400 (parity).
 export const TRIP_COVER_FILE_FILTER: Options['fileFilter'] = (_req, file, cb) => {
@@ -154,7 +153,7 @@ export class TripsController {
     // it into uploads/covers so the cover survives offline + CDN link-rot (#1277).
     if (this.unsplash.isUnsplashCoverUrl(body.cover_image)) {
       try {
-        const filename = await this.unsplash.saveUnsplashCover(body.cover_image, coversDir);
+        const filename = await this.unsplash.saveUnsplashCover(body.cover_image);
         body.cover_image = `/uploads/covers/${filename}`;
       } catch (e) {
         console.error('Unsplash cover download failed:', e);
@@ -167,7 +166,7 @@ export class TripsController {
     try {
       const result = await this.trips.update(id, user.id, body, user.role);
       if (body.cover_image !== undefined && body.cover_image !== oldCover) {
-        this.trips.deleteOldCover(oldCover);
+        await this.trips.deleteOldCover(oldCover);
       }
       if (Object.keys(result.changes).length > 0) {
         this.audit.writeAudit({ userId: user.id, action: 'trip.update', ip: getClientIp(req), details: { tripId: Number(id), trip: result.newTitle, ...(result.ownerEmail ? { owner: result.ownerEmail } : {}), ...result.changes } });
@@ -209,7 +208,7 @@ export class TripsController {
     // Commit the spooled upload to its final storage location (atomic
     // same-volume rename) before anything references the final path.
     await this.storage.put('covers', file.filename, { tmpPath: file.path });
-    this.trips.deleteOldCover(trip.cover_image);
+    await this.trips.deleteOldCover(trip.cover_image);
     const coverUrl = `/uploads/covers/${file.filename}`;
     this.trips.updateCoverImage(id, coverUrl);
     return { cover_image: coverUrl };

@@ -123,7 +123,7 @@ export function createMcpTestRegistry(): McpRegistry {
   // includes `src`, so nothing here is typechecked; pass them for real.
   const placesService = new PlacesService(
     dbService, permissionsService, realtimeService, mapsService, queryHelpersService,
-    new UnsplashService(dbService, new RuntimeEnvService()),
+    new UnsplashService(dbService, new RuntimeEnvService(), generalStorage),
     placePhotoCache,
     journeyDomain,
     generalStorage,
@@ -139,7 +139,8 @@ export function createMcpTestRegistry(): McpRegistry {
     budgetService,
     new VacayService(dbService, realtimeService, notificationsStub()),
     realtimeService,
-    new UnsplashService(dbService, new RuntimeEnvService()),
+    new UnsplashService(dbService, new RuntimeEnvService(), generalStorage),
+    generalStorage,
   );
   const readModelService = new TripReadModelService(
     dbService, membersService, daysService, accommodationsService, budgetService,

@@ -100,7 +100,7 @@ function makePlacesService(maps: MapsService = new MapsService(dbs, photoCacheSt
     new RealtimeService(),
     maps,
     new QueryHelpersService(dbs),
-    new UnsplashService(dbs, new RuntimeEnvService()),
+    new UnsplashService(dbs, new RuntimeEnvService(), placesStorageFx.storage),
     photoCacheStub,
     new JourneyDomainService(dbs, new RealtimeService(), new TrekPhotosRepository(dbs)),
     placesStorageFx.storage,

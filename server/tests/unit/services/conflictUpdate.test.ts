@@ -68,7 +68,7 @@ const places = new PlacesService(
   realtime,
   new MapsService(dbs, photoCache),
   new QueryHelpersService(dbs),
-  new UnsplashService(dbs, runtimeEnv),
+  new UnsplashService(dbs, runtimeEnv, makeStorageFixture('').storage),
   photoCache,
   new JourneyDomainService(dbs, realtime, new TrekPhotosRepository(dbs)),
   makeStorageFixture('').storage,

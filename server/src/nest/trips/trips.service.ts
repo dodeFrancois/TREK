@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import path from 'path';
-import fs from 'fs';
 import { DatabaseService } from '../database/database.service';
 import type { ActiveTrip, TrekWsPayload, TrekWsTripEventName } from '@trek/shared';
 import { RealtimeService } from '../realtime/realtime.service';
@@ -11,6 +10,7 @@ import { BudgetService } from '../budget/budget.service';
 import { ReservationsService } from '../reservations/reservations.service';
 import { VacayService } from '../vacay/vacay.service';
 import { UnsplashService } from '../unsplash/unsplash.service';
+import { StorageService } from '../storage/storage.service';
 import { NotFoundError, ValidationError } from '../common/domain-errors';
 
 export const MS_PER_DAY = 86400000;
@@ -146,6 +146,7 @@ export class TripsService {
     private readonly vacay: VacayService,
     private readonly realtime: RealtimeService,
     private readonly unsplash: UnsplashService,
+    private readonly storage: StorageService,
   ) {}
 
   private get db() {
@@ -499,17 +500,15 @@ export class TripsService {
 
   // ── Cover image ───────────────────────────────────────────────────────────
 
-  deleteOldCover(coverImage: string | null | undefined): void {
+  async deleteOldCover(coverImage: string | null | undefined): Promise<void> {
     if (!coverImage) return;
-    // cover_image is client-supplied, so treat it as untrusted: covers live in
-    // uploads/covers as a flat filename — use basename() and confine the unlink
-    // to that directory. (dist/nest/trips is one level deeper than the legacy
-    // dist/services home, hence the extra '..' — same resolved directory.)
-    const coversDir = path.resolve(__dirname, '../../../uploads/covers');
-    const resolvedPath = path.resolve(path.join(coversDir, path.basename(coverImage)));
-    if (resolvedPath.startsWith(coversDir + path.sep) && fs.existsSync(resolvedPath)) {
-      fs.unlinkSync(resolvedPath);
-    }
+    // cover_image is client-supplied, so treat it as untrusted: covers are flat
+    // filenames in the 'covers' category — basename() confines the delete to
+    // it, and central key validation rejects anything hostile (swallowed like
+    // the old containment guard; an external https URL is likewise a no-op).
+    await this.storage.delete('covers', path.basename(coverImage)).catch(() => {
+      /* external URL or already gone */
+    });
   }
 
   updateCoverImage(tripId: string | number, coverUrl: string): void {
