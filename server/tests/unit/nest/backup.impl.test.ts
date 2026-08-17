@@ -1258,9 +1258,10 @@ describe('BACKUP-046 restoreFromZip — uploads rehydration through storage', ()
           if (category === 'journey') yield { key: 'thumbs/old.jpg', size: 1, mtimeMs: 0 };
         })(),
       ),
-      delete: vi.fn(async (_c: string, key: string) => {
-        if (key === 'old.bin') return;
-        throw new Error('EACCES');
+      delete: vi.fn(async (category: string) => {
+        // one category's wipe fails — swallowed per-file, exactly like the old
+        // unlink loop (exercises the best-effort .catch)
+        if (category === 'covers') throw new Error('EACCES');
       }),
     });
 
@@ -1340,6 +1341,18 @@ describe('BACKUP-063 restoreBackup', () => {
 
     await expect(restoreBackup(storage, 'backup-2026-01-01T00-00-00.zip')).resolves.toEqual({ success: true });
     expect(storage.withLocalFile).toHaveBeenCalledWith('backups', 'backup-2026-01-01T00-00-00.zip', expect.any(Function));
+  });
+
+  it('BACKUP-063b — the local path handed back by storage feeds the restore core', async () => {
+    // The default stub invokes the callback with a local path; the restore core
+    // runs against it for real (empty archive → travel.db missing → 400 result).
+    fsMock.existsSync.mockReturnValue(false);
+    unzipperMock.Open.file.mockResolvedValue({ files: [] });
+    const storage = stubStorage();
+
+    const result = await restoreBackup(storage, 'backup-2026-01-01T00-00-00.zip');
+
+    expect(result).toEqual({ success: false, error: 'Invalid backup: travel.db not found', status: 400 });
   });
 });
 
