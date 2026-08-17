@@ -54,10 +54,10 @@ import { RealtimeService } from '../../../src/nest/realtime/realtime.service';
 import { CollectionsService } from '../../../src/nest/collections/collections.service';
 import { PlacePhotoCacheService } from '../../../src/nest/place-photos/place-photo-cache.service';
 import { makeStorageFixture } from '../../helpers/storage-fixture';
-import { PLACE_IMAGES_DIR } from '../../../src/nest/places/place-image';
 import { notificationsStub } from '../../helpers/notifications';
 
-const svc = new CollectionsService(new DatabaseService(testDb), new PermissionsService(new DatabaseService(testDb)), new RealtimeService(), notificationsStub(notifSend));
+const storageFx = makeStorageFixture('');
+const svc = new CollectionsService(new DatabaseService(testDb), new PermissionsService(new DatabaseService(testDb)), new RealtimeService(), notificationsStub(notifSend), storageFx.storage);
 // The real cache: these cases assert what removeIfUnreferenced actually does
 // about collection_places (#1081), so a stub would assert nothing.
 const photoCache = new PlacePhotoCacheService(new DatabaseService(testDb), makeStorageFixture('photos/google/').storage);
@@ -222,7 +222,7 @@ describe('status + updatePlace move', () => {
     expect(svc.setStatus(u.id, p.id, 'visited').status).toBe('visited');
   });
 
-  it('COLLECTIONS-SVC-017: updatePlace moves to another list (asserts access on target, resets owner_id)', () => {
+  it('COLLECTIONS-SVC-017: updatePlace moves to another list (asserts access on target, resets owner_id)', async () => {
     const owner = createUser(testDb).user;
     const a = svc.createCollection(owner.id, { name: 'A' });
     const targetOwner = createUser(testDb).user;
@@ -231,38 +231,38 @@ describe('status + updatePlace move', () => {
     testDb.prepare("INSERT INTO collection_members (collection_id, user_id, status) VALUES (?, ?, 'accepted')").run(b.id, owner.id);
 
     const p = svc.savePlace(owner.id, { collection_id: a.id, name: 'Movable' }).place!;
-    const moved = svc.updatePlace(owner.id, p.id, { collection_id: b.id });
+    const moved = await svc.updatePlace(owner.id, p.id, { collection_id: b.id });
     expect(moved.collection_id).toBe(b.id);
     const row = testDb.prepare('SELECT owner_id FROM collection_places WHERE id = ?').get(p.id) as { owner_id: number };
     expect(row.owner_id).toBe(targetOwner.id); // reset to the target collection's owner
   });
 
-  it('COLLECTIONS-SVC-018: updatePlace move to an inaccessible target is rejected', () => {
+  it('COLLECTIONS-SVC-018: updatePlace move to an inaccessible target is rejected', async () => {
     const owner = createUser(testDb).user;
     const a = svc.createCollection(owner.id, { name: 'A' });
     const stranger = createUser(testDb).user;
     const b = svc.createCollection(stranger.id, { name: 'B' });
     const p = svc.savePlace(owner.id, { collection_id: a.id, name: 'X' }).place!;
-    expect(() => svc.updatePlace(owner.id, p.id, { collection_id: b.id })).toThrow();
+    await expect(svc.updatePlace(owner.id, p.id, { collection_id: b.id })).rejects.toThrow();
   });
 
   // #1870: the address column was missing from the UPDATE set, so a typo or a
   // moved restaurant could only be fixed by deleting and re-adding the place.
-  it('COLLECTIONS-SVC-019: updatePlace corrects the address and clears it with null', () => {
+  it('COLLECTIONS-SVC-019: updatePlace corrects the address and clears it with null', async () => {
     const u = createUser(testDb).user;
     const col = svc.createCollection(u.id, { name: 'Rome' });
     const p = svc.savePlace(u.id, { collection_id: col.id, name: 'Trattoria', address: 'Via Vechia 1' }).place!;
 
-    expect(svc.updatePlace(u.id, p.id, { address: 'Via Nuova 1' }).address).toBe('Via Nuova 1');
-    expect(svc.updatePlace(u.id, p.id, { address: null }).address).toBeNull();
+    expect((await svc.updatePlace(u.id, p.id, { address: 'Via Nuova 1' })).address).toBe('Via Nuova 1');
+    expect((await svc.updatePlace(u.id, p.id, { address: null })).address).toBeNull();
   });
 
-  it('COLLECTIONS-SVC-019b: an update without an address leaves the stored one alone', () => {
+  it('COLLECTIONS-SVC-019b: an update without an address leaves the stored one alone', async () => {
     const u = createUser(testDb).user;
     const col = svc.createCollection(u.id, { name: 'Rome' });
     const p = svc.savePlace(u.id, { collection_id: col.id, name: 'Trattoria', address: 'Via Vechia 1' }).place!;
 
-    expect(svc.updatePlace(u.id, p.id, { name: 'Trattoria da Enzo' }).address).toBe('Via Vechia 1');
+    expect((await svc.updatePlace(u.id, p.id, { name: 'Trattoria da Enzo' })).address).toBe('Via Vechia 1');
   });
 });
 
@@ -329,14 +329,14 @@ describe('copyToTrip', () => {
 // ── delete + delete-many ─────────────────────────────────────────────────────
 
 describe('delete places', () => {
-  it('COLLECTIONS-SVC-024: deletePlace + deletePlacesMany assert access', () => {
+  it('COLLECTIONS-SVC-024: deletePlace + deletePlacesMany assert access', async () => {
     const u = createUser(testDb).user;
     const col = svc.createCollection(u.id, { name: 'D' });
     const p1 = svc.savePlace(u.id, { collection_id: col.id, name: 'A' }).place!;
     const p2 = svc.savePlace(u.id, { collection_id: col.id, name: 'B' }).place!;
-    svc.deletePlace(u.id, p1.id);
+    await svc.deletePlace(u.id, p1.id);
     expect(testDb.prepare('SELECT COUNT(*) n FROM collection_places WHERE collection_id = ?').get(col.id)).toEqual({ n: 1 });
-    expect(svc.deletePlacesMany(u.id, [p2.id])).toEqual([p2.id]);
+    expect(await svc.deletePlacesMany(u.id, [p2.id])).toEqual([p2.id]);
     expect(testDb.prepare('SELECT COUNT(*) n FROM collection_places WHERE collection_id = ?').get(col.id)).toEqual({ n: 0 });
   });
 });
@@ -553,14 +553,14 @@ describe('collection labels', () => {
     expect(svc.createLabel(editor.id, col.id, 'Museums').id).toBeGreaterThan(0);
   });
 
-  it('COLLECTIONS-SVC-052: updatePlace label_ids sets labels; a label from another list is ignored', () => {
+  it('COLLECTIONS-SVC-052: updatePlace label_ids sets labels; a label from another list is ignored', async () => {
     const u = createUser(testDb).user;
     const col = svc.createCollection(u.id, { name: 'DE' });
     const other = svc.createCollection(u.id, { name: 'Other' });
     const l1 = svc.createLabel(u.id, col.id, 'Berlin');
     const foreign = svc.createLabel(u.id, other.id, 'Paris');
     const place = svc.savePlace(u.id, { collection_id: col.id, name: 'Gate' }).place!;
-    svc.updatePlace(u.id, place.id, { label_ids: [l1.id, foreign.id] });
+    await svc.updatePlace(u.id, place.id, { label_ids: [l1.id, foreign.id] });
     const stored = svc.getCollection(u.id, col.id).places.find(p => p.id === place.id)!;
     expect(stored.label_ids).toEqual([l1.id]);
   });
@@ -581,27 +581,27 @@ describe('collection labels', () => {
     expect(after.find(p => p.id === p2.id)!.label_ids).toEqual([l.id]);
   });
 
-  it('COLLECTIONS-SVC-054: deleteLabel removes it and cascades its place assignments', () => {
+  it('COLLECTIONS-SVC-054: deleteLabel removes it and cascades its place assignments', async () => {
     const u = createUser(testDb).user;
     const col = svc.createCollection(u.id, { name: 'DE' });
     const l = svc.createLabel(u.id, col.id, 'Berlin');
     const p = svc.savePlace(u.id, { collection_id: col.id, name: 'Gate' }).place!;
-    svc.updatePlace(u.id, p.id, { label_ids: [l.id] });
+    await svc.updatePlace(u.id, p.id, { label_ids: [l.id] });
 
     svc.deleteLabel(u.id, l.id);
     expect(svc.getCollection(u.id, col.id).collection.labels).toHaveLength(0);
     expect(svc.getCollection(u.id, col.id).places.find(x => x.id === p.id)!.label_ids).toEqual([]);
   });
 
-  it('COLLECTIONS-SVC-055: moving a place to another list drops its labels', () => {
+  it('COLLECTIONS-SVC-055: moving a place to another list drops its labels', async () => {
     const u = createUser(testDb).user;
     const a = svc.createCollection(u.id, { name: 'A' });
     const b = svc.createCollection(u.id, { name: 'B' });
     const l = svc.createLabel(u.id, a.id, 'Berlin');
     const p = svc.savePlace(u.id, { collection_id: a.id, name: 'Gate' }).place!;
-    svc.updatePlace(u.id, p.id, { label_ids: [l.id] });
+    await svc.updatePlace(u.id, p.id, { label_ids: [l.id] });
 
-    svc.updatePlace(u.id, p.id, { collection_id: b.id });
+    await svc.updatePlace(u.id, p.id, { collection_id: b.id });
     expect(svc.getCollection(u.id, b.id).places.find(x => x.id === p.id)!.label_ids).toEqual([]);
   });
 });
@@ -610,41 +610,40 @@ describe('collection labels', () => {
 
 describe('custom saved-place image', () => {
   function writePlaceImage(name: string): string {
-    fs.mkdirSync(PLACE_IMAGES_DIR, { recursive: true });
-    const filePath = path.join(PLACE_IMAGES_DIR, name);
+    const filePath = path.join(storageFx.root, name);
     fs.writeFileSync(filePath, 'jpeg-bytes');
     return filePath;
   }
 
-  it('COLLECTIONS-SVC-060: updatePlace sets image_url', () => {
+  it('COLLECTIONS-SVC-060: updatePlace sets image_url', async () => {
     const u = createUser(testDb).user;
     const col = svc.createCollection(u.id, { name: 'Photos' });
     const p = svc.savePlace(u.id, { collection_id: col.id, name: 'Pic' }).place!;
-    const updated = svc.updatePlace(u.id, p.id, { image_url: '/uploads/places/col-set.jpg' });
+    const updated = await svc.updatePlace(u.id, p.id, { image_url: '/uploads/places/col-set.jpg' });
     expect(updated.image_url).toBe('/uploads/places/col-set.jpg');
   });
 
-  it('COLLECTIONS-SVC-061: setPlaceImage stores the url and reclaims a replaced upload', () => {
+  it('COLLECTIONS-SVC-061: setPlaceImage stores the url and reclaims a replaced upload', async () => {
     const u = createUser(testDb).user;
     const col = svc.createCollection(u.id, { name: 'Photos' });
     const p = svc.savePlace(u.id, { collection_id: col.id, name: 'Pic' }).place!;
     const fileA = writePlaceImage('col-replace-a.jpg');
-    svc.setPlaceImage(u.id, p.id, '/uploads/places/col-replace-a.jpg');
+    await svc.setPlaceImage(u.id, p.id, '/uploads/places/col-replace-a.jpg');
     expect(fs.existsSync(fileA)).toBe(true);
 
-    const res = svc.setPlaceImage(u.id, p.id, '/uploads/places/col-replace-b.jpg');
+    const res = await svc.setPlaceImage(u.id, p.id, '/uploads/places/col-replace-b.jpg');
     expect(res.image_url).toBe('/uploads/places/col-replace-b.jpg');
     expect(fs.existsSync(fileA)).toBe(false);
   });
 
-  it('COLLECTIONS-SVC-062: deletePlace reclaims the uploaded image when unreferenced', () => {
+  it('COLLECTIONS-SVC-062: deletePlace reclaims the uploaded image when unreferenced', async () => {
     const u = createUser(testDb).user;
     const col = svc.createCollection(u.id, { name: 'Photos' });
     const p = svc.savePlace(u.id, { collection_id: col.id, name: 'Pic', image_url: '/uploads/places/col-delete.jpg' }).place!;
     const fileA = writePlaceImage('col-delete.jpg');
     expect(fs.existsSync(fileA)).toBe(true);
 
-    svc.deletePlace(u.id, p.id);
+    await svc.deletePlace(u.id, p.id);
     expect(fs.existsSync(fileA)).toBe(false);
   });
 });
@@ -820,7 +819,7 @@ describe('membership lookups', () => {
 // ── Post-fold quirk fixes (the trailing fix(server) commit) ─────────────────
 
 describe('atomic bulk writes (post-fold quirk fixes)', () => {
-  it('COLLECTIONS-SVC-090: deletePlacesMany is all-or-nothing — a mid-list 403 deletes nothing', () => {
+  it('COLLECTIONS-SVC-090: deletePlacesMany is all-or-nothing — a mid-list 403 deletes nothing', async () => {
     const u = createUser(testDb).user;
     const otherOwner = createUser(testDb).user;
     const mine = svc.createCollection(u.id, { name: 'Mine' });
@@ -832,7 +831,7 @@ describe('atomic bulk writes (post-fold quirk fixes)', () => {
 
     // The relocated legacy interleaved checks with deletes, so p1 was gone by
     // the time p2's 403 fired. Now every id is checked first: nothing deleted.
-    expect(() => svc.deletePlacesMany(u.id, [p1.id, p2.id])).toThrow('Only an admin can delete places from this list');
+    await expect(svc.deletePlacesMany(u.id, [p1.id, p2.id])).rejects.toThrow('Only an admin can delete places from this list');
     expect(testDb.prepare('SELECT COUNT(*) n FROM collection_places WHERE id = ?').get(p1.id)).toEqual({ n: 1 });
     expect(testDb.prepare('SELECT COUNT(*) n FROM collection_places WHERE id = ?').get(p2.id)).toEqual({ n: 1 });
   });
@@ -925,7 +924,7 @@ describe('bulk status', () => {
     expect(statuses.map(s => s.status)).toEqual(['visited', 'visited', 'idea']);
   });
 
-  it('COLLECTIONS-SVC-096: a place renamed in the list is still found by its source link', () => {
+  it('COLLECTIONS-SVC-096: a place renamed in the list is still found by its source link', async () => {
     const u = createUser(testDb).user;
     createCategory(testDb);
     const trip = createTrip(testDb, u.id);
@@ -933,7 +932,7 @@ describe('bulk status', () => {
     const col = svc.createCollection(u.id, { name: 'Rome' });
     const saved = svc.saveFromTripPlace(u.id, col.id, trip.id, place.id).place!;
     // Renamed on both sides, and moved far enough that coordinates cannot match.
-    svc.updatePlace(u.id, saved.id, { name: 'Dinner spot', lat: 45, lng: 9 });
+    await svc.updatePlace(u.id, saved.id, { name: 'Dinner spot', lat: 45, lng: 9 });
     testDb.prepare('UPDATE places SET name = ? WHERE id = ?').run('Enzo', place.id);
 
     expect(svc.setStatusFromTrip(u.id, trip.id, [place.id], 'visited')).toEqual({ updated: 1, places: 1 });

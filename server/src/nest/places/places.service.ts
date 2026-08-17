@@ -26,6 +26,7 @@ import { PlacePhotoCacheService } from '../place-photos/place-photo-cache.servic
 import { type UpdateConflict, isUpdateConflict } from '../common/conflictResult';
 import { reclaimPlaceImage } from './place-image';
 import { JourneyDomainService } from '../journey/journey-domain.service';
+import { StorageService } from '../storage/storage.service';
 import {
   COORD_DEDUP_TOLERANCE,
   ENRICH_CONCURRENCY,
@@ -112,6 +113,7 @@ export class PlacesService {
     private readonly unsplash: UnsplashService,
     private readonly photoCache: PlacePhotoCacheService,
     private readonly journey: JourneyDomainService,
+    private readonly storage: StorageService,
   ) {}
 
   verifyTripAccess(tripId: string, userId: number) {
@@ -245,20 +247,36 @@ export class PlacesService {
   // Update place
   // -------------------------------------------------------------------------
 
-  update(
+  async update(
     tripId: string,
     placeId: string,
     body: PlaceUpdateInput,
     ifMatch?: string,
-  ): PlaceWithTags | UpdateConflict | null {
+  ): Promise<PlaceWithTags | UpdateConflict | null> {
+    const { result, reclaim } = this.applyUpdate(tripId, placeId, body, ifMatch);
+    if (reclaim !== undefined) await reclaimPlaceImage(this.storage, reclaim);
+    return result;
+  }
+
+  /**
+   * The synchronous DB half of update(). Split out so updateMany() can run it
+   * inside a better-sqlite3 transaction (which cannot await) and settle the
+   * storage reclaims after the transaction commits.
+   */
+  private applyUpdate(
+    tripId: string,
+    placeId: string,
+    body: PlaceUpdateInput,
+    ifMatch?: string,
+  ): { result: PlaceWithTags | UpdateConflict | null; reclaim?: string | null } {
     const existingPlace = this.dbs.get<Place>('SELECT * FROM places WHERE id = ? AND trip_id = ?', placeId, tripId);
-    if (!existingPlace) return null;
+    if (!existingPlace) return { result: null };
 
     // Optimistic concurrency (#1135): when the caller sent the version it based its
     // edit on and the row has moved on since, reject instead of clobbering. Absent
     // token => unconditional update (back-compat — old clients keep last-write-wins).
     if (ifMatch !== undefined && existingPlace.updated_at != null && String(existingPlace.updated_at) !== ifMatch) {
-      return { conflict: true, server: this.dbs.getPlaceWithTags(placeId) };
+      return { result: { conflict: true, server: this.dbs.getPlaceWithTags(placeId) } };
     }
 
     const {
@@ -331,12 +349,13 @@ export class PlacesService {
     }
 
     // A custom uploaded thumbnail (#1136) that was just replaced or cleared leaves
-    // an orphan file behind — reclaim it once nothing references it any more.
-    if (image_url !== undefined && image_url !== existingPlace.image_url) {
-      reclaimPlaceImage(existingPlace.image_url);
-    }
+    // an orphan file behind — reclaim it (in the caller, once any enclosing
+    // transaction committed) if nothing references it any more.
+    const reclaim = image_url !== undefined && image_url !== existingPlace.image_url
+      ? existingPlace.image_url
+      : undefined;
 
-    return this.dbs.getPlaceWithTags(placeId);
+    return { result: this.dbs.getPlaceWithTags(placeId), reclaim };
   }
 
   // -------------------------------------------------------------------------
@@ -370,7 +389,7 @@ export class PlacesService {
       this.dbs.run('DELETE FROM places WHERE id = ?', placeId);
     });
     await reclaimPhotoCache(this.photoCache, place.google_place_id, place.image_url);
-    reclaimPlaceImage(place.image_url);
+    await reclaimPlaceImage(this.storage, place.image_url);
     return true;
   }
 
@@ -394,7 +413,7 @@ export class PlacesService {
     // Reclaim after the transaction commits so isReferenced() sees the final place set.
     for (const row of reclaimable) {
       await reclaimPhotoCache(this.photoCache, row.google_place_id, row.image_url);
-      reclaimPlaceImage(row.image_url);
+      await reclaimPlaceImage(this.storage, row.image_url);
     }
     return deleted;
   }
@@ -425,17 +444,22 @@ export class PlacesService {
    * fields change and everything else is preserved. IDs that don't belong to the
    * trip are skipped. Returns the updated places.
    */
-  updateMany(tripId: string, ids: number[], body: PlaceUpdateInput): PlaceWithTags[] {
+  async updateMany(tripId: string, ids: number[], body: PlaceUpdateInput): Promise<PlaceWithTags[]> {
     if (ids.length === 0) return [];
     const updated: PlaceWithTags[] = [];
+    const reclaims: (string | null)[] = [];
     this.dbs.transaction(() => {
       for (const id of ids) {
-        // Bulk update sends no If-Match, so update() never returns a conflict
-        // here; the guard keeps the types honest.
-        const place = this.update(tripId, String(id), body);
+        // Bulk update sends no If-Match, so applyUpdate() never returns a
+        // conflict here; the guard keeps the types honest.
+        const { result: place, reclaim } = this.applyUpdate(tripId, String(id), body);
         if (place && !isUpdateConflict(place)) updated.push(place);
+        if (reclaim !== undefined) reclaims.push(reclaim);
       }
     });
+    // Settle reclaims after the transaction commits, so the refcount sees the
+    // final image_url state.
+    for (const reclaim of reclaims) await reclaimPlaceImage(this.storage, reclaim);
     return updated;
   }
 

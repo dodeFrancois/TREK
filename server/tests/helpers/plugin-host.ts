@@ -97,10 +97,11 @@ export function createPluginRpcHostFactory(dbs: DatabaseService): PluginRpcHostF
   const vacay = new VacayService(dbs, realtime, notificationsStub());
   const days = new DaysService(dbs, permissions, realtime, queryHelpers);
   const photoCache = new PlacePhotoCacheService(dbs, makeStorageFixture('photos/google/').storage);
+  const generalStorage = makeStorageFixture('').storage;
   const unsplash = new UnsplashService(dbs, new RuntimeEnvService());
   const journey = new JourneyDomainService(dbs, realtime, new TrekPhotosRepository(dbs));
-  const places = new PlacesService(dbs, permissions, realtime, new MapsService(dbs, photoCache), queryHelpers, unsplash, photoCache, journey);
-  const collections = new CollectionsService(dbs, permissions, realtime, notificationsStub());
+  const places = new PlacesService(dbs, permissions, realtime, new MapsService(dbs, photoCache), queryHelpers, unsplash, photoCache, journey, generalStorage);
+  const collections = new CollectionsService(dbs, permissions, realtime, notificationsStub(), generalStorage);
   const atlas = new AtlasService(dbs);
   const dayNotes = new DayNotesService(dbs, permissions, realtime);
   const assignments = new AssignmentsService(dbs, permissions, realtime, queryHelpers, journey);

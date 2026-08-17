@@ -181,7 +181,7 @@ export class PlacesMcp {
     if (this.auth.isDemoUser(ctx.userId)) return demoDenied();
     if (!this.db.canAccessTrip(tripId, ctx.userId)) return noAccess();
     if (!this.guards.hasTripPermission('place_edit', tripId, ctx.userId)) return permissionDenied();
-    const place = this.places.update(String(tripId), String(placeId), { name, description, lat, lng, address, category_id, price, currency, place_time, end_time, duration_minutes, notes, website, phone, transport_mode, osm_id, google_place_id, google_ftid });
+    const place = await this.places.update(String(tripId), String(placeId), { name, description, lat, lng, address, category_id, price, currency, place_time, end_time, duration_minutes, notes, website, phone, transport_mode, osm_id, google_place_id, google_ftid });
     if (!place) return { content: [{ type: 'text' as const, text: 'Place not found.' }], isError: true };
     this.guards.safeBroadcast(tripId, 'place:updated', { place });
     return ok({ place });
@@ -391,7 +391,7 @@ export class PlacesMcp {
       return { content: [{ type: 'text' as const, text: 'Provide at least one field to update.' }], isError: true };
     }
 
-    const updated = this.places.updateMany(String(tripId), placeIds, fields);
+    const updated = await this.places.updateMany(String(tripId), placeIds, fields);
     for (const place of updated) this.guards.safeBroadcast(tripId, 'place:updated', { place });
     return ok({ count: updated.length, updatedIds: updated.map(p => p.id), skipped: placeIds.length - updated.length });
   }

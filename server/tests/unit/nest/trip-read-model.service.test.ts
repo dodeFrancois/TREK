@@ -90,6 +90,7 @@ const placesSvc = new PlacesService(
   new MapsService(dbs(), photoCache), new QueryHelpersService(dbs()),
   new UnsplashService(dbs(), new RuntimeEnvService()), photoCache,
   new JourneyDomainService(dbs(), new RealtimeService(), new TrekPhotosRepository(dbs())),
+  makeStorageFixture('').storage,
 );
 const accommodationsSvc = new AccommodationsService(dbs(), new PermissionsService(dbs()), new RealtimeService());
 const membersSvc = new TripMembersService(dbs(), budgetSvc, new UserCleanupService(dbs(), budgetSvc), new PermissionsService(dbs()), new RealtimeService(), notificationsStub());

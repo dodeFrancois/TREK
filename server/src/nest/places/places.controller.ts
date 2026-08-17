@@ -305,7 +305,7 @@ export class PlacesController {
 
   @Post('bulk-update')
   @HttpCode(200)
-  bulkUpdate(
+  async bulkUpdate(
     @CurrentUser() user: User,
     @Param('tripId') tripId: string,
     @Body() body: PlaceBulkUpdateDto,
@@ -322,7 +322,7 @@ export class PlacesController {
     if (!('category_id' in body)) {
       throw new HttpException({ error: 'Provide at least one field to update' }, 400);
     }
-    const updated = this.places.updateMany(tripId, ids, { category_id: body.category_id as number | null });
+    const updated = await this.places.updateMany(tripId, ids, { category_id: body.category_id as number | null });
     for (const place of updated) {
       this.places.broadcast(tripId, 'place:updated', { place }, socketId);
       this.places.onUpdated(place.id);
@@ -365,7 +365,7 @@ export class PlacesController {
     await this.storage.put('places', file.filename, { tmpPath: file.path });
     // Reuse the existing image_url slot (the top-precedence thumbnail source); the
     // update path reclaims any previously uploaded file it replaces.
-    const result = this.places.update(tripId, id, { image_url: placeImageUrl(file.filename) } as never);
+    const result = await this.places.update(tripId, id, { image_url: placeImageUrl(file.filename) } as never);
     if (!result || isUpdateConflict(result)) {
       throw new HttpException({ error: 'Place not found' }, 404);
     }
@@ -422,7 +422,7 @@ export class PlacesController {
   }
 
   @Put(':id')
-  update(
+  async update(
     @CurrentUser() user: User,
     @Param('tripId') tripId: string,
     @Param('id') id: string,
@@ -434,7 +434,7 @@ export class PlacesController {
     validateLengths(body);
     validateRouteColor(body);
     this.requireEdit(trip, user);
-    const result = this.places.update(tripId, id, body as never, ifMatch);
+    const result = await this.places.update(tripId, id, body as never, ifMatch);
     if (!result) {
       throw new HttpException({ error: 'Place not found' }, 404);
     }

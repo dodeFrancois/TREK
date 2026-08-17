@@ -75,7 +75,7 @@ import { MapsService } from '../../../src/nest/maps/maps.service';
 import { QueryHelpersService } from '../../../src/nest/query-helpers/query-helpers.service';
 import { JourneyDomainService } from '../../../src/nest/journey/journey-domain.service';
 import { TrekPhotosRepository } from '../../../src/nest/photos/trek-photos.repository';
-import { PLACE_IMAGES_DIR } from '../../../src/nest/places/place-image';
+import { makeStorageFixture } from '../../helpers/storage-fixture';
 
 const GPX_FIXTURE = path.join(__dirname, '../../fixtures/test.gpx');
 const KML_FIXTURE = path.join(__dirname, '../../fixtures/test.kml');
@@ -91,6 +91,8 @@ const dbs = new DatabaseService(testDb);
  * creates a journey, so every hook returns on its first lookup.
  * `maps` is a parameter because the enrichment cases hand in their own provider.
  */
+const placesStorageFx = makeStorageFixture('');
+
 function makePlacesService(maps: MapsService = new MapsService(dbs, photoCacheStub)): PlacesService {
   return new PlacesService(
     dbs,
@@ -101,6 +103,7 @@ function makePlacesService(maps: MapsService = new MapsService(dbs, photoCacheSt
     new UnsplashService(dbs, new RuntimeEnvService()),
     photoCacheStub,
     new JourneyDomainService(dbs, new RealtimeService(), new TrekPhotosRepository(dbs)),
+    placesStorageFx.storage,
   );
 }
 
@@ -240,71 +243,71 @@ describe('get', () => {
 // ── update ────────────────────────────────────────────────────────────────────
 
 describe('update', () => {
-  it('PLACE-SVC-013 — updates place name and lat/lng', () => {
+  it('PLACE-SVC-013 — updates place name and lat/lng', async () => {
     const { user } = createUser(testDb);
     const trip = createTrip(testDb, user.id);
     const place = createPlace(testDb, trip.id, { name: 'Old', lat: 0, lng: 0 }) as any;
-    const updated = svc.update(String(trip.id), String(place.id), { name: 'New', lat: 48.8, lng: 2.3 }) as any;
+    const updated = await svc.update(String(trip.id), String(place.id), { name: 'New', lat: 48.8, lng: 2.3 }) as any;
     expect(updated.name).toBe('New');
     expect(updated.lat).toBe(48.8);
     expect(updated.lng).toBe(2.3);
   });
 
-  it('PLACE-SVC-014 — returns null for non-existent place', () => {
+  it('PLACE-SVC-014 — returns null for non-existent place', async () => {
     const { user } = createUser(testDb);
     const trip = createTrip(testDb, user.id);
-    expect(svc.update(String(trip.id), '99999', { name: 'Ghost' })).toBeNull();
+    expect(await svc.update(String(trip.id), '99999', { name: 'Ghost' })).toBeNull();
   });
 
-  it('PLACE-SVC-015 — updates tags (replaces old set)', () => {
+  it('PLACE-SVC-015 — updates tags (replaces old set)', async () => {
     const { user } = createUser(testDb);
     const trip = createTrip(testDb, user.id);
     const tag1 = createTag(testDb, user.id, { name: 'Old Tag' }) as any;
     const tag2 = createTag(testDb, user.id, { name: 'New Tag' }) as any;
     const place = svc.create(String(trip.id), { name: 'Taggable', tags: [tag1.id] }) as any;
 
-    const updated = svc.update(String(trip.id), String(place.id), { tags: [tag2.id] }) as any;
+    const updated = await svc.update(String(trip.id), String(place.id), { tags: [tag2.id] }) as any;
     expect(updated.tags).toHaveLength(1);
     expect(updated.tags[0].id).toBe(tag2.id);
   });
 
-  it('PLACE-SVC-016 — clears tags when tags: [] is passed', () => {
+  it('PLACE-SVC-016 — clears tags when tags: [] is passed', async () => {
     const { user } = createUser(testDb);
     const trip = createTrip(testDb, user.id);
     const tag = createTag(testDb, user.id, { name: 'Temp' }) as any;
     const place = svc.create(String(trip.id), { name: 'Untaggable', tags: [tag.id] }) as any;
 
-    const updated = svc.update(String(trip.id), String(place.id), { tags: [] }) as any;
+    const updated = await svc.update(String(trip.id), String(place.id), { tags: [] }) as any;
     expect(updated.tags).toHaveLength(0);
   });
 
   // ── Track colour (#776) ─────────────────────────────────────────────────────
 
-  it('PLACE-SVC-052 — stores a picked route_color', () => {
+  it('PLACE-SVC-052 — stores a picked route_color', async () => {
     const { user } = createUser(testDb);
     const trip = createTrip(testDb, user.id);
     const place = createPlace(testDb, trip.id, { name: 'Walk' }) as any;
-    const updated = svc.update(String(trip.id), String(place.id), { route_color: '#e11d48' }) as any;
+    const updated = await svc.update(String(trip.id), String(place.id), { route_color: '#e11d48' }) as any;
     expect(updated.route_color).toBe('#e11d48');
   });
 
-  it('PLACE-SVC-053 — an explicit null clears it again (the reset to auto)', () => {
+  it('PLACE-SVC-053 — an explicit null clears it again (the reset to auto)', async () => {
     const { user } = createUser(testDb);
     const trip = createTrip(testDb, user.id);
     const place = createPlace(testDb, trip.id, { name: 'Walk' }) as any;
-    svc.update(String(trip.id), String(place.id), { route_color: '#e11d48' });
+    await svc.update(String(trip.id), String(place.id), { route_color: '#e11d48' });
     // Guards the COALESCE trap: name/currency/transport_mode can never be
     // emptied, and route_color built that way would be a one-way door.
-    const cleared = svc.update(String(trip.id), String(place.id), { route_color: null }) as any;
+    const cleared = await svc.update(String(trip.id), String(place.id), { route_color: null }) as any;
     expect(cleared.route_color).toBeNull();
   });
 
-  it('PLACE-SVC-054 — an unrelated update leaves the colour alone', () => {
+  it('PLACE-SVC-054 — an unrelated update leaves the colour alone', async () => {
     const { user } = createUser(testDb);
     const trip = createTrip(testDb, user.id);
     const place = createPlace(testDb, trip.id, { name: 'Walk' }) as any;
-    svc.update(String(trip.id), String(place.id), { route_color: '#059669' });
-    const renamed = svc.update(String(trip.id), String(place.id), { name: 'Hike' }) as any;
+    await svc.update(String(trip.id), String(place.id), { route_color: '#059669' });
+    const renamed = await svc.update(String(trip.id), String(place.id), { name: 'Hike' }) as any;
     expect(renamed.name).toBe('Hike');
     expect(renamed.route_color).toBe('#059669');
   });
@@ -325,14 +328,14 @@ describe('update', () => {
 // ── updateMany ────────────────────────────────────────────────────────────────
 
 describe('updateMany', () => {
-  it('PLACE-SVC-039 — applies the same fields to many places, preserving the rest', () => {
+  it('PLACE-SVC-039 — applies the same fields to many places, preserving the rest', async () => {
     const { user } = createUser(testDb);
     const trip = createTrip(testDb, user.id);
     const a = createPlace(testDb, trip.id, { name: 'A' }) as any;
     const b = createPlace(testDb, trip.id, { name: 'B' }) as any;
     const c = createPlace(testDb, trip.id, { name: 'C' }) as any;
 
-    const updated = svc.updateMany(String(trip.id), [a.id, b.id, c.id], { notes: 'visited', transport_mode: 'walking' });
+    const updated = await svc.updateMany(String(trip.id), [a.id, b.id, c.id], { notes: 'visited', transport_mode: 'walking' });
 
     expect(updated).toHaveLength(3);
     for (const p of updated) {
@@ -343,14 +346,14 @@ describe('updateMany', () => {
     expect(updated.map(p => (p as any).name).sort()).toEqual(['A', 'B', 'C']);
   });
 
-  it('PLACE-SVC-040 — skips ids that are not in the trip and reports the rest', () => {
+  it('PLACE-SVC-040 — skips ids that are not in the trip and reports the rest', async () => {
     const { user } = createUser(testDb);
     const trip = createTrip(testDb, user.id);
     const other = createTrip(testDb, user.id);
     const mine = createPlace(testDb, trip.id, { name: 'Mine' }) as any;
     const foreign = createPlace(testDb, other.id, { name: 'Foreign' }) as any;
 
-    const updated = svc.updateMany(String(trip.id), [mine.id, foreign.id, 99999], { notes: 'tagged' });
+    const updated = await svc.updateMany(String(trip.id), [mine.id, foreign.id, 99999], { notes: 'tagged' });
 
     expect(updated).toHaveLength(1);
     expect((updated[0] as any).id).toBe(mine.id);
@@ -358,10 +361,10 @@ describe('updateMany', () => {
     expect((svc.get(String(other.id), String(foreign.id)) as any).notes).toBeNull();
   });
 
-  it('PLACE-SVC-041 — returns [] for an empty id list', () => {
+  it('PLACE-SVC-041 — returns [] for an empty id list', async () => {
     const { user } = createUser(testDb);
     const trip = createTrip(testDb, user.id);
-    expect(svc.updateMany(String(trip.id), [], { notes: 'x' })).toEqual([]);
+    expect(await svc.updateMany(String(trip.id), [], { notes: 'x' })).toEqual([]);
   });
 });
 
@@ -912,13 +915,12 @@ describe('importKmlPlaces deduplication', () => {
 
 describe('custom place image reclaim', () => {
   function writePlaceImage(name: string): string {
-    fs.mkdirSync(PLACE_IMAGES_DIR, { recursive: true });
-    const filePath = path.join(PLACE_IMAGES_DIR, name);
+    const filePath = path.join(placesStorageFx.root, name);
     fs.writeFileSync(filePath, 'jpeg-bytes');
     return filePath;
   }
 
-  it('PLACE-SVC-046 — replacing image_url unlinks the previous upload once unreferenced', () => {
+  it('PLACE-SVC-046 — replacing image_url unlinks the previous upload once unreferenced', async () => {
     const { user } = createUser(testDb);
     const trip = createTrip(testDb, user.id);
     const place = createPlace(testDb, trip.id, { name: 'Photo' }) as any;
@@ -926,11 +928,11 @@ describe('custom place image reclaim', () => {
     testDb.prepare('UPDATE places SET image_url = ? WHERE id = ?').run('/uploads/places/svc-replace-a.jpg', place.id);
     expect(fs.existsSync(fileA)).toBe(true);
 
-    svc.update(String(trip.id), String(place.id), { image_url: '/uploads/places/svc-replace-b.jpg' });
+    await svc.update(String(trip.id), String(place.id), { image_url: '/uploads/places/svc-replace-b.jpg' });
     expect(fs.existsSync(fileA)).toBe(false);
   });
 
-  it('PLACE-SVC-047 — clearing image_url to null unlinks the previous upload', () => {
+  it('PLACE-SVC-047 — clearing image_url to null unlinks the previous upload', async () => {
     const { user } = createUser(testDb);
     const trip = createTrip(testDb, user.id);
     const place = createPlace(testDb, trip.id, { name: 'Photo' }) as any;
@@ -938,7 +940,7 @@ describe('custom place image reclaim', () => {
     testDb.prepare('UPDATE places SET image_url = ? WHERE id = ?').run('/uploads/places/svc-clear.jpg', place.id);
     expect(fs.existsSync(fileA)).toBe(true);
 
-    svc.update(String(trip.id), String(place.id), { image_url: null } as any);
+    await svc.update(String(trip.id), String(place.id), { image_url: null } as any);
     expect(fs.existsSync(fileA)).toBe(false);
   });
 
@@ -1275,17 +1277,17 @@ describe('zero-valued numeric fields', () => {
     expect((svc.create(String(trip.id), { name: 'Default' }) as any).duration_minutes).toBe(60);
   });
 
-  it('PLACE-SVC-067 — update can set duration_minutes to 0', () => {
+  it('PLACE-SVC-067 — update can set duration_minutes to 0', async () => {
     const { user } = createUser(testDb);
     const trip = createTrip(testDb, user.id);
     const place = createPlace(testDb, trip.id, { name: 'Stop' }) as any;
     testDb.prepare('UPDATE places SET duration_minutes = 90 WHERE id = ?').run(place.id);
 
-    const zeroed = svc.update(String(trip.id), String(place.id), { duration_minutes: 0 }) as any;
+    const zeroed = await svc.update(String(trip.id), String(place.id), { duration_minutes: 0 }) as any;
     expect(zeroed.duration_minutes).toBe(0);
 
     // An omitted duration still leaves the stored value alone (COALESCE).
-    const untouched = svc.update(String(trip.id), String(place.id), { name: 'Stop 2' }) as any;
+    const untouched = await svc.update(String(trip.id), String(place.id), { name: 'Stop 2' }) as any;
     expect(untouched.duration_minutes).toBe(0);
   });
 });

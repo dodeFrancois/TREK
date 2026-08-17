@@ -211,7 +211,7 @@ export class CollectionsMcp {
   })
   async updateCollectionPlace({ placeId, ...body }: { placeId: number } & CollectionPlaceUpdateRequest, ctx: McpContext) {
     const demo = this.denyDemo(ctx.userId); if (demo) return demo;
-    try { return ok({ place: this.collections.updatePlace(ctx.userId, placeId, body) }); } catch (err) { return fail(err); }
+    try { return ok({ place: await this.collections.updatePlace(ctx.userId, placeId, body) }); } catch (err) { return fail(err); }
   }
 
   @Tool({
@@ -253,7 +253,7 @@ export class CollectionsMcp {
   })
   async deleteCollectionPlace({ placeId }: { placeId: number }, ctx: McpContext) {
     const demo = this.denyDemo(ctx.userId); if (demo) return demo;
-    try { this.collections.deletePlace(ctx.userId, placeId); return ok({ success: true }); } catch (err) { return fail(err); }
+    try { await this.collections.deletePlace(ctx.userId, placeId); return ok({ success: true }); } catch (err) { return fail(err); }
   }
 
   @Tool({

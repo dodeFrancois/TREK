@@ -1,10 +1,10 @@
-import fs from 'fs';
 import path from 'path';
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { PermissionsService } from '../permissions/permissions.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { reclaimPlaceImage } from '../places/place-image';
+import { StorageService } from '../storage/storage.service';
 import {
   COORD_DEDUP_TOLERANCE,
   externalIdsOf,
@@ -47,17 +47,6 @@ function serializeLinks(links: CollectionLink[] | undefined): string | null {
   return links && links.length ? JSON.stringify(links) : null;
 }
 
-/**
- * Reclaim a replaced cover file. Path-confined to uploads/covers (mirrors
- * tripService.deleteOldCover — kept local so this service doesn't pull the
- * trips import graph). Collection + trip covers share the same directory.
- */
-function deleteOldCollectionCover(coverImage: string | null | undefined): void {
-  if (!coverImage) return;
-  const coversDir = path.resolve(__dirname, '../../../uploads/covers');
-  const resolved = path.resolve(path.join(coversDir, path.basename(coverImage)));
-  if (resolved.startsWith(coversDir + path.sep) && fs.existsSync(resolved)) fs.unlinkSync(resolved);
-}
 
 // ---------------------------------------------------------------------------
 // Errors — thrown as plain Errors carrying a status; TrekExceptionFilter maps
@@ -96,7 +85,23 @@ export class CollectionsService {
     private readonly permissions: PermissionsService,
     private readonly realtime: RealtimeService,
     private readonly notifications: NotificationsService,
+    private readonly storage: StorageService,
   ) {}
+
+  /**
+   * Reclaim a replaced cover object (mirrors tripService.deleteOldCover — kept
+   * local so this service doesn't pull the trips import graph). Collection +
+   * trip covers share the 'covers' category; basename() tolerates the stored
+   * /uploads/covers/<name> URL form and any external URL the client saved
+   * (central key validation rejects hostile values; the catch swallows them
+   * like the old containment guard did).
+   */
+  private async deleteOldCollectionCover(coverImage: string | null | undefined): Promise<void> {
+    if (!coverImage) return;
+    await this.storage.delete('covers', path.basename(coverImage)).catch(() => {
+      /* external URL or already gone */
+    });
+  }
 
   // -------------------------------------------------------------------------
   // Visibility — a user may see/edit a collection if they own it OR are an
@@ -374,11 +379,11 @@ export class CollectionsService {
   }
 
   /** Set (or clear) a list's cover image, reclaiming the previous file. */
-  setCollectionCover(userId: number, id: number, coverUrl: string | null, socketId?: string): Collection {
+  async setCollectionCover(userId: number, id: number, coverUrl: string | null, socketId?: string): Promise<Collection> {
     this.assertCanEdit(userId, id);
     const prev = this.db.get<{ cover_image: string | null }>('SELECT cover_image FROM collections WHERE id = ?', id)?.cover_image ?? null;
     this.db.run('UPDATE collections SET cover_image = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', coverUrl, id);
-    if (prev && prev !== coverUrl) deleteOldCollectionCover(prev);
+    if (prev && prev !== coverUrl) await this.deleteOldCollectionCover(prev);
     this.notifyCollectionUsers(id, socketId, 'collections:updated');
     const col = this.getCollectionRow(id);
     return { ...col, is_owner: col.owner_id === userId };
@@ -636,7 +641,7 @@ export class CollectionsService {
     return { copied, skipped };
   }
 
-  updatePlace(userId: number, placeId: number, body: CollectionPlaceUpdateRequest, socketId?: string): CollectionPlace {
+  async updatePlace(userId: number, placeId: number, body: CollectionPlaceUpdateRequest, socketId?: string): Promise<CollectionPlace> {
     const currentCollection = this.collectionIdOfPlace(placeId);
     this.assertCanEdit(userId, currentCollection);
 
@@ -688,7 +693,7 @@ export class CollectionsService {
     });
 
     if (body.image_url !== undefined && prevImage !== (body.image_url ?? null)) {
-      reclaimPlaceImage(prevImage);
+      await reclaimPlaceImage(this.storage, prevImage);
     }
 
     this.notifyCollectionUsers(currentCollection, socketId, 'collections:updated');
@@ -724,16 +729,16 @@ export class CollectionsService {
     return this.getPlaceById(placeId);
   }
 
-  deletePlace(userId: number, placeId: number, socketId?: string): void {
+  async deletePlace(userId: number, placeId: number, socketId?: string): Promise<void> {
     const collectionId = this.collectionIdOfPlace(placeId);
     this.assertCanDelete(userId, collectionId);
     const image = this.db.get<{ image_url: string | null }>('SELECT image_url FROM collection_places WHERE id = ?', placeId)?.image_url ?? null;
     this.db.run('DELETE FROM collection_places WHERE id = ?', placeId); // CASCADE drops tags. NO photo-cache reclaim.
-    reclaimPlaceImage(image);
+    await reclaimPlaceImage(this.storage, image);
     this.notifyCollectionUsers(collectionId, socketId, 'collections:updated');
   }
 
-  deletePlacesMany(userId: number, ids: number[], socketId?: string): number[] {
+  async deletePlacesMany(userId: number, ids: number[], socketId?: string): Promise<number[]> {
     // All-or-nothing since the post-fold quirk pass: every id is resolved and
     // permission-checked BEFORE any delete (the relocated legacy interleaved
     // checks with deletes, so a mid-list 403/404 left earlier deletes committed),
@@ -753,7 +758,7 @@ export class CollectionsService {
         deleted.push(id);
       }
     });
-    for (const image of images) reclaimPlaceImage(image);
+    for (const image of images) await reclaimPlaceImage(this.storage, image);
     touched.forEach(cid => this.notifyCollectionUsers(cid, socketId, 'collections:updated'));
     return deleted;
   }
@@ -862,12 +867,12 @@ export class CollectionsService {
   }
 
   /** Set (or clear) a saved place's custom thumbnail, reclaiming the previous upload. */
-  setPlaceImage(userId: number, placeId: number, imageUrl: string | null, socketId?: string): CollectionPlace {
+  async setPlaceImage(userId: number, placeId: number, imageUrl: string | null, socketId?: string): Promise<CollectionPlace> {
     const collectionId = this.collectionIdOfPlace(placeId);
     this.assertCanEdit(userId, collectionId);
     const prev = this.db.get<{ image_url: string | null }>('SELECT image_url FROM collection_places WHERE id = ?', placeId)?.image_url ?? null;
     this.db.run('UPDATE collection_places SET image_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', imageUrl, placeId);
-    if (prev !== imageUrl) reclaimPlaceImage(prev);
+    if (prev !== imageUrl) await reclaimPlaceImage(this.storage, prev);
     this.notifyCollectionUsers(collectionId, socketId, 'collections:updated');
     return this.getPlaceById(placeId);
   }

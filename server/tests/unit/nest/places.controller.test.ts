@@ -185,28 +185,28 @@ describe('PlacesController (parity with the legacy /api/trips/:tripId/places rou
     // The legacy 'ids must be an array of numbers' 400 is gone:
     // placeBulkDeleteRequestSchema types the array, so the pipe rejects a bad
     // element before the handler runs.
-    it('returns empty for an empty list without touching the service', () => {
+    it('returns empty for an empty list without touching the service', async () => {
       const removeMany = vi.fn();
-      expect(new PlacesController(svc({ removeMany } as Partial<PlacesService>), new RuntimeEnvService(), storageStub).bulkDelete(user, '5', { ids: [] })).toEqual({ deleted: [], count: 0 });
+      expect(await new PlacesController(svc({ removeMany } as Partial<PlacesService>), new RuntimeEnvService(), storageStub).bulkDelete(user, '5', { ids: [] })).toEqual({ deleted: [], count: 0 });
       expect(removeMany).not.toHaveBeenCalled();
     });
-    it('deletes, fires hooks + broadcasts per deleted id', () => {
+    it('deletes, fires hooks + broadcasts per deleted id', async () => {
       const removeMany = vi.fn().mockReturnValue([1, 2]); const onDeleted = vi.fn(); const broadcast = vi.fn();
       const scopedIds = vi.fn().mockReturnValue([1, 2]);
       const s = svc({ removeMany, onDeleted, broadcast, scopedIds } as Partial<PlacesService>);
-      expect(new PlacesController(s, new RuntimeEnvService(), storageStub).bulkDelete(user, '5', { ids: [1, 2] }, 'sock')).toEqual({ deleted: [1, 2], count: 2 });
+      expect(await new PlacesController(s, new RuntimeEnvService(), storageStub).bulkDelete(user, '5', { ids: [1, 2] }, 'sock')).toEqual({ deleted: [1, 2], count: 2 });
       expect(onDeleted).toHaveBeenCalledTimes(2);
       expect(broadcast).toHaveBeenCalledTimes(2);
     });
 
     // #1745: the hook keys on the place id alone, so an id from another trip
     // would detach that trip's journey entries even though removeMany skips it.
-    it('fires the journey hook only for ids that belong to the trip, ahead of the delete', () => {
+    it('fires the journey hook only for ids that belong to the trip, ahead of the delete', async () => {
       const removeMany = vi.fn().mockReturnValue([1]);
       const scopedIds = vi.fn().mockReturnValue([1]);
       const onDeleted = vi.fn();
       const s = svc({ removeMany, scopedIds, onDeleted, broadcast: vi.fn() } as Partial<PlacesService>);
-      new PlacesController(s, new RuntimeEnvService(), storageStub).bulkDelete(user, '5', { ids: [1, 99] });
+      await new PlacesController(s, new RuntimeEnvService(), storageStub).bulkDelete(user, '5', { ids: [1, 99] });
       expect(scopedIds).toHaveBeenCalledWith('5', [1, 99]);
       expect(onDeleted).toHaveBeenCalledTimes(1);
       expect(onDeleted).toHaveBeenCalledWith(1);
@@ -214,12 +214,12 @@ describe('PlacesController (parity with the legacy /api/trips/:tripId/places rou
     });
 
     // #1298: the link is gone once the place is, so the ids have to be read first.
-    it('announces the expenses the deleted places took with them', () => {
+    it('announces the expenses the deleted places took with them', async () => {
       const removeMany = vi.fn().mockReturnValue([1, 2]);
       const linkedExpenseIds = vi.fn().mockReturnValue([77]);
       const broadcast = vi.fn();
       const s = svc({ removeMany, linkedExpenseIds, broadcast } as Partial<PlacesService>);
-      new PlacesController(s, new RuntimeEnvService(), storageStub).bulkDelete(user, '5', { ids: [1, 2] }, 'sock');
+      await new PlacesController(s, new RuntimeEnvService(), storageStub).bulkDelete(user, '5', { ids: [1, 2] }, 'sock');
 
       expect(linkedExpenseIds).toHaveBeenCalledWith('5', [1, 2]);
       expect(linkedExpenseIds.mock.invocationCallOrder[0]).toBeLessThan(removeMany.mock.invocationCallOrder[0]);
@@ -228,33 +228,33 @@ describe('PlacesController (parity with the legacy /api/trips/:tripId/places rou
   });
 
   describe('POST /bulk-update', () => {
-    it('404 when trip not accessible, 403 without place_edit (before any write)', () => {
-      expect(thrown(() => new PlacesController(svc({ verifyTripAccess: vi.fn().mockReturnValue(undefined) }), new RuntimeEnvService(), storageStub).bulkUpdate(user, '5', { ids: [1], category_id: 3 }))).toEqual({ status: 404, body: { error: 'Trip not found' } });
-      expect(thrown(() => new PlacesController(svc({ canEdit: vi.fn().mockReturnValue(false) }), new RuntimeEnvService(), storageStub).bulkUpdate(user, '5', { ids: [1], category_id: 3 }))).toEqual({ status: 403, body: { error: 'No permission' } });
+    it('404 when trip not accessible, 403 without place_edit (before any write)', async () => {
+      expect(await thrownAsync(() => new PlacesController(svc({ verifyTripAccess: vi.fn().mockReturnValue(undefined) }), new RuntimeEnvService(), storageStub).bulkUpdate(user, '5', { ids: [1], category_id: 3 }))).toEqual({ status: 404, body: { error: 'Trip not found' } });
+      expect(await thrownAsync(() => new PlacesController(svc({ canEdit: vi.fn().mockReturnValue(false) }), new RuntimeEnvService(), storageStub).bulkUpdate(user, '5', { ids: [1], category_id: 3 }))).toEqual({ status: 403, body: { error: 'No permission' } });
     });
     // Same as bulk-delete: placeBulkUpdateRequestSchema types `ids`, so the
     // pipe owns that 400 now. `.min(1)` was deliberately left off the schema so
     // the empty-list short-circuit below stays reachable.
-    it('400 when no patch field is present', () => {
-      expect(thrown(() => new PlacesController(svc(), new RuntimeEnvService(), storageStub).bulkUpdate(user, '5', { ids: [1] }))).toEqual({ status: 400, body: { error: 'Provide at least one field to update' } });
+    it('400 when no patch field is present', async () => {
+      expect(await thrownAsync(() => new PlacesController(svc(), new RuntimeEnvService(), storageStub).bulkUpdate(user, '5', { ids: [1] }))).toEqual({ status: 400, body: { error: 'Provide at least one field to update' } });
     });
-    it('returns empty for an empty list without touching the service', () => {
+    it('returns empty for an empty list without touching the service', async () => {
       const updateMany = vi.fn();
-      expect(new PlacesController(svc({ updateMany } as Partial<PlacesService>), new RuntimeEnvService(), storageStub).bulkUpdate(user, '5', { ids: [] })).toEqual({ updated: [], count: 0 });
+      expect(await new PlacesController(svc({ updateMany } as Partial<PlacesService>), new RuntimeEnvService(), storageStub).bulkUpdate(user, '5', { ids: [] })).toEqual({ updated: [], count: 0 });
       expect(updateMany).not.toHaveBeenCalled();
     });
-    it('updates, fires hooks + broadcasts per updated place', () => {
+    it('updates, fires hooks + broadcasts per updated place', async () => {
       const updateMany = vi.fn().mockReturnValue([{ id: 1 }, { id: 2 }]); const onUpdated = vi.fn(); const broadcast = vi.fn();
       const s = svc({ updateMany, onUpdated, broadcast } as Partial<PlacesService>);
-      expect(new PlacesController(s, new RuntimeEnvService(), storageStub).bulkUpdate(user, '5', { ids: [1, 2], category_id: 3 }, 'sock')).toEqual({ updated: [1, 2], count: 2 });
+      expect(await new PlacesController(s, new RuntimeEnvService(), storageStub).bulkUpdate(user, '5', { ids: [1, 2], category_id: 3 }, 'sock')).toEqual({ updated: [1, 2], count: 2 });
       expect(updateMany).toHaveBeenCalledWith('5', [1, 2], { category_id: 3 });
       expect(onUpdated).toHaveBeenCalledTimes(2);
       expect(broadcast).toHaveBeenCalledWith('5', 'place:updated', { place: { id: 1 } }, 'sock');
     });
-    it('passes category_id: null through to clear the category', () => {
+    it('passes category_id: null through to clear the category', async () => {
       const updateMany = vi.fn().mockReturnValue([{ id: 1 }]);
       const s = svc({ updateMany } as Partial<PlacesService>);
-      expect(new PlacesController(s, new RuntimeEnvService(), storageStub).bulkUpdate(user, '5', { ids: [1], category_id: null })).toEqual({ updated: [1], count: 1 });
+      expect(await new PlacesController(s, new RuntimeEnvService(), storageStub).bulkUpdate(user, '5', { ids: [1], category_id: null })).toEqual({ updated: [1], count: 1 });
       expect(updateMany).toHaveBeenCalledWith('5', [1], { category_id: null });
     });
   });
@@ -265,50 +265,50 @@ describe('PlacesController (parity with the legacy /api/trips/:tripId/places rou
     expect(new PlacesController(s, new RuntimeEnvService(), storageStub).get(user, '5', '9')).toEqual({ place: { id: 9 } });
   });
 
-  it('PUT /:id 404 when missing, else updates + hooks', () => {
-    expect(thrown(() => new PlacesController(svc({ update: vi.fn().mockReturnValue(null) } as Partial<PlacesService>), new RuntimeEnvService(), storageStub).update(user, '5', '9', { name: 'X' }))).toEqual({ status: 404, body: { error: 'Place not found' } });
+  it('PUT /:id 404 when missing, else updates + hooks', async () => {
+    expect(await thrownAsync(() => new PlacesController(svc({ update: vi.fn().mockReturnValue(null) } as Partial<PlacesService>), new RuntimeEnvService(), storageStub).update(user, '5', '9', { name: 'X' }))).toEqual({ status: 404, body: { error: 'Place not found' } });
     const update = vi.fn().mockReturnValue({ id: 9 }); const onUpdated = vi.fn(); const broadcast = vi.fn();
     const s = svc({ update, onUpdated, broadcast } as Partial<PlacesService>);
-    expect(new PlacesController(s, new RuntimeEnvService(), storageStub).update(user, '5', '9', { name: 'X' }, 'sock')).toEqual({ place: { id: 9 } });
+    expect(await new PlacesController(s, new RuntimeEnvService(), storageStub).update(user, '5', '9', { name: 'X' }, 'sock')).toEqual({ place: { id: 9 } });
     expect(onUpdated).toHaveBeenCalledWith(9);
   });
 
   describe('route_color (#776)', () => {
-    it('400s on anything that is not a hex colour, before the permission check', () => {
+    it('400s on anything that is not a hex colour, before the permission check', async () => {
       const canEdit = vi.fn().mockReturnValue(false); // would 403 if it got that far
       const err = { status: 400, body: { error: 'route_color must be a hex colour like #4f46e5' } };
-      expect(thrown(() => new PlacesController(svc({ canEdit }), new RuntimeEnvService(), storageStub).update(user, '5', '9', { route_color: 'red' }))).toEqual(err);
-      expect(thrown(() => new PlacesController(svc({ canEdit }), new RuntimeEnvService(), storageStub).update(user, '5', '9', { route_color: '#12345' }))).toEqual(err);
-      expect(thrown(() => new PlacesController(svc({ canEdit }), new RuntimeEnvService(), storageStub).update(user, '5', '9', { route_color: 123 }))).toEqual(err);
+      expect(await thrownAsync(() => new PlacesController(svc({ canEdit }), new RuntimeEnvService(), storageStub).update(user, '5', '9', { route_color: 'red' }))).toEqual(err);
+      expect(await thrownAsync(() => new PlacesController(svc({ canEdit }), new RuntimeEnvService(), storageStub).update(user, '5', '9', { route_color: '#12345' }))).toEqual(err);
+      expect(await thrownAsync(() => new PlacesController(svc({ canEdit }), new RuntimeEnvService(), storageStub).update(user, '5', '9', { route_color: 123 }))).toEqual(err);
       expect(thrown(() => new PlacesController(svc({ canEdit }), new RuntimeEnvService(), storageStub).create(user, '5', { name: 'T', route_color: 'red' }))).toEqual(err);
       expect(canEdit).not.toHaveBeenCalled();
     });
 
-    it('passes a valid hex through, and null through as the reset to auto', () => {
+    it('passes a valid hex through, and null through as the reset to auto', async () => {
       const update = vi.fn().mockReturnValue({ id: 9, route_color: '#e11d48' });
       const broadcast = vi.fn();
       const s = svc({ update, broadcast } as Partial<PlacesService>);
-      expect(new PlacesController(s, new RuntimeEnvService(), storageStub).update(user, '5', '9', { route_color: '#e11d48' }, 'sock'))
+      expect(await new PlacesController(s, new RuntimeEnvService(), storageStub).update(user, '5', '9', { route_color: '#e11d48' }, 'sock'))
         .toEqual({ place: { id: 9, route_color: '#e11d48' } });
       expect(update).toHaveBeenCalledWith('5', '9', expect.objectContaining({ route_color: '#e11d48' }), undefined);
       // The colour has to reach the other members too, not just the DB.
       expect(broadcast).toHaveBeenCalledWith('5', 'place:updated', { place: { id: 9, route_color: '#e11d48' } }, 'sock');
 
-      new PlacesController(svc({ update } as Partial<PlacesService>), new RuntimeEnvService(), storageStub).update(user, '5', '9', { route_color: null });
+      await new PlacesController(svc({ update } as Partial<PlacesService>), new RuntimeEnvService(), storageStub).update(user, '5', '9', { route_color: null });
       expect(update).toHaveBeenLastCalledWith('5', '9', expect.objectContaining({ route_color: null }), undefined);
     });
 
-    it('accepts the short #abc form', () => {
+    it('accepts the short #abc form', async () => {
       const update = vi.fn().mockReturnValue({ id: 9 });
-      expect(new PlacesController(svc({ update } as Partial<PlacesService>), new RuntimeEnvService(), storageStub).update(user, '5', '9', { route_color: '#abc' })).toEqual({ place: { id: 9 } });
+      expect(await new PlacesController(svc({ update } as Partial<PlacesService>), new RuntimeEnvService(), storageStub).update(user, '5', '9', { route_color: '#abc' })).toEqual({ place: { id: 9 } });
     });
   });
 
-  it('PUT /:id forwards the base-version token and 409s on a conflict (#1135)', () => {
+  it('PUT /:id forwards the base-version token and 409s on a conflict (#1135)', async () => {
     const update = vi.fn().mockReturnValue({ conflict: true, server: { id: 9, name: 'Theirs' } });
     const onUpdated = vi.fn(); const broadcast = vi.fn();
     const s = svc({ update, onUpdated, broadcast } as Partial<PlacesService>);
-    expect(thrown(() => new PlacesController(s, new RuntimeEnvService(), storageStub).update(user, '5', '9', { name: 'Mine' }, 'sock', '2026-01-01 00:00:00'))).toEqual({
+    expect(await thrownAsync(() => new PlacesController(s, new RuntimeEnvService(), storageStub).update(user, '5', '9', { name: 'Mine' }, 'sock', '2026-01-01 00:00:00'))).toEqual({
       status: 409, body: { error: 'conflict', server: { id: 9, name: 'Theirs' } },
     });
     expect(update).toHaveBeenCalledWith('5', '9', expect.objectContaining({ name: 'Mine' }), '2026-01-01 00:00:00');
@@ -316,23 +316,23 @@ describe('PlacesController (parity with the legacy /api/trips/:tripId/places rou
     expect(onUpdated).not.toHaveBeenCalled();
   });
 
-  it('DELETE /:id fires the hook then 404 / success', () => {
+  it('DELETE /:id fires the hook then 404 / success', async () => {
     const onDeleted = vi.fn();
     const remove = vi.fn().mockReturnValue(false);
-    expect(thrown(() => new PlacesController(svc({ remove, onDeleted } as Partial<PlacesService>), new RuntimeEnvService(), storageStub).remove(user, '5', '9'))).toEqual({ status: 404, body: { error: 'Place not found' } });
+    expect(await thrownAsync(() => new PlacesController(svc({ remove, onDeleted } as Partial<PlacesService>), new RuntimeEnvService(), storageStub).remove(user, '5', '9'))).toEqual({ status: 404, body: { error: 'Place not found' } });
     expect(onDeleted).toHaveBeenCalledWith(9);
     expect(onDeleted.mock.invocationCallOrder[0]).toBeLessThan(remove.mock.invocationCallOrder[0]);
     const s = svc({ remove: vi.fn().mockReturnValue(true), broadcast: vi.fn() } as Partial<PlacesService>);
-    expect(new PlacesController(s, new RuntimeEnvService(), storageStub).remove(user, '5', '9')).toEqual({ success: true });
+    expect(await new PlacesController(s, new RuntimeEnvService(), storageStub).remove(user, '5', '9')).toEqual({ success: true });
   });
 
   // #1745: a place on another trip must 404 without the hook ever running —
   // onPlaceDeleted keys on the place id alone, so it would detach that trip's
   // journey entries.
-  it('DELETE /:id 404s a foreign place before the journey hook runs', () => {
+  it('DELETE /:id 404s a foreign place before the journey hook runs', async () => {
     const onDeleted = vi.fn(); const remove = vi.fn();
     const s = svc({ get: vi.fn().mockReturnValue(null), onDeleted, remove } as Partial<PlacesService>);
-    expect(thrown(() => new PlacesController(s, new RuntimeEnvService(), storageStub).remove(user, '5', '99'))).toEqual({ status: 404, body: { error: 'Place not found' } });
+    expect(await thrownAsync(() => new PlacesController(s, new RuntimeEnvService(), storageStub).remove(user, '5', '99'))).toEqual({ status: 404, body: { error: 'Place not found' } });
     expect(onDeleted).not.toHaveBeenCalled();
     expect(remove).not.toHaveBeenCalled();
   });

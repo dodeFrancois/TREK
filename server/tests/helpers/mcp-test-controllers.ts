@@ -114,6 +114,7 @@ export function createMcpTestRegistry(): McpRegistry {
   // Exactly one instance, shared by maps, places and share: its stampede guard
   // and its on-disk set only work if all three readers see the same maps.
   const placePhotoCache = new PlacePhotoCacheService(dbService, makeStorageFixture('photos/google/').storage);
+  const generalStorage = makeStorageFixture('').storage;
   const mapsService = new MapsService(dbService, placePhotoCache);
   const journeyDomain = new JourneyDomainService(dbService, realtimeService, new TrekPhotosRepository(dbService));
   // The last three were previously omitted, which left them `undefined` at
@@ -125,6 +126,7 @@ export function createMcpTestRegistry(): McpRegistry {
     new UnsplashService(dbService, new RuntimeEnvService()),
     placePhotoCache,
     journeyDomain,
+    generalStorage,
   );
   const reservationsService = new ReservationsService(dbService, permissionsService, budgetService, realtimeService, notificationsStub(), new ReservationsReadRepository(dbService));
   const accommodationsService = new AccommodationsService(dbService, permissionsService, realtimeService);
@@ -175,7 +177,7 @@ export function createMcpTestRegistry(): McpRegistry {
       new ShareMcp(new ShareService(dbService, new SettingsService(dbService), permissionsService, queryHelpersService, placePhotoCache), authService, guards),
       new MapsMcp(mapsService),
       new PlacesMcp(placesService, mapsService, dbService, authService, journeyDomain, assignmentsService, guards),
-      new CollectionsMcp(new CollectionsService(dbService, permissionsService, realtimeService, notificationsStub()), dbService, authService, addonsService),
+      new CollectionsMcp(new CollectionsService(dbService, permissionsService, realtimeService, notificationsStub(), generalStorage), dbService, authService, addonsService),
       new TransitMcp(new TransitService(), daysService, reservationsService, dbService, authService, guards),
       new AtlasMcp(new AtlasService(dbService), addonsService, authService),
       new JourneyMcp(journeyDomain, new JourneyShareService(dbService, journeyDomain), addonsService, authService),

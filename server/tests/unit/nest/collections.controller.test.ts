@@ -92,7 +92,7 @@ describe('CollectionsController', () => {
   });
 
   describe('places', () => {
-    it('savePlace / updatePlace / setStatus / deletePlace forward the socket id', () => {
+    it('savePlace / updatePlace / setStatus / deletePlace forward the socket id', async () => {
       const svc = makeService();
       const c = new CollectionsController(svc, new RuntimeEnvService(), storageStub);
       c.savePlace(user, { collection_id: 3, name: 'A' } as never, 'sid');
@@ -101,7 +101,7 @@ describe('CollectionsController', () => {
       expect(svc.updatePlace).toHaveBeenCalledWith(1, 9, { name: 'B' }, 'sid');
       c.setStatus(user, '9', { status: 'want' } as never, 'sid');
       expect(svc.setStatus).toHaveBeenCalledWith(1, 9, 'want', 'sid');
-      expect(c.deletePlace(user, '9', 'sid')).toEqual({ success: true });
+      expect(await c.deletePlace(user, '9', 'sid')).toEqual({ success: true });
       expect(svc.deletePlace).toHaveBeenCalledWith(1, 9, 'sid');
       c.saveFromTrip(user, { collection_id: 3, source_trip_id: 5, source_place_id: 8 } as never, 'sid');
       expect(svc.saveFromTripPlace).toHaveBeenCalledWith(1, 3, 5, 8, undefined, 'sid');
@@ -111,9 +111,9 @@ describe('CollectionsController', () => {
     // The legacy 'ids must be an array of numbers' 400 is gone:
     // collectionDeleteManyRequestSchema types the array, so the pipe rejects a
     // bad payload before the handler runs.
-    it('deleteMany deletes a valid list', () => {
+    it('deleteMany deletes a valid list', async () => {
       const svc = makeService();
-      expect(new CollectionsController(svc, new RuntimeEnvService(), storageStub).deleteMany(user, { ids: [1, 2] } as never, 'sid')).toEqual({ deleted: [1, 2] });
+      expect(await new CollectionsController(svc, new RuntimeEnvService(), storageStub).deleteMany(user, { ids: [1, 2] } as never, 'sid')).toEqual({ deleted: [1, 2] });
       expect(svc.deletePlacesMany).toHaveBeenCalledWith(1, [1, 2], 'sid');
     });
   });

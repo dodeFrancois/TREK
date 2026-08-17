@@ -121,8 +121,8 @@ export class CollectionsController {
 
   @Post('places/delete-many')
   @HttpCode(200)
-  deleteMany(@CurrentUser() user: User, @Body() body: CollectionDeleteManyDto, @Headers('x-socket-id') socketId?: string) {
-    return { deleted: this.collections.deletePlacesMany(user.id, body.ids, socketId) };
+  async deleteMany(@CurrentUser() user: User, @Body() body: CollectionDeleteManyDto, @Headers('x-socket-id') socketId?: string) {
+    return { deleted: await this.collections.deletePlacesMany(user.id, body.ids, socketId) };
   }
 
   @Post('places/status-many')
@@ -193,8 +193,8 @@ export class CollectionsController {
   }
 
   @Delete('places/:pid')
-  deletePlace(@CurrentUser() user: User, @Param('pid') pid: string, @Headers('x-socket-id') socketId?: string) {
-    this.collections.deletePlace(user.id, Number(pid), socketId);
+  async deletePlace(@CurrentUser() user: User, @Param('pid') pid: string, @Headers('x-socket-id') socketId?: string) {
+    await this.collections.deletePlace(user.id, Number(pid), socketId);
     return { success: true };
   }
 
