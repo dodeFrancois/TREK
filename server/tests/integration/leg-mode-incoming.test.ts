@@ -35,31 +35,47 @@ describe('incoming_leg_transport_mode migration', () => {
 
   // The case above starts from an empty database and runs every migration, so it
   // passes wherever a migration sits in the array.
-  it('the trailing migration lands on a database that is one version behind', () => {
+  it('the trailing migrations land on a database that is behind', () => {
     // What actually has to hold: existing installs replay only the slots above
     // their schema_version, so a migration inserted mid-array is silently
-    // skipped on every one of them. Undoing what the LAST migration did and
-    // rewinding one version is the only way to prove it still runs.
+    // skipped on every one of them. Undoing what the trailing migrations did
+    // and rewinding is the only way to prove they still run.
     //
     // >>> Appending a migration? Re-point the undo below at whatever yours
     // >>> does. That is the whole maintenance cost of this guard.
-    // Trailing migration today: the storage slice-2 trip_files 'files/' prefix
-    // strip — undo it by re-inserting a prefixed row.
+    // Trailing migrations today (a dev/feat-storage-driver merge landed two
+    // in one release window, so the rewind spans both):
+    //   version-2 — reservation_day_positions cross-trip cleanup: undone by
+    //               re-inserting a mismatched reservation/day pair.
+    //   version-1 — storage slice-2 trip_files 'files/' prefix strip: undone
+    //               by re-inserting a prefixed row.
     const upgraded = new Database(':memory:');
     upgraded.exec('PRAGMA foreign_keys = ON');
     createTables(upgraded);
     runMigrations(upgraded);
 
     const { version } = upgraded.prepare('SELECT version FROM schema_version').get() as { version: number };
-    upgraded.prepare("INSERT INTO users (id, username, email, password_hash) VALUES (1, 'u', 'u@example.test', 'x')").run();
-    upgraded.prepare("INSERT INTO trips (id, user_id, title) VALUES (1, 1, 'T')").run();
-    upgraded.prepare("INSERT INTO trip_files (trip_id, filename, original_name) VALUES (1, 'files/aaa.pdf', 'a.pdf')").run();
-    upgraded.prepare('UPDATE schema_version SET version = ?').run(version - 1);
+
+    upgraded.prepare("INSERT INTO users (id, username, email, password_hash) VALUES (1, 'a', 'a@test.local', 'x')").run();
+    upgraded.prepare("INSERT INTO users (id, username, email, password_hash) VALUES (2, 'b', 'b@test.local', 'x')").run();
+    const tripA = upgraded.prepare("INSERT INTO trips (user_id, title) VALUES (1, 'A')").run().lastInsertRowid;
+    const tripB = upgraded.prepare("INSERT INTO trips (user_id, title) VALUES (2, 'B')").run().lastInsertRowid;
+    const reservationOnA = upgraded.prepare("INSERT INTO reservations (trip_id, title, type) VALUES (?, 'r', 'other')").run(tripA).lastInsertRowid;
+    const dayOnA = upgraded.prepare("INSERT INTO days (trip_id, day_number, date) VALUES (?, 1, '2026-01-01')").run(tripA).lastInsertRowid;
+    const dayOnB = upgraded.prepare("INSERT INTO days (trip_id, day_number, date) VALUES (?, 1, '2026-01-01')").run(tripB).lastInsertRowid;
+    const insertPosition = upgraded.prepare('INSERT INTO reservation_day_positions (reservation_id, day_id, position) VALUES (?, ?, ?)');
+    insertPosition.run(reservationOnA, dayOnB, 1); // the mismatched pair the migration clears
+    insertPosition.run(reservationOnA, dayOnA, 2); // a legitimate one it must leave alone
+    upgraded.prepare("INSERT INTO trip_files (trip_id, filename, original_name) VALUES (?, 'files/aaa.pdf', 'a.pdf')").run(tripA);
+
+    upgraded.prepare('UPDATE schema_version SET version = ?').run(version - 2);
 
     runMigrations(upgraded);
 
-    const rows = upgraded.prepare('SELECT filename FROM trip_files').all() as { filename: string }[];
-    expect(rows.map(r => r.filename)).toEqual(['aaa.pdf']);
+    const positions = upgraded.prepare('SELECT day_id FROM reservation_day_positions ORDER BY day_id').all() as { day_id: number }[];
+    expect(positions).toEqual([{ day_id: Number(dayOnA) }]);
+    const files = upgraded.prepare('SELECT filename FROM trip_files').all() as { filename: string }[];
+    expect(files.map(r => r.filename)).toEqual(['aaa.pdf']);
     expect(upgraded.prepare('SELECT version FROM schema_version').get()).toEqual({ version });
     upgraded.close();
   });
