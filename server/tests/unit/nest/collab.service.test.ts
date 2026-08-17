@@ -461,6 +461,25 @@ describe('hardening', () => {
     expect(testDb.prepare('SELECT COUNT(*) as c FROM collab_notes WHERE id = ?').get(note.id)).toEqual({ c: 1 });
   });
 
+  it('COLLAB-SVC-036: a failing storage delete is swallowed — note + file deletes still succeed', async () => {
+    const { user1, trip } = setup();
+    const dbs = new DatabaseService(testDb);
+    const failingStorage = { delete: vi.fn().mockRejectedValue(new Error('EACCES')) };
+    const failing = new CollabService(dbs, new PermissionsService(dbs), new RealtimeService(), notificationsStub(), failingStorage as unknown as import('../../../src/nest/storage/storage.service').StorageService);
+    const note = failing.createNote(trip.id, user1.id, { title: 'Sticky file' });
+    testDb.prepare('INSERT INTO trip_files (trip_id, note_id, filename, original_name) VALUES (?, ?, ?, ?)')
+      .run(trip.id, note.id, 'stuck.pdf', 'stuck.pdf');
+    const fileId = (testDb.prepare('SELECT id FROM trip_files WHERE note_id = ?').get(note.id) as { id: number }).id;
+
+    expect(await failing.deleteNoteFile(trip.id, note.id, fileId)).toBe(true);
+    expect(testDb.prepare('SELECT COUNT(*) as c FROM trip_files WHERE id = ?').get(fileId)).toEqual({ c: 0 });
+
+    testDb.prepare('INSERT INTO trip_files (trip_id, note_id, filename, original_name) VALUES (?, ?, ?, ?)')
+      .run(trip.id, note.id, 'stuck2.pdf', 'stuck2.pdf');
+    expect(await failing.deleteNote(trip.id, note.id)).toBe(true);
+    expect(testDb.prepare('SELECT COUNT(*) as c FROM collab_notes WHERE id = ?').get(note.id)).toEqual({ c: 0 });
+  });
+
   it('COLLAB-SVC-036: getFormattedNoteById is trip-scoped and null-safe', () => {
     const { user1, trip } = setup();
     const otherTrip = createTrip(testDb, user1.id);

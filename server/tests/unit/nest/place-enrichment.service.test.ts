@@ -668,17 +668,17 @@ describe('creditLine', () => {
     );
   });
 
-  it('ENRICH-029: reads a stored credit back by cache key', () => {
+  it('ENRICH-029: reads a stored credit back by cache key', async () => {
     const cache = cacheStub({
       get: vi.fn((key: string) =>
-        key === 'ChIJmuseum~p0' ? { photoUrl: '/x', filePath: '/tmp/x', attribution: 'Alice · CC BY-SA 4.0' } : null,
+        key === 'ChIJmuseum~p0' ? { photoUrl: '/x', attribution: 'Alice · CC BY-SA 4.0' } : null,
       ),
     });
     const svc = make(mapsStub(), cache);
 
-    expect(svc.credit('ChIJmuseum~p0')).toEqual({ credit: 'Alice · CC BY-SA 4.0' });
+    expect(await svc.credit('ChIJmuseum~p0')).toEqual({ credit: 'Alice · CC BY-SA 4.0' });
     // An uploaded image or a key that was swept has nothing to name.
-    expect(svc.credit('unknown')).toEqual({ credit: null });
+    expect(await svc.credit('unknown')).toEqual({ credit: null });
   });
 });
 
