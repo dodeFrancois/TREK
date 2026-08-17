@@ -1,8 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { HttpException } from '@nestjs/common';
 import type { Response } from 'express';
-// Still spied on by the DELETE-photo cases: those raw unlinks are slice-4 scope.
-import fs from 'node:fs';
 
 import { JourneyController } from '../../../src/nest/journey/journey.controller';
 import { JourneyPublicController } from '../../../src/nest/journey/journey-public.controller';
@@ -82,11 +80,11 @@ describe('JourneyController', () => {
     expect(thrown(() => new JourneyController(svc({ linkPhotoToEntry: vi.fn().mockReturnValue(null) } as Partial<JourneyService>), storageStub).linkPhoto(user, '3', { journey_photo_id: 9 }))).toEqual({ status: 403, body: { error: 'Not allowed' } });
   });
 
-  it('unlink photo (204) maps 404; delete photo 404 then unlinks file', () => {
+  it('unlink photo (204) maps 404; delete photo 404 then removes the object', async () => {
     expect(thrown(() => new JourneyController(svc({ unlinkPhotoFromEntry: vi.fn().mockReturnValue(false) } as Partial<JourneyService>), storageStub).unlinkPhoto(user, '3', '7'))).toEqual({ status: 404, body: { error: 'Not found or not allowed' } });
     expect(new JourneyController(svc({ unlinkPhotoFromEntry: vi.fn().mockReturnValue(true) } as Partial<JourneyService>), storageStub).unlinkPhoto(user, '3', '7')).toBeUndefined();
-    expect(thrown(() => new JourneyController(svc({ deletePhoto: vi.fn().mockReturnValue(null) } as Partial<JourneyService>), storageStub).deletePhoto(user, '7'))).toEqual({ status: 404, body: { error: 'Photo not found' } });
-    expect(new JourneyController(svc({ deletePhoto: vi.fn().mockReturnValue({ id: 7, file_path: null }) } as Partial<JourneyService>), storageStub).deletePhoto(user, '7')).toEqual({ success: true });
+    expect(await thrownAsync(() => new JourneyController(svc({ deletePhoto: vi.fn().mockReturnValue(null) } as Partial<JourneyService>), storageStub).deletePhoto(user, '7'))).toEqual({ status: 404, body: { error: 'Photo not found' } });
+    expect(await new JourneyController(svc({ deletePhoto: vi.fn().mockReturnValue({ id: 7, file_path: null }) } as Partial<JourneyService>), storageStub).deletePhoto(user, '7')).toEqual({ success: true });
   });
 
   it('gallery upload 400 no files / 403 not allowed, else commits + returns photos', async () => {
@@ -214,17 +212,16 @@ describe('JourneyController', () => {
     expect(new JourneyController(svc({ updatePhoto: vi.fn().mockReturnValue({ id: 7 }) } as Partial<JourneyService>), storageStub).updatePhoto(user, '7', { caption: 'x' })).toEqual({ id: 7 });
   });
 
-  it('DELETE photo unlinks the file when a path exists', () => {
-    const unlinkSpy = vi.spyOn(fs, 'unlinkSync').mockImplementation(() => undefined);
-    try {
-      expect(new JourneyController(svc({ deletePhoto: vi.fn().mockReturnValue({ id: 7, file_path: 'journey/a.jpg' }) } as Partial<JourneyService>), storageStub).deletePhoto(user, '7')).toEqual({ success: true });
-      expect(unlinkSpy).toHaveBeenCalledTimes(1);
-      // a vanished file is swallowed
-      unlinkSpy.mockImplementationOnce(() => { throw new Error('ENOENT'); });
-      expect(new JourneyController(svc({ deletePhoto: vi.fn().mockReturnValue({ id: 8, file_path: 'journey/b.jpg' }) } as Partial<JourneyService>), storageStub).deletePhoto(user, '8')).toEqual({ success: true });
-    } finally {
-      unlinkSpy.mockRestore();
-    }
+  it('DELETE photo removes the storage object when a path exists', async () => {
+    expect(await new JourneyController(svc({ deletePhoto: vi.fn().mockReturnValue({ id: 7, file_path: 'journey/a.jpg' }) } as Partial<JourneyService>), storageStub).deletePhoto(user, '7')).toEqual({ success: true });
+    expect(storageStub.delete).toHaveBeenCalledWith('journey', 'a.jpg');
+    // a vanished object is swallowed
+    (storageStub.delete as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('ENOENT'));
+    expect(await new JourneyController(svc({ deletePhoto: vi.fn().mockReturnValue({ id: 8, file_path: 'journey/b.jpg' }) } as Partial<JourneyService>), storageStub).deletePhoto(user, '8')).toEqual({ success: true });
+    // a file_path outside the journey category never reaches storage
+    (storageStub.delete as ReturnType<typeof vi.fn>).mockClear();
+    expect(await new JourneyController(svc({ deletePhoto: vi.fn().mockReturnValue({ id: 9, file_path: 'elsewhere/x.jpg' }) } as Partial<JourneyService>), storageStub).deletePhoto(user, '9')).toEqual({ success: true });
+    expect(storageStub.delete).not.toHaveBeenCalled();
   });
 
   it('gallery provider-photos: batch (with passphrase), single 400/403, success', () => {
@@ -237,19 +234,14 @@ describe('JourneyController', () => {
     expect(new JourneyController(svc({ addProviderPhotoToGallery: vi.fn().mockReturnValue({ id: 3 }) } as Partial<JourneyService>), storageStub).galleryProviderPhotos(user, '9', { provider: 'immich', asset_id: 'a' })).toEqual({ id: 3 });
   });
 
-  it('DELETE gallery photo: 404, then unlinks the file when present', () => {
-    expect(thrown(() => new JourneyController(svc({ deleteGalleryPhoto: vi.fn().mockReturnValue(null) } as Partial<JourneyService>), storageStub).deleteGalleryPhoto(user, '7'))).toEqual({ status: 404, body: { error: 'Photo not found or not allowed' } });
-    // no file_path → nothing to unlink, returns void
-    expect(new JourneyController(svc({ deleteGalleryPhoto: vi.fn().mockReturnValue({ id: 7, file_path: null }) } as Partial<JourneyService>), storageStub).deleteGalleryPhoto(user, '7')).toBeUndefined();
-    const unlinkSpy = vi.spyOn(fs, 'unlinkSync').mockImplementation(() => undefined);
-    try {
-      new JourneyController(svc({ deleteGalleryPhoto: vi.fn().mockReturnValue({ id: 8, file_path: 'journey/g.jpg' }) } as Partial<JourneyService>), storageStub).deleteGalleryPhoto(user, '8');
-      expect(unlinkSpy).toHaveBeenCalledTimes(1);
-      unlinkSpy.mockImplementationOnce(() => { throw new Error('ENOENT'); });
-      expect(new JourneyController(svc({ deleteGalleryPhoto: vi.fn().mockReturnValue({ id: 9, file_path: 'journey/h.jpg' }) } as Partial<JourneyService>), storageStub).deleteGalleryPhoto(user, '9')).toBeUndefined();
-    } finally {
-      unlinkSpy.mockRestore();
-    }
+  it('DELETE gallery photo: 404, then removes the object when present', async () => {
+    expect(await thrownAsync(() => new JourneyController(svc({ deleteGalleryPhoto: vi.fn().mockReturnValue(null) } as Partial<JourneyService>), storageStub).deleteGalleryPhoto(user, '7'))).toEqual({ status: 404, body: { error: 'Photo not found or not allowed' } });
+    // no file_path → nothing to delete, returns void
+    expect(await new JourneyController(svc({ deleteGalleryPhoto: vi.fn().mockReturnValue({ id: 7, file_path: null }) } as Partial<JourneyService>), storageStub).deleteGalleryPhoto(user, '7')).toBeUndefined();
+    await new JourneyController(svc({ deleteGalleryPhoto: vi.fn().mockReturnValue({ id: 8, file_path: 'journey/g.jpg' }) } as Partial<JourneyService>), storageStub).deleteGalleryPhoto(user, '8');
+    expect(storageStub.delete).toHaveBeenCalledWith('journey', 'g.jpg');
+    (storageStub.delete as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('ENOENT'));
+    expect(await new JourneyController(svc({ deleteGalleryPhoto: vi.fn().mockReturnValue({ id: 9, file_path: 'journey/h.jpg' }) } as Partial<JourneyService>), storageStub).deleteGalleryPhoto(user, '9')).toBeUndefined();
   });
 
   it('PATCH /:id returns the updated journey on success', () => {

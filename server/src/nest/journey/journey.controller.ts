@@ -281,15 +281,25 @@ export class JourneyController {
   }
 
   @Delete('photos/:photoId')
-  deletePhoto(@CurrentUser() user: User, @Param('photoId') photoId: string) {
+  async deletePhoto(@CurrentUser() user: User, @Param('photoId') photoId: string) {
     const photo = this.journey.deletePhoto(Number(photoId), user.id);
     if (!photo) {
       throw new HttpException({ error: 'Photo not found' }, 404);
     }
-    if (photo.file_path) {
-      try { fs.unlinkSync(path.join(__dirname, '../../../uploads', photo.file_path)); } catch { /* file already gone */ }
-    }
+    await this.deletePhotoObject(photo.file_path);
     return { success: true };
+  }
+
+  /**
+   * Best-effort removal of a deleted photo's bytes. file_path rows are the
+   * uploads-relative 'journey/<file>' form every writer stores; anything else
+   * (provider rows have null) has no local object.
+   */
+  private async deletePhotoObject(filePath: string | null | undefined): Promise<void> {
+    if (!filePath) return;
+    const name = filePath.startsWith('journey/') ? filePath.slice('journey/'.length) : null;
+    if (!name) return;
+    await this.storage.delete('journey', name).catch(() => { /* file already gone */ });
   }
 
   // ── Gallery (prefix /:id/gallery — before /:id) ─────────────────────────
@@ -377,14 +387,12 @@ export class JourneyController {
 
   @Delete(':id/gallery/:journeyPhotoId')
   @HttpCode(204)
-  deleteGalleryPhoto(@CurrentUser() user: User, @Param('journeyPhotoId') journeyPhotoId: string): void {
+  async deleteGalleryPhoto(@CurrentUser() user: User, @Param('journeyPhotoId') journeyPhotoId: string): Promise<void> {
     const photo = this.journey.deleteGalleryPhoto(Number(journeyPhotoId), user.id);
     if (!photo) {
       throw new HttpException({ error: 'Photo not found or not allowed' }, 404);
     }
-    if (photo.file_path) {
-      try { fs.unlinkSync(path.join(__dirname, '../../../uploads', photo.file_path)); } catch { /* file already gone */ }
-    }
+    await this.deletePhotoObject(photo.file_path);
   }
 
   // ── Journeys /:id ───────────────────────────────────────────────────────
