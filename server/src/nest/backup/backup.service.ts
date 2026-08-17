@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import type { Response } from 'express';
 import { StorageService } from '../storage/storage.service';
 import * as svc from './backup.impl';
 
@@ -24,6 +25,7 @@ export class BackupService {
   isValidBackupFilename(filename: string) { return svc.isValidBackupFilename(filename); }
   backupFilePath(filename: string) { return svc.backupFilePath(filename); }
   backupFileExists(filename: string) { return svc.backupFileExists(this.storage, filename); }
+  sendBackupToResponse(filename: string, res: Response) { return svc.sendBackupToResponse(this.storage, filename, res); }
   checkRateLimit(key: string, maxAttempts: number, windowMs: number) { return svc.checkRateLimit(key, maxAttempts, windowMs); }
 
   get rateWindow() { return svc.BACKUP_RATE_WINDOW; }

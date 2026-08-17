@@ -77,6 +77,7 @@ import {
   backupFilePath,
   backupFileExists,
   listBackups,
+  sendBackupToResponse,
 } from '../../../src/nest/backup/backup.impl';
 import type { StorageService } from '../../../src/nest/storage/storage.service';
 
@@ -930,6 +931,38 @@ describe('BACKUP-040 backupFileExists', () => {
   it('BACKUP-040b — returns false when storage.exists resolves false', async () => {
     const storage = stubStorage({ exists: vi.fn(async () => false) });
     await expect(backupFileExists(storage, 'backup-missing.zip')).resolves.toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// sendBackupToResponse
+// ---------------------------------------------------------------------------
+
+describe('BACKUP-062 sendBackupToResponse', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('BACKUP-062a — serves through storage with the res.download attachment header', async () => {
+    const storage = stubStorage();
+    const res = { setHeader: vi.fn() } as unknown as import('express').Response;
+
+    await sendBackupToResponse(storage, 'backup-2026-01-01T00-00-00.zip', res);
+
+    expect(storage.sendToResponse).toHaveBeenCalledOnce();
+    expect(storage.sendToResponse).toHaveBeenCalledWith(
+      'backups',
+      'backup-2026-01-01T00-00-00.zip',
+      res,
+      { disposition: 'attachment; filename="backup-2026-01-01T00-00-00.zip"' },
+    );
+  });
+
+  it('BACKUP-062b — propagates a storage failure (the controller owns the miss contract)', async () => {
+    const storage = stubStorage({ sendToResponse: vi.fn(async () => { throw new Error('missing'); }) });
+    const res = {} as import('express').Response;
+
+    await expect(sendBackupToResponse(storage, 'backup-x.zip', res)).rejects.toThrow('missing');
   });
 });
 

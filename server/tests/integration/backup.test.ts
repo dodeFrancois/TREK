@@ -85,6 +85,7 @@ import { resetTestDb, resetRateLimits } from '../helpers/test-db';
 import { createAdmin, createUser } from '../helpers/factories';
 import { authCookie } from '../helpers/auth';
 import * as backupService from '../../src/nest/backup/backup.impl';
+import { DEFAULT_BACKUPS_ROOT } from '../../src/nest/storage/storage-paths';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -200,31 +201,36 @@ describe('Backup security', () => {
 // ---------------------------------------------------------------------------
 
 describe('Backup download', () => {
-  let tmpFile: string;
+  // Serving goes through the real StorageService now (sendBackupToResponse is
+  // NOT overridden in the impl mock), so the fixture must live in the real
+  // backups root. Only this one file is cleaned up — never the whole dir.
+  const downloadFixture = 'backup-2026-04-06T12-00-00.zip';
+  const downloadFixturePath = path.join(DEFAULT_BACKUPS_ROOT, downloadFixture);
 
   beforeEach(() => {
-    // Create a real temporary file that Express can stream back
-    tmpFile = path.join(os.tmpdir(), `test-backup-${Date.now()}.zip`);
-    fs.writeFileSync(tmpFile, 'fake zip content');
-    vi.mocked(backupService.backupFileExists).mockReturnValue(true);
-    vi.mocked(backupService.backupFilePath).mockReturnValue(tmpFile);
+    vi.mocked(backupService.backupFileExists).mockResolvedValue(true);
   });
 
   afterAll(() => {
-    try { fs.unlinkSync(tmpFile); } catch {}
+    try { fs.unlinkSync(downloadFixturePath); } catch {}
   });
 
   it('BACKUP-INT-001 — GET /backup/download/:filename returns 200 with content-disposition', async () => {
     const { user: admin } = createAdmin(testDb);
-    const filename = 'backup-2026-04-06T12-00-00.zip';
+    // (Re)write the fixture immediately before the request that serves it.
+    fs.mkdirSync(DEFAULT_BACKUPS_ROOT, { recursive: true });
+    fs.writeFileSync(downloadFixturePath, 'fake zip content');
 
     const res = await request(app)
-      .get(`/api/backup/download/${filename}`)
+      .get(`/api/backup/download/${downloadFixture}`)
       .set('Cookie', authCookie(admin.id));
 
     expect(res.status).toBe(200);
     expect(res.headers['content-disposition']).toMatch(/attachment/i);
-    expect(res.headers['content-disposition']).toContain(filename);
+    expect(res.headers['content-disposition']).toContain(downloadFixture);
+    // superagent has no parser for application/zip, so assert the byte count
+    // rather than the (unbuffered) body.
+    expect(res.headers['content-length']).toBe(String('fake zip content'.length));
   });
 
   it('BACKUP-INT-002 — GET /backup/download/:filename returns 400 for invalid filename', async () => {

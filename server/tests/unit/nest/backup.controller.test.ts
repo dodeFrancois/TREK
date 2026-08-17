@@ -18,10 +18,12 @@ vi.mock('../../../src/nest/backup/backup.impl', () => ({
   isValidBackupFilename: vi.fn().mockReturnValue(true),
   backupFilePath: vi.fn().mockReturnValue('/data/backups/svc.zip'),
   backupFileExists: vi.fn().mockReturnValue(true),
+  sendBackupToResponse: vi.fn().mockResolvedValue(undefined),
   checkRateLimit: vi.fn().mockReturnValue(true),
 }));
 
 import { BackupController } from '../../../src/nest/backup/backup.controller';
+import { StorageNotFoundError } from '../../../src/nest/storage/storage.types';
 import { BackupService as RealBackupService } from '../../../src/nest/backup/backup.service';
 import { AdminGuard } from '../../../src/nest/auth/admin.guard';
 import type { BackupService } from '../../../src/nest/backup/backup.service';
@@ -56,6 +58,7 @@ function svc(o: Partial<BackupService> = {}): BackupService {
     isValidBackupFilename: vi.fn().mockReturnValue(true),
     backupFilePath: vi.fn().mockReturnValue('/b/x.zip'),
     backupFileExists: vi.fn().mockReturnValue(true),
+    sendBackupToResponse: vi.fn().mockResolvedValue(undefined),
     checkRateLimit: vi.fn().mockReturnValue(true),
     rateWindow: 3600000,
     ...o,
@@ -106,12 +109,22 @@ describe('BackupController', () => {
     expect(writeAudit).toHaveBeenCalledWith(expect.objectContaining({ action: 'backup.create', resource: 'b.zip' }));
   });
 
-  it('GET /download 400 invalid / 404 missing, else res.download', async () => {
-    const res = { download: vi.fn() } as unknown as Response;
+  it('GET /download 400 invalid / 404 missing, else serves through storage', async () => {
+    const res = {} as unknown as Response;
     expect(await thrownAsync(() => bc(svc({ isValidBackupFilename: vi.fn().mockReturnValue(false) })).download('x', res))).toEqual({ status: 400, body: { error: 'Invalid filename' } });
     expect(await thrownAsync(() => bc(svc({ backupFileExists: vi.fn().mockResolvedValue(false) })).download('x.zip', res))).toEqual({ status: 404, body: { error: 'Backup not found' } });
-    await bc(svc()).download('x.zip', res);
-    expect(res.download).toHaveBeenCalledWith('/b/x.zip', 'x.zip');
+    const sendBackupToResponse = vi.fn().mockResolvedValue(undefined);
+    await bc(svc({ sendBackupToResponse } as Partial<BackupService>)).download('x.zip', res);
+    expect(sendBackupToResponse).toHaveBeenCalledWith('x.zip', res);
+  });
+
+  it('GET /download maps a StorageNotFoundError raced past the pre-check to the same 404', async () => {
+    const res = {} as unknown as Response;
+    const sendBackupToResponse = vi.fn().mockRejectedValue(new StorageNotFoundError('x.zip'));
+    expect(await thrownAsync(() => bc(svc({ sendBackupToResponse } as Partial<BackupService>)).download('x.zip', res))).toEqual({ status: 404, body: { error: 'Backup not found' } });
+    // A non-miss failure is NOT swallowed into the 404 envelope.
+    const boom = vi.fn().mockRejectedValue(new Error('io'));
+    await expect(bc(svc({ sendBackupToResponse: boom } as Partial<BackupService>)).download('x.zip', res)).rejects.toThrow('io');
   });
 
   it('POST /restore maps the service status, else audits', async () => {
@@ -223,6 +236,10 @@ describe('BackupService (wrapper)', () => {
 
     expect(wrapper.backupFileExists('svc.zip')).toBe(true);
     expect(backupSvc.backupFileExists).toHaveBeenCalledWith(storage, 'svc.zip');
+
+    const fakeRes = {} as Response;
+    await wrapper.sendBackupToResponse('svc.zip', fakeRes);
+    expect(backupSvc.sendBackupToResponse).toHaveBeenCalledWith(storage, 'svc.zip', fakeRes);
 
     expect(wrapper.checkRateLimit('ip', 3, 1000)).toBe(true);
     expect(backupSvc.checkRateLimit).toHaveBeenCalledWith('ip', 3, 1000);

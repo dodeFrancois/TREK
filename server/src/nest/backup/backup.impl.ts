@@ -10,6 +10,7 @@ import { invalidatePermissionsCache } from '../permissions/permissions-cache';
 import { pluginsCodeRoot, pluginsDataRoot } from '../plugins/paths';
 import { stageExtractedPluginTrees, applyStagedRestoreNow } from '../plugins/plugin-backup';
 import { snapshotAllPluginDataDbs } from '../plugins/host/plugin-data.service';
+import type { Response } from 'express';
 import type { StorageService } from '../storage/storage.service';
 
 // ---------------------------------------------------------------------------
@@ -87,6 +88,17 @@ export function backupFilePath(filename: string): string {
 
 export function backupFileExists(storage: StorageService, filename: string): Promise<boolean> {
   return storage.exists('backups', filename);
+}
+
+/**
+ * The codebase's only res.download becomes the storage equivalent: root-relative
+ * sendFile via sendToResponse, with res.download's attachment header rebuilt by
+ * hand (filenames are regex-gated ASCII — no encoding cases).
+ */
+export function sendBackupToResponse(storage: StorageService, filename: string, res: Response): Promise<void> {
+  return storage.sendToResponse('backups', filename, res, {
+    disposition: `attachment; filename="${filename}"`,
+  });
 }
 
 // ---------------------------------------------------------------------------

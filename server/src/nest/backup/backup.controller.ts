@@ -28,6 +28,7 @@ import { AutoBackupSettingsDto } from './backup.dto';
 import { getClientIp } from '../audit/client-ip';
 import { AuditService } from '../audit/audit.service';
 import { getUploadTmpDir, MAX_BACKUP_UPLOAD_SIZE } from './backup.impl';
+import { StorageNotFoundError } from '../storage/storage.types';
 import { ManagedForbidden, isManagedBlocked, MANAGED_FORBIDDEN_ERROR } from '../common/managed';
 import { RuntimeEnvService } from '../app-config/runtime-env.service';
 
@@ -91,7 +92,16 @@ export class BackupController {
     if (!(await this.backup.backupFileExists(filename))) {
       throw new HttpException({ error: 'Backup not found' }, 404);
     }
-    res.download(this.backup.backupFilePath(filename), filename);
+    try {
+      await this.backup.sendBackupToResponse(filename, res);
+    } catch (err) {
+      // The pre-check above owns the normal miss; this only covers a delete
+      // racing between the check and the send.
+      if (err instanceof StorageNotFoundError) {
+        throw new HttpException({ error: 'Backup not found' }, 404);
+      }
+      throw err;
+    }
   }
 
   @ManagedForbidden('a restore replaces database and uploads, and the operator owns the recovery point')
