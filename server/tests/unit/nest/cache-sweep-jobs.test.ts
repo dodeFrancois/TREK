@@ -13,8 +13,10 @@ vi.mock('../../../src/nest/audit/audit-log.logger', () => logMock);
 import { TrekPhotoCacheJob } from '../../../src/nest/memories/trek-photo-cache.job';
 import { PlacePhotoCacheJob } from '../../../src/nest/place-photos/place-photo-cache.job';
 import { AirtrailSyncJob } from '../../../src/nest/integrations/airtrail-sync.job';
+import { JourneyThumbsJob } from '../../../src/nest/memories/journey-thumbs.job';
 import type { TrekPhotoCacheService } from '../../../src/nest/memories/trek-photo-cache.service';
 import type { PlacePhotoCacheService } from '../../../src/nest/place-photos/place-photo-cache.service';
+import type { ThumbnailService } from '../../../src/nest/memories/thumbnail.service';
 import type { AirtrailSyncService } from '../../../src/nest/integrations/airtrail-sync.service';
 import type { DatabaseService } from '../../../src/nest/database/database.service';
 import type { CronRegistrarService } from '../../../src/nest/scheduling/cron-registrar.service';
@@ -95,6 +97,40 @@ describe('PlacePhotoCacheJob', () => {
     const gated = make(0, false);
     gated.job.onApplicationBootstrap();
     expect(gated.cache.sweepOrphans).not.toHaveBeenCalled();
+    expect(gated.registrar.register).not.toHaveBeenCalled();
+  });
+});
+
+describe('JourneyThumbsJob', () => {
+  function make(removed: number | (() => number) = 0, enabled = true) {
+    const registrar = registrarStub(enabled);
+    const thumbnails = { sweepOrphanThumbs: vi.fn(typeof removed === 'function' ? removed : () => Promise.resolve(removed)) };
+    const job = new JourneyThumbsJob(thumbnails as unknown as ThumbnailService, registrar as unknown as CronRegistrarService);
+    return { job, registrar, thumbnails };
+  }
+
+  it('CSJOB-010 — boot sweep runs immediately, then the daily app-tz cron registers', () => {
+    const { job, registrar, thumbnails } = make();
+    job.onApplicationBootstrap();
+    expect(thumbnails.sweepOrphanThumbs).toHaveBeenCalledTimes(1);
+    expect(registrar.register).toHaveBeenCalledWith('journey-thumbs', '0 4 * * *', expect.any(Function));
+  });
+
+  it('CSJOB-011 — logs only when something was removed', async () => {
+    await make(0).job.sweep();
+    expect(logMock.logInfo).not.toHaveBeenCalled();
+    await make(2).job.sweep();
+    expect(logMock.logInfo).toHaveBeenCalledWith('Journey thumbnail cleanup: removed 2 orphaned thumbnail(s)');
+  });
+
+  it('CSJOB-012 — a throwing sweep is contained to the cleanup log line, and the gate skips the boot sweep', async () => {
+    const { job } = make(() => { throw new Error('storage down'); });
+    await job.sweep();
+    expect(logMock.logError).toHaveBeenCalledWith('Journey thumbnail cleanup: storage down');
+
+    const gated = make(0, false);
+    gated.job.onApplicationBootstrap();
+    expect(gated.thumbnails.sweepOrphanThumbs).not.toHaveBeenCalled();
     expect(gated.registrar.register).not.toHaveBeenCalled();
   });
 });

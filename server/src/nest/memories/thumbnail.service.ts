@@ -4,6 +4,7 @@ import crypto from 'node:crypto'
 import { Injectable } from '@nestjs/common'
 import { ADDON_IDS } from '../../addons'
 import { AddonsService } from '../addons/addons.service'
+import { DatabaseService } from '../database/database.service'
 import { StorageService } from '../storage/storage.service'
 
 const THUMB_MAX = 800
@@ -30,6 +31,7 @@ export class ThumbnailService {
   constructor(
     private readonly addons: AddonsService,
     private readonly storage: StorageService,
+    private readonly db: DatabaseService,
   ) {}
 
   async ensureLocalThumbnail(
@@ -74,5 +76,40 @@ export class ThumbnailService {
       // Unsupported format, corrupt file, etc. — fall back to original in caller.
       return null
     }
+  }
+
+  /**
+   * Reclaim journey/thumbs/ objects no live trek_photos row can account for
+   * (spec In-scope fix #2). The live set is every hash derivable from a
+   * journey file_path plus every recorded thumbnail_path under thumbs/ —
+   * video posters live in journey/ proper and are reclaimed at the delete
+   * sites, not here. Gated on the Journey addon like the generator, inside
+   * the method so an admin toggle takes effect without a restart
+   * (airtrail-sync.job.ts precedent).
+   */
+  async sweepOrphanThumbs(): Promise<number> {
+    if (!this.addons.isAddonEnabled(ADDON_IDS.JOURNEY)) return 0
+
+    const live = new Set<string>()
+    for (const row of this.db.all<{ file_path: string }>(
+      "SELECT file_path FROM trek_photos WHERE file_path LIKE 'journey/%'",
+    )) {
+      live.add(journeyThumbName(row.file_path))
+    }
+    for (const row of this.db.all<{ thumbnail_path: string }>(
+      "SELECT thumbnail_path FROM trek_photos WHERE thumbnail_path LIKE 'journey/thumbs/%'",
+    )) {
+      live.add(row.thumbnail_path.slice('journey/'.length))
+    }
+
+    let removed = 0
+    for await (const stat of this.storage.list('journey', 'thumbs/')) {
+      if (!stat.key.endsWith('.jpg') || live.has(stat.key)) continue
+      try {
+        await this.storage.delete('journey', stat.key)
+        removed++
+      } catch { /* race */ }
+    }
+    return removed
   }
 }

@@ -1234,22 +1234,22 @@ export class JourneyDomainService {
   deleteGalleryPhoto(
     journeyPhotoId: number,
     userId: number,
-  ): { photo_id: number; file_path?: string | null } | null {
+  ): { photo_id: number; file_path?: string | null; thumbnail_path?: string | null } | null {
     const row = this.db.prepare('SELECT * FROM journey_photos WHERE id = ?').get(journeyPhotoId) as
       | { id: number; journey_id: number; photo_id: number }
       | undefined;
     if (!row) return null;
     if (!this.canEdit(row.journey_id, userId)) return null;
 
-    const trekRow = this.db.prepare('SELECT file_path, provider FROM trek_photos WHERE id = ?').get(row.photo_id) as
-      | { file_path?: string; provider?: string }
+    const trekRow = this.db.prepare('SELECT file_path, thumbnail_path, provider FROM trek_photos WHERE id = ?').get(row.photo_id) as
+      | { file_path?: string; thumbnail_path?: string; provider?: string }
       | undefined;
 
     // cascade on journey_entry_photos.journey_photo_id handles junction cleanup
     this.db.prepare('DELETE FROM journey_photos WHERE id = ?').run(journeyPhotoId);
     this.photos.deleteIfOrphan(row.photo_id);
 
-    return { photo_id: row.photo_id, file_path: trekRow?.file_path ?? null };
+    return { photo_id: row.photo_id, file_path: trekRow?.file_path ?? null, thumbnail_path: trekRow?.thumbnail_path ?? null };
   }
 
   setPhotoProvider(photoId: number, provider: string, assetId: string, ownerId: number) {
@@ -1299,21 +1299,21 @@ export class JourneyDomainService {
   deletePhoto(
     photoId: number,
     userId: number,
-  ): { id: number; photo_id: number; file_path?: string | null; journey_id: number } | null {
+  ): { id: number; photo_id: number; file_path?: string | null; thumbnail_path?: string | null; journey_id: number } | null {
     const row = this.db.prepare('SELECT id, journey_id, photo_id FROM journey_photos WHERE id = ?').get(photoId) as
       | { id: number; journey_id: number; photo_id: number }
       | undefined;
     if (!row) return null;
     if (!this.canEdit(row.journey_id, userId)) return null;
 
-    const trekRow = this.db.prepare('SELECT file_path, provider FROM trek_photos WHERE id = ?').get(row.photo_id) as
-      | { file_path?: string; provider?: string }
+    const trekRow = this.db.prepare('SELECT file_path, thumbnail_path, provider FROM trek_photos WHERE id = ?').get(row.photo_id) as
+      | { file_path?: string; thumbnail_path?: string; provider?: string }
       | undefined;
 
     this.db.prepare('DELETE FROM journey_photos WHERE id = ?').run(photoId);
     this.photos.deleteIfOrphan(row.photo_id);
 
-    return { id: row.id, photo_id: row.photo_id, file_path: trekRow?.file_path ?? null, journey_id: row.journey_id };
+    return { id: row.id, photo_id: row.photo_id, file_path: trekRow?.file_path ?? null, thumbnail_path: trekRow?.thumbnail_path ?? null, journey_id: row.journey_id };
   }
 
   // ── Contributors ─────────────────────────────────────────────────────────

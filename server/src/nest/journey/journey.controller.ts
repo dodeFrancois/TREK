@@ -23,6 +23,7 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 import type { User } from '../../types';
 import { StorageService } from '../storage/storage.service';
+import { journeyThumbName } from '../memories/thumbnail.service';
 import { JourneyService } from './journey.service';
 import { AddonGuard } from '../addons/addon.guard';
 import { RequireAddon } from '../addons/require-addon.decorator';
@@ -287,6 +288,7 @@ export class JourneyController {
       throw new HttpException({ error: 'Photo not found' }, 404);
     }
     await this.deletePhotoObject(photo.file_path);
+    await this.reclaimDerived(photo.file_path, photo.thumbnail_path);
     return { success: true };
   }
 
@@ -300,6 +302,21 @@ export class JourneyController {
     const name = filePath.startsWith('journey/') ? filePath.slice('journey/'.length) : null;
     if (!name) return;
     await this.storage.delete('journey', name).catch(() => { /* file already gone */ });
+  }
+
+  /**
+   * Delete a photo's derived artifacts with it (spec In-scope fix #2): the
+   * hash-named thumbnail derivable from file_path, and whatever
+   * thumbnail_path recorded — a generated thumb (usually the same object) or
+   * a video's uploaded poster. Both best-effort, both idempotent.
+   */
+  private async reclaimDerived(filePath: string | null | undefined, thumbnailPath: string | null | undefined): Promise<void> {
+    if (filePath?.startsWith('journey/')) {
+      await this.storage.delete('journey', journeyThumbName(filePath)).catch(() => { /* already gone */ });
+    }
+    if (thumbnailPath?.startsWith('journey/')) {
+      await this.storage.delete('journey', thumbnailPath.slice('journey/'.length)).catch(() => { /* already gone */ });
+    }
   }
 
   // ── Gallery (prefix /:id/gallery — before /:id) ─────────────────────────
@@ -393,6 +410,7 @@ export class JourneyController {
       throw new HttpException({ error: 'Photo not found or not allowed' }, 404);
     }
     await this.deletePhotoObject(photo.file_path);
+    await this.reclaimDerived(photo.file_path, photo.thumbnail_path);
   }
 
   // ── Journeys /:id ───────────────────────────────────────────────────────

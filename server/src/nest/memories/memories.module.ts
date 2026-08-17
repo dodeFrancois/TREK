@@ -8,6 +8,7 @@ import { PhotoResolverService } from './photo-resolver.service';
 import { ThumbnailService } from './thumbnail.service';
 import { TrekPhotoCacheService } from './trek-photo-cache.service';
 import { TrekPhotoCacheJob } from './trek-photo-cache.job';
+import { JourneyThumbsJob } from './journey-thumbs.job';
 import { SchedulingModule } from '../scheduling/scheduling.module';
 import { UnifiedMemoriesController } from './unified.controller';
 import { ImmichMemoriesController } from './immich.controller';
@@ -56,6 +57,7 @@ import { StorageModule } from '../storage/storage.module';
     ThumbnailService,
     TrekPhotoCacheService,
     TrekPhotoCacheJob,
+    JourneyThumbsJob,
     ImmichPhotoProvider,
     SynologyPhotoProvider,
     PhotoProviderRegistry,
