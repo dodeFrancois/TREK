@@ -1,11 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import path from 'path';
-import fs from 'fs';
 import { readEnv, getAppUrl } from '../../app-config';
 import { DatabaseService } from '../database/database.service';
+import { StorageService } from '../storage/storage.service';
 import { decrypt_api_key, maybe_encrypt_api_key } from '../common/crypto/apiKeyCrypto';
 import { avatarUrl } from '../common/avatarUrl';
-import { EMAIL_REGEX, avatarDir, mask_stored_api_key } from './auth.helpers';
+import { EMAIL_REGEX, mask_stored_api_key } from './auth.helpers';
 import { splitManagedKeys, MANAGED_LOCKED_PROFILE_KEYS } from '../common/managed';
 import { User } from '../../types';
 
@@ -25,7 +24,10 @@ import { User } from '../../types';
  */
 @Injectable()
 export class UserProfileService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly storage: StorageService,
+  ) {}
 
   /**
    * On a centrally administered install the three key columns belong to the
@@ -182,12 +184,12 @@ export class UserProfileService {
   async saveAvatar(userId: number, filename: string) {
     const current = this.db.get<{ avatar: string | null }>('SELECT avatar FROM users WHERE id = ?', userId);
     // Only a locally uploaded file has something to clean up. An OIDC picture URL
-    // (#1399) has no file on disk, so skip the rm — path.join on a URL is meaningless.
+    // (#1399) has no storage object, so skip the delete entirely.
     if (current?.avatar && !/^https:\/\//i.test(current.avatar)) {
-      // Fire-and-forget: leftover files are harmless; the DB update is
-      // the source of truth for which avatar is current.
-      const oldPath = path.join(avatarDir, current.avatar);
-      await fs.promises.rm(oldPath, { force: true }).catch(() => {});
+      // Fire-and-forget parity: leftover objects are harmless; the DB update is
+      // the source of truth for which avatar is current. The catch also
+      // swallows a hostile stored value the central key validation rejects.
+      await this.storage.delete('avatars', current.avatar).catch(() => {});
     }
 
     this.db.run('UPDATE users SET avatar = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', filename, userId);
@@ -198,10 +200,9 @@ export class UserProfileService {
 
   async deleteAvatar(userId: number) {
     const current = this.db.get<{ avatar: string | null }>('SELECT avatar FROM users WHERE id = ?', userId);
-    // An OIDC picture URL (#1399) has no local file — only rm an uploaded one.
+    // An OIDC picture URL (#1399) has no storage object — only delete an uploaded one.
     if (current?.avatar && !/^https:\/\//i.test(current.avatar)) {
-      const filePath = path.join(avatarDir, current.avatar);
-      await fs.promises.rm(filePath, { force: true }).catch(() => {});
+      await this.storage.delete('avatars', current.avatar).catch(() => {});
     }
     this.db.run('UPDATE users SET avatar = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?', userId);
     return { success: true };

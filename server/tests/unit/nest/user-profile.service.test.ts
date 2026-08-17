@@ -38,10 +38,14 @@ import { createTables } from '../../../src/db/schema';
 import { runMigrations } from '../../../src/db/migrations';
 import { resetTestDb } from '../../helpers/test-db';
 import { createUser, createAdmin } from '../../helpers/factories';
+import fs from 'node:fs';
+import path from 'node:path';
 import { UserProfileService } from '../../../src/nest/auth/user-profile.service';
+import { makeStorageFixture } from '../../helpers/storage-fixture';
 import { DatabaseService } from '../../../src/nest/database/database.service';
 
-const profile = new UserProfileService(new DatabaseService(testDb));
+const avatarsFx = makeStorageFixture('avatars/');
+const profile = new UserProfileService(new DatabaseService(testDb), avatarsFx.storage);
 
 beforeAll(() => {
   createTables(testDb);
@@ -275,6 +279,40 @@ describe('updateMapsKey / avatar', () => {
     expect(await profile.deleteAvatar(user.id)).toEqual({ success: true });
     const row = testDb.prepare('SELECT avatar FROM users WHERE id = ?').get(user.id) as { avatar: string | null };
     expect(row.avatar).toBeNull();
+  });
+
+  function writeAvatar(name: string): string {
+    const dir = path.join(avatarsFx.root, 'avatars');
+    fs.mkdirSync(dir, { recursive: true });
+    const fp = path.join(dir, name);
+    fs.writeFileSync(fp, 'png-bytes');
+    return fp;
+  }
+
+  it('AUTH-DB-069b: saveAvatar reclaims the previous uploaded avatar file', async () => {
+    const { user } = createUser(testDb);
+    const old = writeAvatar('old.png');
+    testDb.prepare('UPDATE users SET avatar = ? WHERE id = ?').run('old.png', user.id);
+
+    await profile.saveAvatar(user.id, 'new.png');
+    expect(fs.existsSync(old)).toBe(false);
+  });
+
+  it('AUTH-DB-070b: deleteAvatar removes the uploaded avatar file', async () => {
+    const { user } = createUser(testDb);
+    const fp = writeAvatar('mine.png');
+    testDb.prepare('UPDATE users SET avatar = ? WHERE id = ?').run('mine.png', user.id);
+
+    expect(await profile.deleteAvatar(user.id)).toEqual({ success: true });
+    expect(fs.existsSync(fp)).toBe(false);
+  });
+
+  it('AUTH-DB-070c: a hostile stored avatar value is swallowed, never thrown', async () => {
+    const { user } = createUser(testDb);
+    testDb.prepare('UPDATE users SET avatar = ? WHERE id = ?').run('../../etc/passwd', user.id);
+    // Central key validation rejects the value; the delete swallows it exactly
+    // like the old rm().catch did — the DB update still wins.
+    expect(await profile.deleteAvatar(user.id)).toEqual({ success: true });
   });
 });
 
