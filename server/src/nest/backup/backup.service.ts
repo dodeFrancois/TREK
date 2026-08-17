@@ -18,7 +18,7 @@ export class BackupService {
   constructor(private readonly storage: StorageService) {}
 
   listBackups() { return svc.listBackups(this.storage); }
-  createBackup(prefix?: 'backup' | 'auto-backup') { return svc.createBackup(prefix); }
+  createBackup(prefix?: 'backup' | 'auto-backup') { return svc.createBackup(this.storage, prefix); }
   restoreFromZip(zipPath: string) { return svc.restoreFromZip(zipPath); }
   deleteBackup(filename: string) { return svc.deleteBackup(this.storage, filename); }
 

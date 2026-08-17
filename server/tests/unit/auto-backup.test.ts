@@ -65,9 +65,28 @@ import path from 'node:path';
 import { AutoBackupJob } from '../../src/nest/backup/auto-backup.job';
 import { createBackup } from '../../src/nest/backup/backup.impl';
 import type { BackupService } from '../../src/nest/backup/backup.service';
+import type { StorageService } from '../../src/nest/storage/storage.service';
 import type { CronRegistrarService } from '../../src/nest/scheduling/cron-registrar.service';
 
 const liveDb = path.join(__dirname, '../../data', 'travel.db');
+
+// createBackup receives StorageService as a parameter (BackupService injects
+// it). fs is mocked wholesale here, so a plain stub stands in for the backups
+// backend: staging under /stub/spool, empty category listings, put/stat succeed.
+const storageStub = vi.hoisted(() => ({}) as Record<string, unknown>);
+function resetStorageStub() {
+  Object.assign(storageStub, {
+    spoolDirFor: vi.fn(() => '/stub/spool'),
+    tempDir: vi.fn(() => '/stub/tmp'),
+    list: vi.fn(async function* () {}),
+    withLocalFile: vi.fn(async (_c: string, _k: string, fn: (p: string) => Promise<unknown>) => fn('/stub/local/path')),
+    put: vi.fn(async () => {}),
+    stat: vi.fn(async (_c: string, key: string) => ({ key, size: 4096, mtimeMs: Date.parse('2026-04-27T02:00:00Z') })),
+    exists: vi.fn(async () => true),
+    delete: vi.fn(async () => {}),
+  });
+}
+resetStorageStub();
 
 interface Registered {
   name: string;
@@ -88,8 +107,9 @@ function makeJob() {
   };
   const job = new AutoBackupJob(
     // The same wiring the container does, with the real service function behind
-    // it — the run below is still the production code path.
-    { createBackup } as unknown as BackupService,
+    // it — the run below is still the production code path. The forward mirrors
+    // BackupService: inject the storage stub as the first argument.
+    { createBackup: (prefix?: 'backup' | 'auto-backup') => createBackup(storageStub as unknown as StorageService, prefix) } as unknown as BackupService,
     registrar as unknown as CronRegistrarService,
   );
   return { job, registered, registrar };
@@ -140,7 +160,7 @@ describe('auto-backup run', () => {
     expect(dbMock.db.exec).toHaveBeenCalledWith(expect.stringContaining('VACUUM INTO'));
     const dbEntry = archiveMock.file.mock.calls.find(([, opts]) => opts?.name === 'travel.db');
     expect(dbEntry).toBeDefined();
-    expect(dbEntry?.[0]).toContain('.travel-snap-auto-backup-');
+    expect(dbEntry?.[0]).toContain('/stub/spool/travel-snap-auto-backup-');
     expect(dbEntry?.[0]).not.toBe(liveDb);
   });
 
@@ -178,9 +198,12 @@ describe('auto-backup run', () => {
 
     expect(logMock.logError).toHaveBeenCalledWith('Auto-Backup: disk full');
     expect(logMock.logInfo).not.toHaveBeenCalledWith(expect.stringContaining('Auto-Backup created'));
-    expect(fsMock.unlinkSync).toHaveBeenCalledWith(expect.stringContaining('auto-backup-'));
-    // the snapshot scratch file is cleaned up too, and retention never runs
-    expect(fsMock.rmSync).toHaveBeenCalledWith(expect.stringContaining('.travel-snap-auto-backup-'), { force: true });
+    // nothing was committed (put commits by rename only on success); the
+    // half-built zip spool and snapshot scratch are cleaned up, and retention
+    // never runs
+    expect(storageStub.put).not.toHaveBeenCalled();
+    expect(fsMock.rmSync).toHaveBeenCalledWith(expect.stringContaining('zip-build-auto-backup-'), { force: true });
+    expect(fsMock.rmSync).toHaveBeenCalledWith(expect.stringContaining('travel-snap-auto-backup-'), { force: true });
     expect(fsMock.readdirSync).not.toHaveBeenCalled();
   });
 });

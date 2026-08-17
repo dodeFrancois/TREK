@@ -38,10 +38,6 @@ export const MAX_BACKUP_DECOMPRESSED_SIZE = backupEnv.maxDecompressedMb * 1024 *
 // Helpers
 // ---------------------------------------------------------------------------
 
-export function ensureBackupsDir(): void {
-  if (!fs.existsSync(backupsDir)) fs.mkdirSync(backupsDir, { recursive: true });
-}
-
 export function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -156,6 +152,11 @@ export async function listBackups(storage: StorageService): Promise<BackupInfo[]
 // Create backup
 // ---------------------------------------------------------------------------
 
+/** The categories a backup archives — everything else under uploads/ is a
+ *  re-derivable cache (photos-google, photos-trek) or not uploads at all
+ *  (backups). Restore's rehydration walks the same list. */
+export const BACKUP_UPLOAD_CATEGORIES = ['files', 'journey', 'covers', 'avatars', 'places', 'photos'] as const;
+
 /**
  * Writes a full backup zip and returns its BackupInfo.
  *
@@ -164,23 +165,44 @@ export async function listBackups(storage: StorageService): Promise<BackupInfo[]
  * only auto-backup-*.zip, and the admin panel badges them as automatic. Manual
  * backups keep the default.
  */
-export async function createBackup(prefix: 'backup' | 'auto-backup' = 'backup'): Promise<BackupInfo> {
-  ensureBackupsDir();
-
+export async function createBackup(storage: StorageService, prefix: 'backup' | 'auto-backup' = 'backup'): Promise<BackupInfo> {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
   const filename = `${prefix}-${timestamp}.zip`;
-  const outputPath = path.join(backupsDir, filename);
-  // The scratch names carry the prefix too: a scheduled run and a manual one that
-  // start in the same second would otherwise share a snapshot path, and the first
-  // to finish would delete the other's staging copy mid-archive.
-  const pdataSnap = path.join(backupsDir, `.plugins-snap-${prefix}-${timestamp}`);
-  const dbSnap = path.join(backupsDir, `.travel-snap-${prefix}-${timestamp}.db`);
+  // All staging lives in the backups backend's own spool: same volume as the
+  // destination (the put commit stays an atomic rename) and crash leftovers are
+  // reaped by LocalDriver's boot spool-cleanup. The scratch names carry the
+  // prefix too: a scheduled run and a manual one that start in the same second
+  // would otherwise share a snapshot path, and the first to finish would delete
+  // the other's staging copy mid-archive.
+  const spoolDir = storage.spoolDirFor('backups');
+  const zipSpool = path.join(spoolDir, `zip-build-${prefix}-${timestamp}`);
+  const pdataSnap = path.join(spoolDir, `plugins-snap-${prefix}-${timestamp}`);
+  const dbSnap = path.join(spoolDir, `travel-snap-${prefix}-${timestamp}.db`);
 
   try {
     try { db.exec('PRAGMA wal_checkpoint(TRUNCATE)'); } catch (e) {}
 
+    // Enumerate the archived categories up front (the archiver reads entries
+    // lazily during finalize(), so the promise executor below must stay
+    // synchronous). Everything NOT in BACKUP_UPLOAD_CATEGORIES is excluded by
+    // construction: the re-derivable caches (photos-google in both
+    // TREK_PLACE_PHOTO_DIR modes, photos-trek) and backups itself are never
+    // enumerated, which is what makes the same-dir-misconfig guard (#1358)
+    // structural instead of pattern-based.
+    const uploadEntries: { absPath: string; name: string }[] = [];
+    for (const category of BACKUP_UPLOAD_CATEGORIES) {
+      for await (const obj of storage.list(category)) {
+        // In mode A the google/trek caches nest under the photos/ prefix — the
+        // category walk would sweep them back in without this skip.
+        if (category === 'photos' && (obj.key.startsWith('google/') || obj.key.startsWith('trek/'))) continue;
+        await storage.withLocalFile(category, obj.key, async (absPath) => {
+          uploadEntries.push({ absPath, name: `uploads/${category}/${obj.key}` });
+        });
+      }
+    }
+
     await new Promise<void>((resolve, reject) => {
-      const output = fs.createWriteStream(outputPath);
+      const output = fs.createWriteStream(zipSpool);
       const archive = archiver('zip', { zlib: { level: 9 } });
 
       output.on('close', resolve);
@@ -218,28 +240,7 @@ export async function createBackup(prefix: 'backup' | 'auto-backup' = 'backup'):
         archive.file(encKeyPath, { name: '.encryption_key' });
       }
 
-      if (fs.existsSync(uploadsDir)) {
-        // Exclude the place-photo and trek-memory caches: both are re-derivable
-        // (re-fetched on demand, keyed on stable ids) and would otherwise dominate
-        // backup size. Restores self-heal — the cache dirs are recreated at startup.
-        //
-        // Also exclude backups/ and restore-*/: these live under data/, not uploads/,
-        // but when an install maps data and uploads to the SAME directory (a
-        // misconfiguration, but a catastrophic one) the glob would otherwise sweep
-        // every prior backup zip into the new archive — each run embedding all
-        // previous runs, so size compounds without bound (see issue #1358). Ignoring
-        // them keeps the backup bounded regardless of how the volumes are mounted.
-        archive.glob(
-          '**/*',
-          {
-            cwd: uploadsDir,
-            ignore: ['photos/google/**', 'photos/trek/**', 'backups/**', 'restore-*/**'],
-            nodir: true,
-            dot: true,
-          },
-          { prefix: 'uploads' },
-        );
-      }
+      for (const entry of uploadEntries) archive.file(entry.absPath, { name: entry.name });
 
       // Plugin data — each plugin's own SQLite file and any blobs. This is the ONLY
       // copy of the user data a plugin holds, so it belongs in the backup. Checkpoint
@@ -275,21 +276,26 @@ export async function createBackup(prefix: 'backup' | 'auto-backup' = 'backup'):
       archive.finalize();
     });
 
-    const stat = fs.statSync(outputPath);
+    // The commit — and, under a mirror backend, the replica fan-out point.
+    await storage.put('backups', filename, { tmpPath: zipSpool });
+    const stat = await storage.stat('backups', filename);
+    if (!stat) throw new Error(`Backup vanished after commit: ${filename}`);
     return {
       filename,
       size: stat.size,
       sizeText: formatSize(stat.size),
-      created_at: stat.birthtime.toISOString(),
+      created_at: new Date(stat.mtimeMs).toISOString(),
     };
   } catch (err: unknown) {
     console.error('Backup error:', err);
-    if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
     throw err;
   } finally {
-    // The snapshots were staging copies for the archiver only; drop them once streaming is
-    // done (the await above resolves on the output stream's 'close', so the archive is
-    // complete).
+    // put commits by rename, so on success the zip spool file is already gone;
+    // on failure these clean the half-built staging. The destination needs no
+    // unlink anymore — nothing lands there until put succeeds. (The await on
+    // the build promise resolves on the output stream's 'close', so the
+    // snapshots are no longer being read.)
+    fs.rmSync(zipSpool, { force: true });
     fs.rmSync(pdataSnap, { recursive: true, force: true });
     fs.rmSync(dbSnap, { force: true });
   }

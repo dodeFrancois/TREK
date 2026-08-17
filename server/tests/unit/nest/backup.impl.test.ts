@@ -321,244 +321,198 @@ describe('BACKUP-036 createBackup', () => {
     vi.clearAllMocks();
   });
 
-  it('BACKUP-036a — happy path: creates zip and returns BackupInfo', async () => {
-    // Set up fs mocks
-    fsMock.existsSync.mockImplementation((p: string) => {
-      // backupsDir exists, dbPath does not (skip DB file), uploadsDir does not exist
-      return false;
-    });
-    fsMock.mkdirSync.mockReturnValue(undefined);
-
-    // Mock WriteStream with event emitter behaviour
+  /** Wires the write-stream + archiver mocks so finalize() resolves the build. */
+  function setupArchiveSuccess() {
     const writableEvents: Record<string, Function> = {};
-    const fakeWriteStream = {
-      on: vi.fn((event: string, cb: Function) => {
-        writableEvents[event] = cb;
-      }),
-    };
-    fsMock.createWriteStream.mockReturnValue(fakeWriteStream);
-
-    // Mock archiver instance
-    archiverInstanceMock.on.mockImplementation((event: string, cb: Function) => {
-      // noop — no error
-    });
+    fsMock.createWriteStream.mockReturnValue({
+      on: vi.fn((event: string, cb: Function) => { writableEvents[event] = cb; }),
+    } as never);
+    archiverInstanceMock.on.mockImplementation(() => {});
     archiverInstanceMock.pipe.mockReturnValue(undefined);
-    archiverInstanceMock.finalize.mockImplementation(() => {
-      // Trigger 'close' on the output stream to resolve the Promise
-      if (writableEvents['close']) writableEvents['close']();
-    });
+    archiverInstanceMock.finalize.mockImplementation(() => { writableEvents['close']?.(); });
     archiverMock.mockReturnValue(archiverInstanceMock);
+    return writableEvents;
+  }
 
-    fsMock.statSync.mockReturnValue({ size: 2048, birthtime: new Date('2026-04-06T12:00:00Z') });
+  /** storage.stat stub for the post-put BackupInfo read. */
+  const statOf = (size: number, mtimeMs = Date.parse('2026-04-06T12:00:00Z')) =>
+    vi.fn(async (_c: string, key: string) => ({ key, size, mtimeMs }));
 
-    const result = await createBackup();
+  /** storage.list stub keyed by category. */
+  const listByCategory = (map: Record<string, Array<{ key: string; size?: number; mtimeMs?: number }>>) =>
+    vi.fn((category: string) =>
+      (async function* () {
+        for (const e of map[category] ?? []) yield { size: 1, mtimeMs: 0, ...e };
+      })(),
+    );
 
-    expect(result).toHaveProperty('filename');
+  it('BACKUP-036a — happy path: builds in the backups spool, commits via put, returns BackupInfo', async () => {
+    // No travel.db, no enc key, no plugin roots.
+    fsMock.existsSync.mockReturnValue(false);
+    setupArchiveSuccess();
+    const storage = stubStorage({ stat: statOf(2048) });
+
+    const result = await createBackup(storage);
+
     expect(result.filename).toMatch(/^backup-.*\.zip$/);
     expect(result.size).toBe(2048);
     expect(result.sizeText).toBe('2.0 KB');
-    expect(result).toHaveProperty('created_at');
+    expect(result.created_at).toBe('2026-04-06T12:00:00.000Z');
     expect(archiverMock).toHaveBeenCalledWith('zip', { zlib: { level: 9 } });
     expect(archiverInstanceMock.pipe).toHaveBeenCalled();
     expect(archiverInstanceMock.finalize).toHaveBeenCalled();
+    // The zip is built in the backups backend's spool, then committed via put.
+    expect(fsMock.createWriteStream).toHaveBeenCalledWith(expect.stringContaining('/stub/spool/zip-build-backup-'));
+    expect(storage.put).toHaveBeenCalledWith('backups', result.filename, {
+      tmpPath: expect.stringContaining('/stub/spool/zip-build-backup-'),
+    });
+    expect(storage.stat).toHaveBeenCalledWith('backups', result.filename);
+  });
+
+  it('BACKUP-036j — archives category objects under the legacy uploads/ entry names via withLocalFile', async () => {
+    fsMock.existsSync.mockReturnValue(false);
+    setupArchiveSuccess();
+    const storage = stubStorage({
+      stat: statOf(1024),
+      list: listByCategory({
+        files: [{ key: 'a.pdf' }],
+        journey: [{ key: 'thumbs/x.jpg' }],
+      }),
+    });
+
+    await createBackup(storage);
+
+    expect(storage.withLocalFile).toHaveBeenCalledWith('files', 'a.pdf', expect.any(Function));
+    expect(storage.withLocalFile).toHaveBeenCalledWith('journey', 'thumbs/x.jpg', expect.any(Function));
+    expect(archiverInstanceMock.file).toHaveBeenCalledWith('/stub/local/path', { name: 'uploads/files/a.pdf' });
+    expect(archiverInstanceMock.file).toHaveBeenCalledWith('/stub/local/path', { name: 'uploads/journey/thumbs/x.jpg' });
+  });
+
+  it('BACKUP-036m — a mirror replica failure surfaced via health never fails the request', async () => {
+    // Mirror semantics: put succeeds against the primary; replica failures are
+    // recorded on health(), not thrown. createBackup must still return its info.
+    fsMock.existsSync.mockReturnValue(false);
+    setupArchiveSuccess();
+    const storage = stubStorage({
+      stat: statOf(1024),
+      health: vi.fn(() => ({ replicaFailures: [{ backend: 'nas-backups', key: 'backup-x.zip', error: 'EIO' }] })),
+    });
+
+    const result = await createBackup(storage);
+
+    expect(result.filename).toMatch(/^backup-.*\.zip$/);
+    expect(storage.put).toHaveBeenCalledOnce();
   });
 
   it('BACKUP-036p — archives the plugin data + code trees when present, skipping dev-links', async () => {
     // Only the plugin roots exist (db/uploads absent → skipped).
     fsMock.existsSync.mockImplementation((p: string) => String(p).includes('plugins'));
-    fsMock.mkdirSync.mockReturnValue(undefined);
     // Two plugin code dirs: 'notes' is real, 'devlink' resolves outside the root.
     // The plugin-data snapshot reads with { withFileTypes: true }; hand it Dirent-likes there.
     const dirent = (name: string) => ({ name, isDirectory: () => true });
     fsMock.readdirSync.mockImplementation((_p: string, opts?: { withFileTypes?: boolean }) =>
       (opts?.withFileTypes ? [dirent('notes'), dirent('devlink')] : ['notes', 'devlink']) as never);
     fsMock.realpathSync.mockImplementation((p: string) => (String(p).endsWith('devlink') ? '/somewhere/else/devlink' : p));
-    fsMock.statSync.mockReturnValue({ size: 2048, birthtime: new Date('2026-04-06T12:00:00Z'), isDirectory: () => true } as never);
+    fsMock.statSync.mockReturnValue({ isDirectory: () => true } as never);
+    setupArchiveSuccess();
+    const storage = stubStorage({ stat: statOf(2048) });
 
-    const writableEvents: Record<string, Function> = {};
-    fsMock.createWriteStream.mockReturnValue({ on: vi.fn((e: string, cb: Function) => { writableEvents[e] = cb; }) } as never);
-    archiverInstanceMock.on.mockImplementation(() => {});
-    archiverInstanceMock.pipe.mockReturnValue(undefined);
-    archiverInstanceMock.finalize.mockImplementation(() => { writableEvents['close']?.(); });
-    archiverMock.mockReturnValue(archiverInstanceMock);
-
-    await createBackup();
+    await createBackup(storage);
 
     // the consistent snapshot of the data tree is archived under plugins-data/
     expect(archiverInstanceMock.directory).toHaveBeenCalledWith(expect.stringContaining('plugins-snap'), 'plugins-data');
     // the real code dir is archived, the dev-link is skipped
     expect(archiverInstanceMock.directory).toHaveBeenCalledWith(expect.stringContaining('notes'), 'plugins-code/notes');
     expect(archiverInstanceMock.directory).not.toHaveBeenCalledWith(expect.anything(), 'plugins-code/devlink');
+    // the snapshot staging lives in the backups spool
+    expect(archiverInstanceMock.directory).toHaveBeenCalledWith(expect.stringContaining('/stub/spool/plugins-snap-backup-'), 'plugins-data');
   });
 
   it('BACKUP-036b — WAL checkpoint error is swallowed (non-critical)', async () => {
     // db.exec throws on WAL checkpoint
     dbMock.db.exec.mockImplementationOnce(() => { throw new Error('WAL checkpoint failed'); });
-
-    const writableEvents: Record<string, Function> = {};
-    const fakeWriteStream = {
-      on: vi.fn((event: string, cb: Function) => {
-        writableEvents[event] = cb;
-      }),
-    };
-    fsMock.createWriteStream.mockReturnValue(fakeWriteStream);
     fsMock.existsSync.mockReturnValue(false);
-    fsMock.mkdirSync.mockReturnValue(undefined);
-
-    archiverInstanceMock.on.mockImplementation((_event: string, _cb: Function) => {});
-    archiverInstanceMock.pipe.mockReturnValue(undefined);
-    archiverInstanceMock.finalize.mockImplementation(() => {
-      if (writableEvents['close']) writableEvents['close']();
-    });
-    archiverMock.mockReturnValue(archiverInstanceMock);
-
-    fsMock.statSync.mockReturnValue({ size: 512, birthtime: new Date('2026-04-06T12:00:00Z') });
+    setupArchiveSuccess();
+    const storage = stubStorage({ stat: statOf(512) });
 
     // Should not throw even though WAL checkpoint failed
-    const result = await createBackup();
+    const result = await createBackup(storage);
     expect(result).toHaveProperty('filename');
     expect(result.size).toBe(512);
   });
 
-  it('BACKUP-036c — archiver error cleans up partial file and re-throws', async () => {
+  it('BACKUP-036c — archiver error cleans up the spool staging, skips put and re-throws', async () => {
     fsMock.existsSync.mockReturnValue(false);
-    fsMock.mkdirSync.mockReturnValue(undefined);
-
-    const writableEvents: Record<string, Function> = {};
     const archiveEvents: Record<string, Function> = {};
-
-    const fakeWriteStream = {
-      on: vi.fn((event: string, cb: Function) => {
-        writableEvents[event] = cb;
-      }),
-    };
-    fsMock.createWriteStream.mockReturnValue(fakeWriteStream);
-
-    archiverInstanceMock.on.mockImplementation((event: string, cb: Function) => {
-      archiveEvents[event] = cb;
-    });
+    fsMock.createWriteStream.mockReturnValue({ on: vi.fn() } as never);
+    archiverInstanceMock.on.mockImplementation((event: string, cb: Function) => { archiveEvents[event] = cb; });
     archiverInstanceMock.pipe.mockReturnValue(undefined);
     archiverInstanceMock.finalize.mockImplementation(() => {
       // Simulate archive error instead of success
-      if (archiveEvents['error']) archiveEvents['error'](new Error('disk full'));
+      archiveEvents['error']?.(new Error('disk full'));
     });
     archiverMock.mockReturnValue(archiverInstanceMock);
+    const storage = stubStorage();
 
-    // The output file "exists" after partial write so cleanup runs
-    fsMock.existsSync.mockImplementation((p: string) => {
-      // Return true only when checking the output path (ends with .zip)
-      return String(p).endsWith('.zip');
-    });
-    fsMock.unlinkSync.mockReturnValue(undefined);
+    await expect(createBackup(storage)).rejects.toThrow('disk full');
 
-    await expect(createBackup()).rejects.toThrow('disk full');
-    // Partial file should have been removed
-    expect(fsMock.unlinkSync).toHaveBeenCalled();
+    // Nothing is committed; the half-built spool file is removed in the finally.
+    expect(storage.put).not.toHaveBeenCalled();
+    expect(fsMock.rmSync).toHaveBeenCalledWith(expect.stringContaining('zip-build-backup-'), { force: true });
   });
 
-  it('BACKUP-036d — includes travel.db when it exists', async () => {
-    fsMock.existsSync.mockImplementation((p: string) => {
-      // backupsDir does not need to be created (exists), dbPath exists, no uploads
-      if (String(p).endsWith('travel.db')) return true;
-      return false;
-    });
-    fsMock.mkdirSync.mockReturnValue(undefined);
+  it('BACKUP-036d — includes travel.db when it exists, snapshotted into the spool', async () => {
+    fsMock.existsSync.mockImplementation((p: string) => String(p).endsWith('travel.db'));
+    setupArchiveSuccess();
+    const storage = stubStorage({ stat: statOf(1024) });
 
-    const writableEvents: Record<string, Function> = {};
-    const fakeWriteStream = {
-      on: vi.fn((event: string, cb: Function) => {
-        writableEvents[event] = cb;
-      }),
-    };
-    fsMock.createWriteStream.mockReturnValue(fakeWriteStream);
-
-    archiverInstanceMock.on.mockImplementation((_e: string, _cb: Function) => {});
-    archiverInstanceMock.pipe.mockReturnValue(undefined);
-    archiverInstanceMock.finalize.mockImplementation(() => {
-      if (writableEvents['close']) writableEvents['close']();
-    });
-    archiverMock.mockReturnValue(archiverInstanceMock);
-
-    fsMock.statSync.mockReturnValue({ size: 1024, birthtime: new Date('2026-04-06T12:00:00Z') });
-
-    await createBackup();
+    await createBackup(storage);
 
     // the core DB is snapshotted (VACUUM INTO) and archived under the name travel.db
     expect(dbMock.db.exec).toHaveBeenCalledWith(expect.stringContaining('VACUUM INTO'));
     expect(archiverInstanceMock.file).toHaveBeenCalledWith(
-      expect.any(String),
+      expect.stringContaining('/stub/spool/travel-snap-backup-'),
       { name: 'travel.db' }
     );
   });
 
-  it('BACKUP-036e — includes uploads but excludes the re-derivable photo caches', async () => {
-    fsMock.existsSync.mockImplementation((p: string) => {
-      if (String(p).endsWith('uploads')) return true;
-      return false;
-    });
-    fsMock.mkdirSync.mockReturnValue(undefined);
-
-    const writableEvents: Record<string, Function> = {};
-    const fakeWriteStream = {
-      on: vi.fn((event: string, cb: Function) => {
-        writableEvents[event] = cb;
+  it('BACKUP-036e — excludes the re-derivable photo caches nested under photos/', async () => {
+    // In mode A the google/trek caches live inside the photos/ prefix, so the
+    // category walk must skip them. (In mode B photos-google is a separate
+    // category that is simply never enumerated — no extra branch needed.)
+    fsMock.existsSync.mockReturnValue(false);
+    setupArchiveSuccess();
+    const storage = stubStorage({
+      stat: statOf(1024),
+      list: listByCategory({
+        photos: [{ key: 'flat.jpg' }, { key: 'google/g.jpg' }, { key: 'trek/t.bin' }],
       }),
-    };
-    fsMock.createWriteStream.mockReturnValue(fakeWriteStream);
-
-    archiverInstanceMock.on.mockImplementation((_e: string, _cb: Function) => {});
-    archiverInstanceMock.pipe.mockReturnValue(undefined);
-    archiverInstanceMock.finalize.mockImplementation(() => {
-      if (writableEvents['close']) writableEvents['close']();
     });
-    archiverMock.mockReturnValue(archiverInstanceMock);
 
-    fsMock.statSync.mockReturnValue({ size: 1024, birthtime: new Date('2026-04-06T12:00:00Z') });
+    await createBackup(storage);
 
-    await createBackup();
-
-    expect(archiverInstanceMock.glob).toHaveBeenCalledWith(
-      '**/*',
-      expect.objectContaining({
-        cwd: expect.stringContaining('uploads'),
-        ignore: ['photos/google/**', 'photos/trek/**', 'backups/**', 'restore-*/**'],
-      }),
-      { prefix: 'uploads' },
-    );
-    // The re-derivable caches must not be archived verbatim.
-    expect(archiverInstanceMock.directory).not.toHaveBeenCalled();
+    expect(archiverInstanceMock.file).toHaveBeenCalledWith('/stub/local/path', { name: 'uploads/photos/flat.jpg' });
+    const names = archiverInstanceMock.file.mock.calls.map(c => c[1]?.name as string);
+    expect(names.some(n => n?.includes('google/'))).toBe(false);
+    expect(names.some(n => n?.includes('trek/'))).toBe(false);
+    // Only the archived categories are ever listed — the excludes are structural.
+    expect(storage.withLocalFile).toHaveBeenCalledTimes(1);
   });
 
-  it('BACKUP-036h — never sweeps backups/ or restore-* into the archive (issue #1358)', async () => {
-    // Regression guard: when data and uploads map to the same directory, the
-    // uploads glob would otherwise pick up the backups/ dir and recursively
-    // embed every prior backup zip, compounding size without bound.
-    fsMock.existsSync.mockImplementation((p: string) => String(p).endsWith('uploads'));
-    fsMock.mkdirSync.mockReturnValue(undefined);
+  it('BACKUP-036h — only category prefixes are ever archived; backups/ and restore-* are structurally out (issue #1358)', async () => {
+    // The uploads/** glob is gone: even when data and uploads map to the same
+    // directory, enumeration only ever walks the six archived categories, so
+    // prior backup zips and restore-* staging can never be swept into the zip.
+    fsMock.existsSync.mockReturnValue(false);
+    setupArchiveSuccess();
+    const storage = stubStorage({ stat: statOf(1024) });
 
-    const writableEvents: Record<string, Function> = {};
-    const fakeWriteStream = {
-      on: vi.fn((event: string, cb: Function) => {
-        writableEvents[event] = cb;
-      }),
-    };
-    fsMock.createWriteStream.mockReturnValue(fakeWriteStream);
+    await createBackup(storage);
 
-    archiverInstanceMock.on.mockImplementation((_e: string, _cb: Function) => {});
-    archiverInstanceMock.pipe.mockReturnValue(undefined);
-    archiverInstanceMock.finalize.mockImplementation(() => {
-      if (writableEvents['close']) writableEvents['close']();
-    });
-    archiverMock.mockReturnValue(archiverInstanceMock);
-
-    fsMock.statSync.mockReturnValue({ size: 1024, birthtime: new Date('2026-04-06T12:00:00Z') });
-
-    await createBackup();
-
-    const globCall = archiverInstanceMock.glob.mock.calls.at(-1);
-    const ignore: string[] = globCall?.[1]?.ignore ?? [];
-    expect(ignore).toContain('backups/**');
-    expect(ignore).toContain('restore-*/**');
+    expect(archiverInstanceMock.glob).not.toHaveBeenCalled();
+    const listed = (storage.list as ReturnType<typeof vi.fn>).mock.calls.map(c => c[0] as string);
+    expect(listed.sort()).toEqual(['avatars', 'covers', 'files', 'journey', 'photos', 'places']);
+    expect(listed).not.toContain('backups');
   });
 
   it('BACKUP-036f — bundles .encryption_key when present and ENCRYPTION_KEY env is unset', async () => {
@@ -566,26 +520,10 @@ describe('BACKUP-036 createBackup', () => {
     delete process.env.ENCRYPTION_KEY;
     try {
       fsMock.existsSync.mockImplementation((p: string) => String(p).endsWith('.encryption_key'));
-      fsMock.mkdirSync.mockReturnValue(undefined);
+      setupArchiveSuccess();
+      const storage = stubStorage({ stat: statOf(1024) });
 
-      const writableEvents: Record<string, Function> = {};
-      const fakeWriteStream = {
-        on: vi.fn((event: string, cb: Function) => {
-          writableEvents[event] = cb;
-        }),
-      };
-      fsMock.createWriteStream.mockReturnValue(fakeWriteStream);
-
-      archiverInstanceMock.on.mockImplementation((_e: string, _cb: Function) => {});
-      archiverInstanceMock.pipe.mockReturnValue(undefined);
-      archiverInstanceMock.finalize.mockImplementation(() => {
-        if (writableEvents['close']) writableEvents['close']();
-      });
-      archiverMock.mockReturnValue(archiverInstanceMock);
-
-      fsMock.statSync.mockReturnValue({ size: 1024, birthtime: new Date('2026-04-06T12:00:00Z') });
-
-      await createBackup();
+      await createBackup(storage);
 
       expect(archiverInstanceMock.file).toHaveBeenCalledWith(
         expect.stringContaining('.encryption_key'),
@@ -599,26 +537,10 @@ describe('BACKUP-036 createBackup', () => {
   it('BACKUP-036g — does NOT bundle .encryption_key when ENCRYPTION_KEY env is set', async () => {
     // setup.ts sets process.env.ENCRYPTION_KEY, so the env is the source of truth.
     fsMock.existsSync.mockImplementation((p: string) => String(p).endsWith('.encryption_key'));
-    fsMock.mkdirSync.mockReturnValue(undefined);
+    setupArchiveSuccess();
+    const storage = stubStorage({ stat: statOf(1024) });
 
-    const writableEvents: Record<string, Function> = {};
-    const fakeWriteStream = {
-      on: vi.fn((event: string, cb: Function) => {
-        writableEvents[event] = cb;
-      }),
-    };
-    fsMock.createWriteStream.mockReturnValue(fakeWriteStream);
-
-    archiverInstanceMock.on.mockImplementation((_e: string, _cb: Function) => {});
-    archiverInstanceMock.pipe.mockReturnValue(undefined);
-    archiverInstanceMock.finalize.mockImplementation(() => {
-      if (writableEvents['close']) writableEvents['close']();
-    });
-    archiverMock.mockReturnValue(archiverInstanceMock);
-
-    fsMock.statSync.mockReturnValue({ size: 1024, birthtime: new Date('2026-04-06T12:00:00Z') });
-
-    await createBackup();
+    await createBackup(storage);
 
     expect(archiverInstanceMock.file).not.toHaveBeenCalledWith(
       expect.stringContaining('.encryption_key'),
@@ -630,28 +552,19 @@ describe('BACKUP-036 createBackup', () => {
     // The scheduler passes 'auto-backup' so retention and the admin panel can
     // still tell scheduled archives apart by filename.
     fsMock.existsSync.mockImplementation((p: string) => String(p).endsWith('travel.db'));
-    fsMock.mkdirSync.mockReturnValue(undefined);
+    setupArchiveSuccess();
+    const storage = stubStorage({ stat: statOf(1024) });
 
-    const writableEvents: Record<string, Function> = {};
-    fsMock.createWriteStream.mockReturnValue({
-      on: vi.fn((event: string, cb: Function) => { writableEvents[event] = cb; }),
-    } as never);
-    archiverInstanceMock.on.mockImplementation((_e: string, _cb: Function) => {});
-    archiverInstanceMock.pipe.mockReturnValue(undefined);
-    archiverInstanceMock.finalize.mockImplementation(() => {
-      if (writableEvents['close']) writableEvents['close']();
-    });
-    archiverMock.mockReturnValue(archiverInstanceMock);
-
-    fsMock.statSync.mockReturnValue({ size: 1024, birthtime: new Date('2026-04-06T12:00:00Z') });
-
-    const result = await createBackup('auto-backup');
+    const result = await createBackup(storage, 'auto-backup');
 
     expect(result.filename).toMatch(/^auto-backup-.*\.zip$/);
     expect(archiverInstanceMock.file).toHaveBeenCalledWith(
-      expect.stringContaining('.travel-snap-auto-backup-'),
+      expect.stringContaining('travel-snap-auto-backup-'),
       { name: 'travel.db' },
     );
+    expect(storage.put).toHaveBeenCalledWith('backups', result.filename, {
+      tmpPath: expect.stringContaining('zip-build-auto-backup-'),
+    });
   });
 });
 
