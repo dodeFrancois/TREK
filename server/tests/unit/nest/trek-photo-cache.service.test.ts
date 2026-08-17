@@ -201,16 +201,41 @@ describe('sweepExpired', () => {
     expect(testDb.prepare('SELECT 1 FROM trek_photo_cache_meta WHERE cache_key = ?').get(key)).toBeUndefined();
   });
 
-  it('CACHE-014: a row-less .bin object survives the DB-driven sweep (parity pin — fix #4 reclaims it)', async () => {
+  it('CACHE-014: reclaims a row-less .bin object past the cutoff (fix #4, spec rev 3.2)', async () => {
+    // getFresh's expiry path deletes the meta row but never the object — the
+    // list-driven pass 2 is what reclaims those leaks.
     const key = freshKey('rowless');
     await svc.put(key, Buffer.from('leaked'), 'image/jpeg');
     testDb.prepare('DELETE FROM trek_photo_cache_meta WHERE cache_key = ?').run(key);
-    // Old enough that the list-driven fix-#4 sweep WILL reclaim it — today's
-    // DB-driven sweep never visits it (the getFresh-expiry leak, spec rev 3.2).
     const old = (Date.now() - CACHE_TTL * 3) / 1000;
     fs.utimesSync(binPath(key), old, old);
 
     await svc.sweepExpired();
+    expect(fs.existsSync(binPath(key))).toBe(false);
+  });
+
+  it('CACHE-015: a row-less .bin younger than the cutoff survives (in-flight put guard)', async () => {
+    const key = freshKey('rowless-fresh');
+    await svc.put(key, Buffer.from('in-flight'), 'image/jpeg');
+    testDb.prepare('DELETE FROM trek_photo_cache_meta WHERE cache_key = ?').run(key);
+
+    await svc.sweepExpired();
     expect(fs.existsSync(binPath(key))).toBe(true);
+  });
+
+  it('CACHE-016: nested and non-.bin entries are never touched by the sweep', async () => {
+    const nestedDir = path.join(CACHE_DIR, 'sub');
+    fs.mkdirSync(nestedDir, { recursive: true });
+    const nested = path.join(nestedDir, 'nested.bin');
+    fs.writeFileSync(nested, 'nested');
+    const note = path.join(CACHE_DIR, 'note.txt');
+    fs.writeFileSync(note, 'not a cache object');
+    const old = (Date.now() - CACHE_TTL * 3) / 1000;
+    fs.utimesSync(nested, old, old);
+    fs.utimesSync(note, old, old);
+
+    await svc.sweepExpired();
+    expect(fs.existsSync(nested)).toBe(true);
+    expect(fs.existsSync(note)).toBe(true);
   });
 });

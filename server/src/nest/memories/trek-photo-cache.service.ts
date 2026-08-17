@@ -104,5 +104,19 @@ export class TrekPhotoCacheService {
       this.db.run('DELETE FROM trek_photo_cache_meta WHERE cache_key = ?', row.cache_key);
       await this.storage.delete('photos-trek', objectName(row.cache_key));
     }
+
+    // Pass 2 (fix #4, spec rev 3.2): getFresh's expiry path deletes the meta
+    // row but never the object — reclaim row-less .bin objects past the same
+    // cutoff. The mtime guard spares an in-flight put (object lands before its
+    // row); nested keys are skipped because the old readdir-free sweep could
+    // never touch them either.
+    for await (const stat of this.storage.list('photos-trek')) {
+      if (stat.key.includes('/') || !stat.key.endsWith('.bin') || stat.mtimeMs >= cutoff) continue;
+      const key = stat.key.slice(0, -'.bin'.length);
+      const row = this.db.get('SELECT 1 FROM trek_photo_cache_meta WHERE cache_key = ?', key);
+      if (!row) {
+        await this.storage.delete('photos-trek', stat.key).catch(() => { /* race */ });
+      }
+    }
   }
 }
