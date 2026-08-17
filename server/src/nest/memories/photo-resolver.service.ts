@@ -3,7 +3,6 @@ import { Response } from 'express';
 import type { TrekPhoto } from '../../types';
 import { decrypt_api_key } from '../common/crypto/apiKeyCrypto';
 import { TrekPhotosRepository } from '../photos/trek-photos.repository';
-import { UPLOADS_ROOT } from './uploads-root';
 import { ThumbnailService } from './thumbnail.service';
 import { TrekPhotoCacheService } from './trek-photo-cache.service';
 import { fail, success, type AssetInfo, type ServiceResult } from './memories.helpers';
@@ -90,9 +89,7 @@ export class PhotoResolverService {
         // Only raster images get a lazily-generated Jimp thumbnail; Jimp can't decode
         // video, so a video relies on the poster captured at upload (#823).
         if (!thumbRel && !isVideo) {
-          // Generation stays root-addressed until ThumbnailService becomes
-          // category-addressed in slice 4; serving below is already storage-backed.
-          const result = await this.thumbnails.ensureLocalThumbnail(UPLOADS_ROOT, photo.file_path);
+          const result = await this.thumbnails.ensureLocalThumbnail(photo.file_path);
           if (result) {
             thumbRel = result.thumbnailRelPath;
             this.photos.recordLocalThumbnail(photo.id, thumbRel, result.width, result.height);
