@@ -3,10 +3,12 @@ import type { Response } from 'express';
 import { maybe_encrypt_api_key, decrypt_api_key } from '../common/crypto/apiKeyCrypto';
 import { checkSsrf, safeFetch } from '../../utils/ssrfGuard';
 import { AuditService } from '../audit/audit.service';
+import { StorageService } from '../storage/storage.service';
+import fsPromises from 'node:fs/promises';
+import path from 'node:path';
 import { DatabaseService } from '../database/database.service';
 import { MemoriesAccessService } from './memories-access.service';
 import { fail, handleServiceResult, pipeAsset, type Selection } from './memories.helpers';
-import { UPLOADS_ROOT } from './uploads-root';
 
 const ALBUM_PAGE_SIZE = 1000;
 const ALBUM_MAX_PAGES = 20;
@@ -24,6 +26,7 @@ export class ImmichService {
     private readonly db: DatabaseService,
     private readonly audit: AuditService,
     private readonly access: MemoriesAccessService,
+    private readonly storage: StorageService,
   ) {}
 
   getImmichCredentials(userId: number) {
@@ -570,14 +573,15 @@ export class ImmichService {
     const creds = this.getImmichCredentials(userId);
     if (!creds) return null;
 
-    const fs = await import('node:fs');
-    const path = await import('node:path');
-
-    const fullPath = path.join(UPLOADS_ROOT, filePath);
-    if (!fs.existsSync(fullPath)) return null;
+    // Journey uploads store the uploads-relative 'journey/<file>' path; only
+    // those are local storage objects this can push.
+    const name = filePath.startsWith('journey/') ? filePath.slice('journey/'.length) : null;
+    if (!name) return null;
 
     try {
-      const fileBuffer = fs.readFileSync(fullPath);
+      // A missing object throws StorageNotFoundError into the catch below —
+      // the same null the old existsSync guard answered.
+      const fileBuffer = await this.storage.withLocalFile('journey', name, (p) => fsPromises.readFile(p));
       const boundary = '----ImmichUpload' + Date.now();
       const ext = path.extname(fileName).toLowerCase();
       const mimeTypes: Record<string, string> = {

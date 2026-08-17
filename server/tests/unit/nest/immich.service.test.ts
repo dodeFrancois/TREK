@@ -46,11 +46,15 @@ import { DatabaseService } from '../../../src/nest/database/database.service';
 import { ImmichService } from '../../../src/nest/memories/immich.service';
 import type { AuditService } from '../../../src/nest/audit/audit.service';
 import type { MemoriesAccessService } from '../../../src/nest/memories/memories-access.service';
+import fs from 'node:fs';
+import path from 'node:path';
+import { makeStorageFixture } from '../../helpers/storage-fixture';
 
 const audit = { writeAudit: vi.fn() };
 const access = { getAlbumIdFromLink: vi.fn() };
 const dbs = new DatabaseService(testDb);
-const svc = new ImmichService(dbs, audit as unknown as AuditService, access as unknown as MemoriesAccessService);
+const journeyFx = makeStorageFixture('journey/');
+const svc = new ImmichService(dbs, audit as unknown as AuditService, access as unknown as MemoriesAccessService, journeyFx.storage);
 
 const USER = 1;
 
@@ -476,5 +480,51 @@ describe('collectAlbumSelection', () => {
     access.getAlbumIdFromLink.mockReturnValue({ success: true, data: 'album-1' });
     safeFetch.mockRejectedValue(new Error('down'));
     expect(await svc.collectAlbumSelection('1', 'l1', USER)).toEqual({ error: 'Could not reach Immich', status: 502 });
+  });
+});
+
+describe('uploadToImmich', () => {
+  function writeJourneyObject(name: string, bytes: string): void {
+    const dir = path.join(journeyFx.root, 'journey');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, name), bytes);
+  }
+
+  it('IMMICH-UP-001: returns null without credentials and never fetches', async () => {
+    expect(await svc.uploadToImmich(999, 'journey/pic.jpg', 'pic.jpg')).toBeNull();
+    expect(safeFetch).not.toHaveBeenCalled();
+  });
+
+  it('IMMICH-UP-002: returns null for a path outside the journey category', async () => {
+    seedUser(USER, 'https://immich.test', 'key-1');
+    expect(await svc.uploadToImmich(USER, 'files/doc.pdf', 'doc.pdf')).toBeNull();
+    expect(safeFetch).not.toHaveBeenCalled();
+  });
+
+  it('IMMICH-UP-003: returns null when the object is missing (old existsSync guard)', async () => {
+    seedUser(USER, 'https://immich.test', 'key-1');
+    expect(await svc.uploadToImmich(USER, 'journey/gone.jpg', 'gone.jpg')).toBeNull();
+    expect(safeFetch).not.toHaveBeenCalled();
+  });
+
+  it('IMMICH-UP-004: posts the bytes as multipart and answers the created asset id', async () => {
+    seedUser(USER, 'https://immich.test', 'key-1');
+    writeJourneyObject('up.jpg', 'jpeg-bytes-here');
+    safeFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ id: 'immich-42' }) });
+
+    expect(await svc.uploadToImmich(USER, 'journey/up.jpg', 'up.jpg')).toBe('immich-42');
+
+    const [url, init] = safeFetch.mock.calls[0] as [string, { method: string; body: Buffer; headers: Record<string, string> }];
+    expect(url).toBe('https://immich.test/api/assets');
+    expect(init.method).toBe('POST');
+    expect(init.headers['x-api-key']).toBe('key-1');
+    expect(init.body.includes(Buffer.from('jpeg-bytes-here'))).toBe(true);
+  });
+
+  it('IMMICH-UP-005: a rejected upstream answers null, not a throw', async () => {
+    seedUser(USER, 'https://immich.test', 'key-1');
+    writeJourneyObject('rej.jpg', 'bytes');
+    safeFetch.mockResolvedValueOnce({ ok: false, status: 500 });
+    expect(await svc.uploadToImmich(USER, 'journey/rej.jpg', 'rej.jpg')).toBeNull();
   });
 });

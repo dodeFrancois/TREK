@@ -72,9 +72,10 @@ describe('storage keys', () => {
   });
 });
 
-// Depth contract for the storage domain's one __dirname anchor, same guard as
-// tests/unit/nest/uploads-root.test.ts: the resolved defaults must equal the
-// paths the server has always used, under both src (vitest) and dist layouts.
+// Depth contract for the storage domain's one __dirname anchor (the guard the
+// deleted memories/uploads-root.ts pin used to carry): the resolved defaults
+// must equal the paths the server has always used, under both src (vitest) and
+// dist layouts.
 describe('storage default paths', () => {
   it('anchors the default uploads root at <server>/uploads', () => {
     expect(DEFAULT_UPLOADS_ROOT).toBe(path.resolve(process.cwd(), 'uploads'));
