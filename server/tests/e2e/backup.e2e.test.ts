@@ -33,10 +33,10 @@ vi.mock('../../src/nest/audit/audit-log.logger', () => ({ LOG_LEVEL: 'error', lo
 
 const { backupSvc } = vi.hoisted(() => ({
   backupSvc: {
-    listBackups: vi.fn(), createBackup: vi.fn(), restoreFromZip: vi.fn(), parseAutoBackupBody: vi.fn(),
-    deleteBackup: vi.fn(), isValidBackupFilename: vi.fn(), backupFilePath: vi.fn(),
-    backupFileExists: vi.fn(), checkRateLimit: vi.fn(), getUploadTmpDir: () => '/tmp', BACKUP_RATE_WINDOW: 3600000,
-    MAX_BACKUP_UPLOAD_SIZE: 1024,
+    listBackups: vi.fn(), createBackup: vi.fn(), restoreFromZip: vi.fn(), restoreBackup: vi.fn(),
+    parseAutoBackupBody: vi.fn(), deleteBackup: vi.fn(), isValidBackupFilename: vi.fn(),
+    backupFileExists: vi.fn(), sendBackupToResponse: vi.fn(), checkRateLimit: vi.fn(),
+    BACKUP_RATE_WINDOW: 3600000, MAX_BACKUP_UPLOAD_SIZE: 1024,
   },
 }));
 vi.mock('../../src/nest/backup/backup.impl', () => backupSvc);

@@ -59,9 +59,9 @@ vi.mock('../../src/nest/backup/backup.impl', async () => {
       created_at: new Date().toISOString(),
     }),
     restoreFromZip: vi.fn().mockResolvedValue({ success: true }),
+    restoreBackup: vi.fn().mockResolvedValue({ success: true }),
     deleteBackup: vi.fn().mockReturnValue(undefined),
     backupFileExists: vi.fn().mockReturnValue(false),
-    backupFilePath: vi.fn().mockReturnValue('/tmp/test-backup.zip'),
     // Keep checkRateLimit from actual so rate-limit tests work correctly
     checkRateLimit: vi.fn().mockReturnValue(true),
   };
@@ -268,7 +268,7 @@ describe('Backup restore', () => {
     const filename = 'backup-2026-04-06T12-00-00.zip';
 
     vi.mocked(backupService.backupFileExists).mockReturnValue(true);
-    vi.mocked(backupService.restoreFromZip).mockResolvedValue({ success: true });
+    vi.mocked(backupService.restoreBackup).mockResolvedValue({ success: true });
 
     const res = await request(app)
       .post(`/api/backup/restore/${filename}`)
@@ -276,6 +276,7 @@ describe('Backup restore', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
+    expect(vi.mocked(backupService.restoreBackup)).toHaveBeenCalledWith(expect.anything(), filename);
   });
 
   it('BACKUP-INT-005 — POST /backup/restore/:filename returns 404 when backup not found', async () => {
@@ -302,12 +303,12 @@ describe('Backup restore', () => {
     expect([400, 404]).toContain(res.status);
   });
 
-  it('BACKUP-INT-007 — POST /backup/restore/:filename returns 400 when restoreFromZip reports failure', async () => {
+  it('BACKUP-INT-007 — POST /backup/restore/:filename returns 400 when the restore reports failure', async () => {
     const { user: admin } = createAdmin(testDb);
     const filename = 'backup-2026-04-06T12-00-00.zip';
 
     vi.mocked(backupService.backupFileExists).mockReturnValue(true);
-    vi.mocked(backupService.restoreFromZip).mockResolvedValue({
+    vi.mocked(backupService.restoreBackup).mockResolvedValue({
       success: false,
       error: 'Invalid backup: travel.db not found',
       status: 400,

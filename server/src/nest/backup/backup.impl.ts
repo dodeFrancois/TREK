@@ -12,14 +12,13 @@ import { stageExtractedPluginTrees, applyStagedRestoreNow } from '../plugins/plu
 import { snapshotAllPluginDataDbs } from '../plugins/host/plugin-data.service';
 import type { Response } from 'express';
 import type { StorageService } from '../storage/storage.service';
+import { StorageInvalidKeyError } from '../storage/storage.types';
 
 // ---------------------------------------------------------------------------
 // Paths
 // ---------------------------------------------------------------------------
 
 const dataDir = path.join(__dirname, '../../../data');
-const backupsDir = path.join(dataDir, 'backups');
-const uploadsDir = path.join(__dirname, '../../../uploads');
 
 // Compressed upload cap for restore archives. Defaults to 500 MB, raisable via
 // BACKUP_UPLOAD_LIMIT_MB for instances whose backups (uploads/ included) grow
@@ -76,10 +75,6 @@ export function parseAutoBackupBody(body: Record<string, unknown>): {
 
 export function isValidBackupFilename(filename: string): boolean {
   return /^(?:auto-)?backup-[\w-]+\.zip$/.test(filename);
-}
-
-export function backupFilePath(filename: string): string {
-  return path.join(backupsDir, filename);
 }
 
 export function backupFileExists(storage: StorageService, filename: string): Promise<boolean> {
@@ -311,7 +306,51 @@ export interface RestoreResult {
   status?: number;
 }
 
-export async function restoreFromZip(zipPath: string): Promise<RestoreResult> {
+/** Restore a zip that already sits in the backups store, reading it through
+ *  the storage facade (primary-local in v1; a remote backend downloads to
+ *  tempDir via withLocalFile — the seam is in place, resumability is not). */
+export function restoreBackup(storage: StorageService, filename: string): Promise<RestoreResult> {
+  return storage.withLocalFile('backups', filename, (zipPath) => restoreFromZip(storage, zipPath));
+}
+
+const isBackupCategory = (dir: string): dir is (typeof BACKUP_UPLOAD_CATEGORIES)[number] =>
+  (BACKUP_UPLOAD_CATEGORIES as readonly string[]).includes(dir);
+
+/**
+ * Per-entry storage.put replaces the old wipe-and-cpSync (and with it the
+ * realpathSync symlinked-uploads workaround — the driver resolves its own
+ * root at init). Entries that cannot map to a storage key — an unknown
+ * top-level dir, or dot-segments from old `dot: true` archives — are skipped
+ * with a warning (2026-08-17 decision): new archives never contain them, and
+ * the category mapping stays structural in both directions.
+ */
+async function rehydrateUploads(storage: StorageService, extractedUploads: string): Promise<void> {
+  const walk = (dir: string): string[] =>
+    fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+      const p = path.join(dir, e.name);
+      return e.isDirectory() ? walk(p) : e.isFile() ? [p] : [];
+    });
+  for (const absPath of walk(extractedUploads)) {
+    const rel = path.relative(extractedUploads, absPath).split(path.sep).join('/');
+    const slash = rel.indexOf('/');
+    const top = slash === -1 ? '' : rel.slice(0, slash);
+    if (slash === -1 || !isBackupCategory(top)) {
+      console.warn(`Restore: skipping upload entry outside a storage category: ${rel}`);
+      continue;
+    }
+    try {
+      await storage.put(top, rel.slice(slash + 1), { tmpPath: absPath });
+    } catch (err) {
+      if (err instanceof StorageInvalidKeyError) {
+        console.warn(`Restore: skipping upload entry with an invalid key: ${rel}`);
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
+export async function restoreFromZip(storage: StorageService, zipPath: string): Promise<RestoreResult> {
   const extractDir = path.join(dataDir, `restore-${Date.now()}`);
   let reinitFailed: unknown = null;
   try {
@@ -426,20 +465,16 @@ export async function restoreFromZip(zipPath: string): Promise<RestoreResult> {
 
       const extractedUploads = path.join(extractDir, 'uploads');
       if (fs.existsSync(extractedUploads)) {
-        for (const sub of fs.readdirSync(uploadsDir)) {
-          const subPath = path.join(uploadsDir, sub);
-          if (fs.statSync(subPath).isDirectory()) {
-            for (const file of fs.readdirSync(subPath)) {
-              try { fs.unlinkSync(path.join(subPath, file)); } catch (e) {}
-            }
+        // Parity with the legacy wipe: it unlinked one level deep only (nested
+        // files — journey/thumbs, photos/google — survived until overwritten by
+        // the copy) and swallowed per-file errors.
+        for (const category of BACKUP_UPLOAD_CATEGORIES) {
+          for await (const obj of storage.list(category)) {
+            if (obj.key.includes('/')) continue;
+            await storage.delete(category, obj.key).catch(() => { /* best-effort, as the old unlink loop was */ });
           }
         }
-        // Copy into the real directory behind uploadsDir. In Docker, uploadsDir
-        // (/app/server/uploads) is a symlink to the mounted /app/uploads volume;
-        // cpSync(dereference:false) would otherwise try to overwrite the symlink
-        // node with a directory and throw ERR_FS_CP_DIR_TO_NON_DIR. realpathSync
-        // is a no-op when uploadsDir is a plain directory (dev/non-Docker).
-        fs.cpSync(extractedUploads, fs.realpathSync(uploadsDir), { recursive: true, force: true });
+        await rehydrateUploads(storage, extractedUploads);
       }
 
       // Plugin trees can't be swapped while the runtime holds their DBs open, so stage
@@ -505,10 +540,3 @@ export function deleteBackup(storage: StorageService, filename: string): Promise
   return storage.delete('backups', filename);
 }
 
-// ---------------------------------------------------------------------------
-// Upload config (multer dest)
-// ---------------------------------------------------------------------------
-
-export function getUploadTmpDir(): string {
-  return path.join(dataDir, 'tmp/');
-}

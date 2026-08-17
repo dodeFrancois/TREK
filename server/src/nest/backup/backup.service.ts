@@ -19,11 +19,11 @@ export class BackupService {
 
   listBackups() { return svc.listBackups(this.storage); }
   createBackup(prefix?: 'backup' | 'auto-backup') { return svc.createBackup(this.storage, prefix); }
-  restoreFromZip(zipPath: string) { return svc.restoreFromZip(zipPath); }
+  restoreFromZip(zipPath: string) { return svc.restoreFromZip(this.storage, zipPath); }
+  restoreBackup(filename: string) { return svc.restoreBackup(this.storage, filename); }
   deleteBackup(filename: string) { return svc.deleteBackup(this.storage, filename); }
 
   isValidBackupFilename(filename: string) { return svc.isValidBackupFilename(filename); }
-  backupFilePath(filename: string) { return svc.backupFilePath(filename); }
   backupFileExists(filename: string) { return svc.backupFileExists(this.storage, filename); }
   sendBackupToResponse(filename: string, res: Response) { return svc.sendBackupToResponse(this.storage, filename, res); }
   checkRateLimit(key: string, maxAttempts: number, windowMs: number) { return svc.checkRateLimit(key, maxAttempts, windowMs); }

@@ -27,19 +27,9 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { AutoBackupSettingsDto } from './backup.dto';
 import { getClientIp } from '../audit/client-ip';
 import { AuditService } from '../audit/audit.service';
-import { getUploadTmpDir, MAX_BACKUP_UPLOAD_SIZE } from './backup.impl';
 import { StorageNotFoundError } from '../storage/storage.types';
 import { ManagedForbidden, isManagedBlocked, MANAGED_FORBIDDEN_ERROR } from '../common/managed';
 import { RuntimeEnvService } from '../app-config/runtime-env.service';
-
-const UPLOAD = {
-  dest: getUploadTmpDir(),
-  fileFilter: (_req: unknown, file: Express.Multer.File, cb: (err: Error | null, accept: boolean) => void) => {
-    if (file.originalname.endsWith('.zip')) return cb(null, true);
-    cb(new Error('Only ZIP files allowed'), false);
-  },
-  limits: { fileSize: MAX_BACKUP_UPLOAD_SIZE },
-};
 
 /**
  * /api/backup — admin-only database backup management (list, create, download,
@@ -115,7 +105,7 @@ export class BackupController {
       throw new HttpException({ error: 'Backup not found' }, 404);
     }
     try {
-      const result = await this.backup.restoreFromZip(this.backup.backupFilePath(filename));
+      const result = await this.backup.restoreBackup(filename);
       if (!result.success) {
         throw new HttpException({ error: result.error }, result.status || 400);
       }
@@ -133,7 +123,7 @@ export class BackupController {
   )
   @Post('upload-restore')
   @HttpCode(200) // Express answers upload-restore with res.json (200).
-  @UseInterceptors(FileInterceptor('backup', UPLOAD))
+  @UseInterceptors(FileInterceptor('backup'))
   async uploadRestore(@CurrentUser() user: User, @UploadedFile() file: Express.Multer.File | undefined, @Req() req: Request) {
     // Checked here rather than in the guard: a guard runs before the multipart
     // parser, so throwing there leaves the body unread and the client sees an

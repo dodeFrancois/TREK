@@ -73,8 +73,8 @@ import {
   createBackup,
   deleteBackup,
   restoreFromZip,
+  restoreBackup,
   BACKUP_RATE_WINDOW,
-  backupFilePath,
   backupFileExists,
   listBackups,
   sendBackupToResponse,
@@ -620,7 +620,7 @@ describe('BACKUP-038 restoreFromZip', () => {
     });
     fsMock.rmSync.mockReturnValue(undefined);
 
-    const result = await restoreFromZip('/data/tmp/upload.zip');
+    const result = await restoreFromZip(stubStorage(), '/data/tmp/upload.zip');
 
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/travel\.db not found/i);
@@ -632,7 +632,7 @@ describe('BACKUP-038 restoreFromZip', () => {
       files: [{ uncompressedSize: 6 * 1024 * 1024 * 1024 }], // 6 GB > 5 GB cap
     });
 
-    const result = await restoreFromZip('/data/tmp/bomb.zip');
+    const result = await restoreFromZip(stubStorage(), '/data/tmp/bomb.zip');
 
     expect(result.success).toBe(false);
     expect(result.status).toBe(400);
@@ -702,7 +702,7 @@ describe('BACKUP-061 restoreFromZip extraction', () => {
   it('BACKUP-061a — refuses an entry whose path escapes the archive root (zip-slip)', async () => {
     unzipperMock.Open.file.mockResolvedValueOnce({ files: [zipEntry('../../etc/passwd')] });
 
-    const result = await restoreFromZip('/data/tmp/slip.zip');
+    const result = await restoreFromZip(stubStorage(), '/data/tmp/slip.zip');
 
     expect(result.success).toBe(false);
     expect(result.status).toBe(400);
@@ -720,7 +720,7 @@ describe('BACKUP-061 restoreFromZip extraction', () => {
   it.runIf(process.platform === 'win32')('BACKUP-061b — a drive-letter entry path is refused the same way', async () => {
     unzipperMock.Open.file.mockResolvedValueOnce({ files: [zipEntry('C:/Windows/system32/evil.dll')] });
 
-    const result = await restoreFromZip('/data/tmp/abs.zip');
+    const result = await restoreFromZip(stubStorage(), '/data/tmp/abs.zip');
 
     expect(result.success).toBe(false);
     expect(result.status).toBe(400);
@@ -734,7 +734,7 @@ describe('BACKUP-061 restoreFromZip extraction', () => {
 
     // What happens after extraction is BACKUP-042..045's business; this case only
     // cares that the directory entry never reached the writer.
-    await restoreFromZip('/data/tmp/dirs.zip').catch(() => undefined);
+    await restoreFromZip(stubStorage(), '/data/tmp/dirs.zip').catch(() => undefined);
 
     expect(fsMock.createWriteStream).toHaveBeenCalledTimes(1);
   });
@@ -746,7 +746,7 @@ describe('BACKUP-061 restoreFromZip extraction', () => {
     lying.uncompressedSize = 8;
     unzipperMock.Open.file.mockResolvedValueOnce({ files: [lying] });
 
-    const result = await restoreFromZip('/data/tmp/liar.zip');
+    const result = await restoreFromZip(stubStorage(), '/data/tmp/liar.zip');
 
     expect(result.success).toBe(false);
     expect(result.status).toBe(400);
@@ -774,7 +774,7 @@ describe('BACKUP-061 restoreFromZip extraction', () => {
     // A corrupt stream is NOT dressed up as a 400 "too large": it leaves the function
     // as a throw, which is what makes the controller answer 500 rather than telling the
     // admin their perfectly-sized backup is over the cap.
-    await expect(restoreFromZip('/data/tmp/corrupt.zip')).rejects.toThrow('corrupt deflate stream');
+    await expect(restoreFromZip(stubStorage(), '/data/tmp/corrupt.zip')).rejects.toThrow('corrupt deflate stream');
     expect(fsMock.rmSync).toHaveBeenCalledWith(expect.stringContaining('restore-'), { recursive: true, force: true });
   });
 
@@ -797,7 +797,7 @@ describe('BACKUP-061 restoreFromZip extraction', () => {
       throw new Error('database is locked');
     });
 
-    const result = await restoreFromZip('/data/tmp/ok.zip');
+    const result = await restoreFromZip(stubStorage(), '/data/tmp/ok.zip');
 
     // The files already landed, so this is neither a success nor a plain failure: the
     // admin has to restart, and the message has to say so.
@@ -815,16 +815,8 @@ const DatabaseMock = vi.hoisted(() => vi.fn());
 
 vi.mock('better-sqlite3', () => ({ default: DatabaseMock }));
 
-// ---------------------------------------------------------------------------
-// backupFilePath
-// ---------------------------------------------------------------------------
-
-describe('BACKUP-039 backupFilePath', () => {
-  it('BACKUP-039a — returns a path ending with the given filename', () => {
-    const result = backupFilePath('backup-test.zip');
-    expect(result).toMatch(/backup-test\.zip$/);
-  });
-});
+// BACKUP-039 (backupFilePath) retired: every consumer addresses backups as
+// (category, name) through StorageService now — no absolute path leaves the impl.
 
 // ---------------------------------------------------------------------------
 // backupFileExists
@@ -992,7 +984,7 @@ describe('BACKUP-042 restoreFromZip — integrity check fails', () => {
       return fakeDbInstance;
     });
 
-    const result = await restoreFromZip('/data/tmp/upload.zip');
+    const result = await restoreFromZip(stubStorage(), '/data/tmp/upload.zip');
 
     expect(result.success).toBe(false);
     expect(result.status).toBe(400);
@@ -1028,7 +1020,7 @@ describe('BACKUP-043 restoreFromZip — missing required table', () => {
       return fakeDbInstance;
     });
 
-    const result = await restoreFromZip('/data/tmp/upload.zip');
+    const result = await restoreFromZip(stubStorage(), '/data/tmp/upload.zip');
 
     expect(result.success).toBe(false);
     expect(result.status).toBe(400);
@@ -1054,7 +1046,7 @@ describe('BACKUP-044 restoreFromZip — Database constructor throws (invalid SQL
       throw new Error('file is not a database');
     });
 
-    const result = await restoreFromZip('/data/tmp/upload.zip');
+    const result = await restoreFromZip(stubStorage(), '/data/tmp/upload.zip');
 
     expect(result.success).toBe(false);
     expect(result.status).toBe(400);
@@ -1104,7 +1096,7 @@ describe('BACKUP-045 restoreFromZip — full success path (no uploads)', () => {
     fsMock.copyFileSync.mockReturnValue(undefined);
     fsMock.rmSync.mockReturnValue(undefined);
 
-    const result = await restoreFromZip('/data/tmp/upload.zip');
+    const result = await restoreFromZip(stubStorage(), '/data/tmp/upload.zip');
 
     expect(result).toEqual({ success: true });
   });
@@ -1125,7 +1117,7 @@ describe('BACKUP-045 restoreFromZip — full success path (no uploads)', () => {
       return true;
     });
 
-    await restoreFromZip('/data/tmp/upload.zip');
+    await restoreFromZip(stubStorage(), '/data/tmp/upload.zip');
 
     expect(callOrder.indexOf('closeDb')).toBeLessThan(callOrder.indexOf('copyFileSync'));
   });
@@ -1145,7 +1137,7 @@ describe('BACKUP-045 restoreFromZip — full success path (no uploads)', () => {
     });
     fsMock.rmSync.mockReturnValue(undefined);
 
-    await expect(restoreFromZip('/data/tmp/upload.zip')).rejects.toThrow('disk full');
+    await expect(restoreFromZip(stubStorage(), '/data/tmp/upload.zip')).rejects.toThrow('disk full');
 
     expect(dbMock.reinitialize).toHaveBeenCalled();
   });
@@ -1164,7 +1156,7 @@ describe('BACKUP-045 restoreFromZip — full success path (no uploads)', () => {
     fsMock.copyFileSync.mockReturnValue(undefined);
     fsMock.rmSync.mockReturnValue(undefined);
 
-    const result = await restoreFromZip('/data/tmp/upload.zip');
+    const result = await restoreFromZip(stubStorage(), '/data/tmp/upload.zip');
 
     expect(result).toEqual({ success: true });
     // Key copied from the extract dir into the live data dir.
@@ -1188,7 +1180,7 @@ describe('BACKUP-045 restoreFromZip — full success path (no uploads)', () => {
     fsMock.copyFileSync.mockReturnValue(undefined);
     fsMock.rmSync.mockReturnValue(undefined);
 
-    const result = await restoreFromZip('/data/tmp/upload.zip');
+    const result = await restoreFromZip(stubStorage(), '/data/tmp/upload.zip');
 
     expect(result).toEqual({ success: true });
     expect(fsMock.copyFileSync).not.toHaveBeenCalledWith(
@@ -1198,14 +1190,12 @@ describe('BACKUP-045 restoreFromZip — full success path (no uploads)', () => {
   });
 });
 
-describe('BACKUP-046 restoreFromZip — with uploads directory', () => {
+describe('BACKUP-046 restoreFromZip — uploads rehydration through storage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('BACKUP-046a — cpSync is called to copy uploads when they exist in the archive', async () => {
-    setupSuccessfulExtraction();
-
+  function setupAllTablesPresent() {
     const fakeDbInstance = {
       prepare: vi.fn()
         .mockReturnValueOnce({
@@ -1225,94 +1215,131 @@ describe('BACKUP-046 restoreFromZip — with uploads directory', () => {
     DatabaseMock.mockImplementation(function () {
       return fakeDbInstance;
     });
+    return fakeDbInstance;
+  }
 
+  const dirent = (name: string, dir = false) => ({ name, isDirectory: () => dir, isFile: () => !dir });
+
+  /** Common fs wiring: travel.db + extracted uploads exist; the extracted tree
+   *  is described per-path via `tree` (walked with { withFileTypes: true }). */
+  function setupExtractedUploads(tree: Record<string, ReturnType<typeof dirent>[]>) {
     fsMock.existsSync.mockImplementation((p: string) => {
-      // travel.db present, extractedUploads present
-      if (String(p).endsWith('travel.db')) return true;
-      if (String(p).includes('uploads')) return true;
+      if (String(p).endsWith('.encryption_key')) return false;
       return true;
     });
-    fsMock.readdirSync.mockImplementation((p: string) => {
-      // uploadsDir has one subdirectory 'photos'; 'photos' has one file
-      if (String(p).includes('uploads') && !String(p).includes('restore-')) {
-        return ['photos'] as any;
-      }
-      if (String(p).includes('photos')) return ['img1.jpg'] as any;
-      return [] as any;
+    fsMock.readdirSync.mockImplementation((p: string, opts?: { withFileTypes?: boolean }) => {
+      const s = String(p);
+      const key = Object.keys(tree).find(k => s.endsWith(k));
+      const entries = key ? tree[key] : [];
+      return (opts?.withFileTypes ? entries : entries.map(e => e.name)) as never;
     });
-    fsMock.statSync.mockReturnValue({ isDirectory: () => true } as any);
     fsMock.unlinkSync.mockReturnValue(undefined);
     fsMock.copyFileSync.mockReturnValue(undefined);
-    fsMock.cpSync.mockReturnValue(undefined);
     fsMock.rmSync.mockReturnValue(undefined);
+  }
 
-    await restoreFromZip('/data/tmp/upload.zip');
-
-    expect(fsMock.cpSync).toHaveBeenCalledWith(
-      expect.stringContaining('uploads'),
-      expect.stringContaining('uploads'),
-      { recursive: true, force: true }
-    );
-  });
-
-  it('BACKUP-046b — copies into the symlink target, not the symlink itself (#1193)', async () => {
-    // In Docker, uploadsDir (/app/server/uploads) is a symlink to the mounted
-    // /app/uploads volume. cpSync(dereference:false) would throw
-    // ERR_FS_CP_DIR_TO_NON_DIR overwriting the symlink node with a directory.
-    // The fix resolves the symlink with realpathSync first, so the copy targets
-    // the real directory behind it.
+  it('BACKUP-046a — wipes only top-level category objects, then puts each extracted entry (legacy wipe parity)', async () => {
     setupSuccessfulExtraction();
-
-    const fakeDbInstance = {
-      prepare: vi.fn()
-        .mockReturnValueOnce({
-          get: vi.fn().mockReturnValue({ integrity_check: 'ok' }),
-        })
-        .mockReturnValueOnce({
-          all: vi.fn().mockReturnValue([
-            { name: 'users' },
-            { name: 'trips' },
-            { name: 'trip_members' },
-            { name: 'places' },
-            { name: 'days' },
-          ]),
-        }),
-      close: vi.fn(),
-    };
-    DatabaseMock.mockImplementation(function () {
-      return fakeDbInstance;
+    setupAllTablesPresent();
+    setupExtractedUploads({
+      '/uploads': [dirent('files', true), dirent('journey', true)],
+      '/uploads/files': [dirent('a.pdf')],
+      '/uploads/journey': [dirent('thumbs', true)],
+      '/uploads/journey/thumbs': [dirent('t.jpg')],
     });
 
-    fsMock.existsSync.mockImplementation((p: string) => {
-      if (String(p).endsWith('travel.db')) return true;
-      if (String(p).includes('uploads')) return true;
-      return true;
+    // Pre-existing objects: one bare per category plus a nested journey thumb —
+    // the legacy wipe unlinked one level deep only, so nested keys must survive.
+    // One delete rejects to pin the swallowed-per-file-error behavior.
+    const storage = stubStorage({
+      list: vi.fn((category: string) =>
+        (async function* () {
+          yield { key: 'old.bin', size: 1, mtimeMs: 0 };
+          if (category === 'journey') yield { key: 'thumbs/old.jpg', size: 1, mtimeMs: 0 };
+        })(),
+      ),
+      delete: vi.fn(async (_c: string, key: string) => {
+        if (key === 'old.bin') return;
+        throw new Error('EACCES');
+      }),
     });
-    fsMock.readdirSync.mockImplementation((p: string) => {
-      if (String(p).includes('uploads') && !String(p).includes('restore-')) {
-        return ['photos'] as any;
-      }
-      if (String(p).includes('photos')) return ['img1.jpg'] as any;
-      return [] as any;
-    });
-    fsMock.statSync.mockReturnValue({ isDirectory: () => true } as any);
-    fsMock.unlinkSync.mockReturnValue(undefined);
-    fsMock.copyFileSync.mockReturnValue(undefined);
-    fsMock.cpSync.mockReturnValue(undefined);
-    fsMock.rmSync.mockReturnValue(undefined);
-    // Resolve the uploads symlink to a distinct real target directory.
-    const REAL_TARGET = '/app/uploads';
-    fsMock.realpathSync.mockReturnValueOnce(REAL_TARGET);
 
-    const result = await restoreFromZip('/data/tmp/upload.zip');
+    const result = await restoreFromZip(storage, '/data/tmp/upload.zip');
 
     expect(result).toEqual({ success: true });
-    // The copy destination must be the resolved real path, never the symlink.
-    expect(fsMock.cpSync).toHaveBeenCalledWith(
-      expect.stringContaining('uploads'),
-      REAL_TARGET,
-      { recursive: true, force: true }
-    );
+    // wipe: bare keys deleted in every archived category, nested keys never
+    const deleted = (storage.delete as ReturnType<typeof vi.fn>).mock.calls;
+    expect(deleted.every(([, key]) => !(key as string).includes('/'))).toBe(true);
+    expect(deleted.map(([c]) => c).sort()).toEqual(['avatars', 'covers', 'files', 'journey', 'photos', 'places']);
+    // rehydration: every extracted file becomes a category put, nested keys intact
+    expect(storage.put).toHaveBeenCalledWith('files', 'a.pdf', { tmpPath: expect.stringContaining('/uploads/files/a.pdf') });
+    expect(storage.put).toHaveBeenCalledWith('journey', 'thumbs/t.jpg', { tmpPath: expect.stringContaining('/uploads/journey/thumbs/t.jpg') });
+    // No uploads bulk copy remains (plugin-tree staging still uses cpSync — out of scope).
+    const cpTargets = fsMock.cpSync.mock.calls.map(c => String(c[1]));
+    expect(cpTargets.some(t => t.includes('uploads'))).toBe(false);
+  });
+
+  it('BACKUP-046b — skips entries that cannot map to a storage key, with a warning (2026-08-17 decision)', async () => {
+    setupSuccessfulExtraction();
+    setupAllTablesPresent();
+    setupExtractedUploads({
+      '/uploads': [dirent('files', true), dirent('mystery', true), dirent('stray.txt')],
+      '/uploads/files': [dirent('a.pdf')],
+      '/uploads/mystery': [dirent('b.bin')],
+    });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { StorageInvalidKeyError } = await import('../../../src/nest/storage/storage.types');
+    const storage = stubStorage({
+      put: vi.fn(async (_c: string, key: string) => {
+        // dot-segment keys from old `dot: true` archives are rejected by
+        // central key validation — the restore must skip, not fail
+        if (key === 'a.pdf') throw new StorageInvalidKeyError(key);
+      }),
+    });
+
+    const result = await restoreFromZip(storage, '/data/tmp/upload.zip');
+
+    expect(result).toEqual({ success: true });
+    // unknown top-level dir + top-level file + invalid key: all skipped, warned
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('mystery/b.bin'));
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('stray.txt'));
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('a.pdf'));
+    warn.mockRestore();
+  });
+
+  it('BACKUP-046c — a genuine put failure still fails the restore', async () => {
+    setupSuccessfulExtraction();
+    setupAllTablesPresent();
+    setupExtractedUploads({
+      '/uploads': [dirent('files', true)],
+      '/uploads/files': [dirent('a.pdf')],
+    });
+    const storage = stubStorage({
+      put: vi.fn(async () => { throw new Error('ENOSPC: no space left'); }),
+    });
+
+    await expect(restoreFromZip(storage, '/data/tmp/upload.zip')).rejects.toThrow('ENOSPC');
+    // the DB reopen still ran (finally) — the process is never left closed
+    expect(dbMock.reinitialize).toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// restoreBackup (stored-zip restore via withLocalFile)
+// ---------------------------------------------------------------------------
+
+describe('BACKUP-063 restoreBackup', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('BACKUP-063a — reads the stored zip through withLocalFile("backups") and returns the restore result', async () => {
+    const storage = stubStorage({
+      withLocalFile: vi.fn(async () => ({ success: true })),
+    });
+
+    await expect(restoreBackup(storage, 'backup-2026-01-01T00-00-00.zip')).resolves.toEqual({ success: true });
+    expect(storage.withLocalFile).toHaveBeenCalledWith('backups', 'backup-2026-01-01T00-00-00.zip', expect.any(Function));
   });
 });
 
