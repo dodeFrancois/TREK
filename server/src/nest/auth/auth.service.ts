@@ -37,7 +37,6 @@ import {
   BCRYPT_COST,
   DUMMY_PASSWORD_HASH,
   EMAIL_REGEX,
-  avatarDir,
   generateBackupCodes,
   hashBackupCodeBcrypt,
   mask_stored_api_key,

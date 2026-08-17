@@ -1,7 +1,5 @@
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
-import path from 'path';
-import fs from 'fs';
 import { User } from '../../types';
 import { decrypt_api_key } from '../common/crypto/apiKeyCrypto';
 
@@ -37,13 +35,6 @@ export const ADMIN_SETTINGS_KEYS = [
   'password_login', 'password_registration', 'oidc_login', 'oidc_registration',
   'passkey_login', 'webauthn_rp_id', 'webauthn_origins',
 ];
-
-// One directory deeper than the legacy src/services location, so the extra
-// '../' keeps resolving to server/uploads/avatars (same anchor the multer
-// diskStorage in auth.controller.ts uses). Import-time mkdir on purpose
-// (legacy parity): the upload dir must exist before the first request.
-export const avatarDir = path.join(__dirname, '../../../uploads/avatars');
-if (!fs.existsSync(avatarDir)) fs.mkdirSync(avatarDir, { recursive: true });
 
 // ---------------------------------------------------------------------------
 // Helpers (exported for route-level use where needed)

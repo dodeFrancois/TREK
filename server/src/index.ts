@@ -10,28 +10,16 @@ import http from 'node:http';
 import type { INestApplication } from '@nestjs/common';
 import { buildApp, getHttpServer } from './bootstrap';
 
-// Create upload and data directories on startup.
-// Every uploads subdir the app writes to must be listed here (#1762): a dir
-// created lazily on first upload needs write permission on the uploads mount
-// point itself at request time, which fails with EACCES on Docker hosts whose
-// bind-mounted uploads dir isn't writable by the runtime user — while every
-// feature writing into an already-existing subdir keeps working. Creating them
-// at boot turns that into one loud startup failure instead of a stray 500.
-// Keep in sync with the `mkdir -p` list in the Dockerfile (guarded by
-// tests/unit/uploads-dirs.test.ts).
-const uploadsDir = path.join(__dirname, '../uploads');
-const photosDir = path.join(uploadsDir, 'photos');
-const filesDir = path.join(uploadsDir, 'files');
-const coversDir = path.join(uploadsDir, 'covers');
-const avatarsDir = path.join(uploadsDir, 'avatars');
-const journeyDir = path.join(uploadsDir, 'journey');
-const placesDir = path.join(uploadsDir, 'places');
-const backupsDir = path.join(__dirname, '../data/backups');
+// data/tmp is the driver-agnostic global scratch dir (restore-upload spool,
+// mirror stream staging) and stays boot-created here. Driver-owned roots — the
+// uploads/ category tree and data/backups — are ensured by LocalDriver.init on
+// every storage-registry load (boot and reload(), storage-registry.service.ts),
+// which keeps the #1762 EACCES guarantee: a non-writable bind mount still
+// fails loudly at startup, inside app.init(), instead of as a stray 500 on
+// first upload. The Dockerfile `mkdir -p` list is pinned to the registry's
+// category prefixes by tests/unit/uploads-dirs.test.ts.
 const tmpDir = path.join(__dirname, '../data/tmp');
-
-[uploadsDir, photosDir, filesDir, coversDir, avatarsDir, journeyDir, placesDir, backupsDir, tmpDir].forEach(dir => {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-});
+if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
 
 import { getAppUrl, getMcpSafeUrl, readEnv } from './app-config';
 

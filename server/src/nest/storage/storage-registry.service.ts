@@ -45,8 +45,11 @@ const REPLICA_FAILURE_RING_SIZE = 50;
  * (the backend root IS the backups dir — spec rev 3.1), and `photos-google`
  * flips to bare keys when it resolves to `place-photos-local` (the relocated
  * TREK_PLACE_PHOTO_DIR layout, place-photo-cache.service.ts).
+ *
+ * Exported for tests/unit/uploads-dirs.test.ts, which pins the Dockerfile's
+ * `mkdir -p /app/uploads/...` list to these prefixes.
  */
-const CATEGORY_PREFIXES: Record<StorageCategory, string> = {
+export const CATEGORY_PREFIXES: Record<StorageCategory, string> = {
   files: 'files/',
   journey: 'journey/',
   covers: 'covers/',
