@@ -1,15 +1,14 @@
 import path from 'path';
-import fs from 'fs';
 import { Injectable } from '@nestjs/common';
 import { DatabaseService, type TripAccess } from '../database/database.service';
 import type { TrekWsPayload, TrekWsTripEventName } from '@trek/shared';
 import { RealtimeService } from '../realtime/realtime.service';
 import { PermissionsService } from '../permissions/permissions.service';
 import { avatarUrl } from '../common/avatarUrl';
-import { filesDir } from '../files/files.constants';
 import { checkSsrf, createPinnedDispatcher } from '../../utils/ssrfGuard';
 import type { CollabNote, CollabPoll, CollabMessage, TripFile, User } from '../../types';
 import { NotificationsService } from '../notifications/notifications.service';
+import { StorageService } from '../storage/storage.service';
 
 type Trip = TripAccess;
 
@@ -70,6 +69,7 @@ export class CollabService {
     private readonly permissions: PermissionsService,
     private readonly realtime: RealtimeService,
     private readonly notifications: NotificationsService,
+    private readonly storage: StorageService,
   ) {}
 
   verifyTripAccess(tripId: string | number, userId: number) {
@@ -194,18 +194,17 @@ export class CollabService {
     return this.formatNote(note);
   }
 
-  deleteNote(tripId: string | number, noteId: string | number): boolean {
+  async deleteNote(tripId: string | number, noteId: string | number): Promise<boolean> {
     const existing = this.db.get('SELECT id FROM collab_notes WHERE id = ? AND trip_id = ?', noteId, tripId);
     if (!existing) return false;
 
-    // Clean up attached files from disk (unlink-first is intentional — a
-    // failed row delete leaves dangling rows, never orphaned files).
-    // basename() tolerates any legacy 'files/'-prefixed row the boot migration
-    // has not seen; the raw unlink moves to storage.delete in the serving slice.
+    // Clean up attached objects first (delete-first is intentional — a failed
+    // row delete leaves dangling rows, never orphaned files). basename()
+    // tolerates any legacy 'files/'-prefixed row the boot migration has not
+    // seen.
     const noteFiles = this.db.all<NoteFileRow>('SELECT id, filename FROM trip_files WHERE note_id = ?', noteId);
     for (const f of noteFiles) {
-      const filePath = path.join(filesDir, path.basename(f.filename));
-      try { fs.unlinkSync(filePath); } catch { /* ignore */ }
+      await this.storage.delete('files', path.basename(f.filename)).catch(() => { /* ignore */ });
     }
     this.db.transaction(() => {
       this.db.run('DELETE FROM trip_files WHERE note_id = ?', noteId);
@@ -237,7 +236,7 @@ export class CollabService {
     return this.formatNote(note);
   }
 
-  deleteNoteFile(tripId: string | number, noteId: string | number, fileId: string | number): boolean {
+  async deleteNoteFile(tripId: string | number, noteId: string | number, fileId: string | number): Promise<boolean> {
     // Scope to the trip — like every sibling collab op — so a caller authorized for THEIR
     // trip can't delete a note-file that belongs to someone else's trip (IDOR). trip_files
     // carries trip_id, so this ties the deleted object to the URL's :tripId the controller
@@ -245,8 +244,7 @@ export class CollabService {
     const file = this.db.get<TripFile>('SELECT * FROM trip_files WHERE id = ? AND note_id = ? AND trip_id = ?', fileId, noteId, tripId);
     if (!file) return false;
 
-    const filePath = path.join(filesDir, path.basename(file.filename));
-    try { fs.unlinkSync(filePath); } catch { /* ignore */ }
+    await this.storage.delete('files', path.basename(file.filename)).catch(() => { /* ignore */ });
 
     this.db.run('DELETE FROM trip_files WHERE id = ?', fileId);
     return true;

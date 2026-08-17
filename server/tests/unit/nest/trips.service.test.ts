@@ -130,7 +130,7 @@ const readModelSvc = new TripReadModelService(
   dbs(), membersSvc, daysSvc, accommodationsSvc, budgetSvc,
   new PackingService(dbs(), new PermissionsService(dbs()), new RealtimeService(), notificationsStub()),
   new ReservationsService(dbs(), new PermissionsService(dbs()), budgetSvc, new RealtimeService(), notificationsStub(), new ReservationsReadRepository(dbs())),
-  new CollabService(dbs(), new PermissionsService(dbs()), new RealtimeService(), notificationsStub()),
+  new CollabService(dbs(), new PermissionsService(dbs()), new RealtimeService(), notificationsStub(), coversFx.storage),
   placesSvc,
   new TodoService(dbs(), new PermissionsService(dbs()), new RealtimeService()),
   new FilesService(dbs(), new PermissionsService(dbs()), new RealtimeService(), new EphemeralTokenService()),

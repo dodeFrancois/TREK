@@ -83,6 +83,7 @@ import { makeStorageFixture } from './storage-fixture';
  * container would discover, handed to the host factory as a registry.
  */
 export function createPluginRpcHostFactory(dbs: DatabaseService): PluginRpcHostFactory {
+  const generalStorage = makeStorageFixture('').storage;
   const permissions = new PermissionsService(dbs);
   const exchangeRates = new ExchangeRatesService();
   const realtime = new RealtimeService();
@@ -93,11 +94,10 @@ export function createPluginRpcHostFactory(dbs: DatabaseService): PluginRpcHostF
   const packing = new PackingService(dbs, permissions, realtime, notificationsStub());
   const files = new FilesService(dbs, permissions, realtime, new EphemeralTokenService());
   const reservations = new ReservationsService(dbs, permissions, budget, realtime, notificationsStub(), new ReservationsReadRepository(dbs));
-  const collab = new CollabService(dbs, permissions, realtime, notificationsStub());
+  const collab = new CollabService(dbs, permissions, realtime, notificationsStub(), generalStorage);
   const vacay = new VacayService(dbs, realtime, notificationsStub());
   const days = new DaysService(dbs, permissions, realtime, queryHelpers);
   const photoCache = new PlacePhotoCacheService(dbs, makeStorageFixture('photos/google/').storage);
-  const generalStorage = makeStorageFixture('').storage;
   const unsplash = new UnsplashService(dbs, new RuntimeEnvService(), generalStorage);
   const journey = new JourneyDomainService(dbs, realtime, new TrekPhotosRepository(dbs));
   const places = new PlacesService(dbs, permissions, realtime, new MapsService(dbs, photoCache), queryHelpers, unsplash, photoCache, journey, generalStorage);

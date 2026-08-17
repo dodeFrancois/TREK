@@ -135,8 +135,8 @@ export class CollabController {
   @UseGuards(TripAccessGuard)
   @RequirePermission('collab_edit')
   @Delete('notes/:id')
-  deleteNote(@CurrentUser() user: User, @Param('tripId') tripId: string, @Param('id') id: string, @Headers('x-socket-id') socketId?: string) {
-    if (!this.collab.deleteNote(tripId, id)) {
+  async deleteNote(@CurrentUser() user: User, @Param('tripId') tripId: string, @Param('id') id: string, @Headers('x-socket-id') socketId?: string) {
+    if (!(await this.collab.deleteNote(tripId, id))) {
       throw new HttpException({ error: 'Note not found' }, 404);
     }
     this.collab.broadcast(tripId, 'collab:note:deleted', { noteId: Number(id) }, socketId);
@@ -167,8 +167,8 @@ export class CollabController {
   @UseGuards(TripAccessGuard)
   @RequirePermission('collab_edit')
   @Delete('notes/:id/files/:fileId')
-  deleteNoteFile(@CurrentUser() user: User, @Param('tripId') tripId: string, @Param('id') id: string, @Param('fileId') fileId: string, @Headers('x-socket-id') socketId?: string) {
-    if (!this.collab.deleteNoteFile(tripId, id, fileId)) {
+  async deleteNoteFile(@CurrentUser() user: User, @Param('tripId') tripId: string, @Param('id') id: string, @Param('fileId') fileId: string, @Headers('x-socket-id') socketId?: string) {
+    if (!(await this.collab.deleteNoteFile(tripId, id, fileId))) {
       throw new HttpException({ error: 'File not found' }, 404);
     }
     this.collab.broadcast(tripId, 'collab:note:updated', { note: this.collab.getFormattedNoteById(tripId, id) }, socketId);

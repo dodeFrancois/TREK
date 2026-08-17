@@ -145,7 +145,7 @@ export class CollabMcp {
     if (this.auth.isDemoUser(ctx.userId)) return demoDenied();
     if (!this.collab.verifyTripAccess(tripId, ctx.userId)) return noAccess();
     if (!this.guards.hasTripPermission('collab_edit', tripId, ctx.userId)) return permissionDenied();
-    const deleted = this.collab.deleteNote(tripId, noteId);
+    const deleted = await this.collab.deleteNote(tripId, noteId);
     if (!deleted) return errorResult('Note not found.');
     this.guards.safeBroadcast(tripId, 'collab:note:deleted', { noteId });
     return ok({ success: true });

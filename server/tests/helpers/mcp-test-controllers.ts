@@ -86,6 +86,7 @@ import { makeStorageFixture } from './storage-fixture';
  */
 export function createMcpTestRegistry(): McpRegistry {
   const dbService = new DatabaseService(db);
+  const generalStorage = makeStorageFixture('').storage;
   const permissionsService = new PermissionsService(dbService);
   // Same argument list as auth.bridge.ts. AtlasService used to sit in third
   // place; when getTravelStats moved onto AtlasService itself the edge was
@@ -110,11 +111,10 @@ export function createMcpTestRegistry(): McpRegistry {
   const daysService = new DaysService(dbService, permissionsService, realtimeService, queryHelpersService);
   const todoService = new TodoService(dbService, permissionsService, realtimeService);
   const packingService = new PackingService(dbService, permissionsService, realtimeService, notificationsStub());
-  const collabService = new CollabService(dbService, permissionsService, realtimeService, notificationsStub());
+  const collabService = new CollabService(dbService, permissionsService, realtimeService, notificationsStub(), generalStorage);
   // Exactly one instance, shared by maps, places and share: its stampede guard
   // and its on-disk set only work if all three readers see the same maps.
   const placePhotoCache = new PlacePhotoCacheService(dbService, makeStorageFixture('photos/google/').storage);
-  const generalStorage = makeStorageFixture('').storage;
   const mapsService = new MapsService(dbService, placePhotoCache);
   const journeyDomain = new JourneyDomainService(dbService, realtimeService, new TrekPhotosRepository(dbService));
   // The last three were previously omitted, which left them `undefined` at

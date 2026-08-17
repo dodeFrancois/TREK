@@ -67,11 +67,11 @@ describe('CollabController (parity with the legacy /api/trips/:tripId/collab rou
       expect(broadcast).toHaveBeenCalledWith('5', 'collab:note:updated', { note: { id: 9 } }, 'sock');
     });
 
-    it('DELETE 404 when missing, else success + broadcasts', () => {
-      expect(thrown(() => new CollabController(svc({ deleteNote: vi.fn().mockReturnValue(false) } as Partial<CollabService>), storageStub).deleteNote(user, '5', '9'))).toEqual({ status: 404, body: { error: 'Note not found' } });
+    it('DELETE 404 when missing, else success + broadcasts', async () => {
+      expect(await thrownAsync(() => new CollabController(svc({ deleteNote: vi.fn().mockResolvedValue(false) } as Partial<CollabService>), storageStub).deleteNote(user, '5', '9'))).toEqual({ status: 404, body: { error: 'Note not found' } });
       const broadcast = vi.fn();
-      const s = svc({ deleteNote: vi.fn().mockReturnValue(true), broadcast } as Partial<CollabService>);
-      expect(new CollabController(s, storageStub).deleteNote(user, '5', '9', 'sock')).toEqual({ success: true });
+      const s = svc({ deleteNote: vi.fn().mockResolvedValue(true), broadcast } as Partial<CollabService>);
+      expect(await new CollabController(s, storageStub).deleteNote(user, '5', '9', 'sock')).toEqual({ success: true });
       expect(broadcast).toHaveBeenCalledWith('5', 'collab:note:deleted', { noteId: 9 }, 'sock');
     });
   });
@@ -89,10 +89,10 @@ describe('CollabController (parity with the legacy /api/trips/:tripId/collab rou
       expect(broadcast).toHaveBeenCalledWith('5', 'collab:note:updated', { note: { id: 9 } }, 'sock');
     });
 
-    it('DELETE file 404 when missing, else success', () => {
-      expect(thrown(() => new CollabController(svc({ deleteNoteFile: vi.fn().mockReturnValue(false) } as Partial<CollabService>), storageStub).deleteNoteFile(user, '5', '9', '3'))).toEqual({ status: 404, body: { error: 'File not found' } });
-      const s = svc({ deleteNoteFile: vi.fn().mockReturnValue(true), getFormattedNoteById: vi.fn().mockReturnValue({ id: 9 }), broadcast: vi.fn() } as Partial<CollabService>);
-      expect(new CollabController(s, storageStub).deleteNoteFile(user, '5', '9', '3')).toEqual({ success: true });
+    it('DELETE file 404 when missing, else success', async () => {
+      expect(await thrownAsync(() => new CollabController(svc({ deleteNoteFile: vi.fn().mockResolvedValue(false) } as Partial<CollabService>), storageStub).deleteNoteFile(user, '5', '9', '3'))).toEqual({ status: 404, body: { error: 'File not found' } });
+      const s = svc({ deleteNoteFile: vi.fn().mockResolvedValue(true), getFormattedNoteById: vi.fn().mockReturnValue({ id: 9 }), broadcast: vi.fn() } as Partial<CollabService>);
+      expect(await new CollabController(s, storageStub).deleteNoteFile(user, '5', '9', '3')).toEqual({ success: true });
     });
   });
 
