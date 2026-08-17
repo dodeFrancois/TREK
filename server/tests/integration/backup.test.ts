@@ -235,7 +235,7 @@ describe('Backup download', () => {
 
   it('BACKUP-INT-002 — GET /backup/download/:filename returns 400 for invalid filename', async () => {
     const { user: admin } = createAdmin(testDb);
-    vi.mocked(backupService.backupFileExists).mockReturnValue(false);
+    vi.mocked(backupService.backupFileExists).mockResolvedValue(false);
 
     const res = await request(app)
       .get('/api/backup/download/not-a-valid-name.tar.gz')
@@ -247,7 +247,7 @@ describe('Backup download', () => {
 
   it('BACKUP-INT-003 — GET /backup/download/:filename returns 404 when file not found', async () => {
     const { user: admin } = createAdmin(testDb);
-    vi.mocked(backupService.backupFileExists).mockReturnValue(false);
+    vi.mocked(backupService.backupFileExists).mockResolvedValue(false);
 
     const res = await request(app)
       .get('/api/backup/download/backup-2026-04-06T12-00-00.zip')
@@ -267,7 +267,7 @@ describe('Backup restore', () => {
     const { user: admin } = createAdmin(testDb);
     const filename = 'backup-2026-04-06T12-00-00.zip';
 
-    vi.mocked(backupService.backupFileExists).mockReturnValue(true);
+    vi.mocked(backupService.backupFileExists).mockResolvedValue(true);
     vi.mocked(backupService.restoreBackup).mockResolvedValue({ success: true });
 
     const res = await request(app)
@@ -282,7 +282,7 @@ describe('Backup restore', () => {
   it('BACKUP-INT-005 — POST /backup/restore/:filename returns 404 when backup not found', async () => {
     const { user: admin } = createAdmin(testDb);
 
-    vi.mocked(backupService.backupFileExists).mockReturnValue(false);
+    vi.mocked(backupService.backupFileExists).mockResolvedValue(false);
 
     const res = await request(app)
       .post('/api/backup/restore/backup-2026-04-06T12-00-00.zip')
@@ -307,7 +307,7 @@ describe('Backup restore', () => {
     const { user: admin } = createAdmin(testDb);
     const filename = 'backup-2026-04-06T12-00-00.zip';
 
-    vi.mocked(backupService.backupFileExists).mockReturnValue(true);
+    vi.mocked(backupService.backupFileExists).mockResolvedValue(true);
     vi.mocked(backupService.restoreBackup).mockResolvedValue({
       success: false,
       error: 'Invalid backup: travel.db not found',
@@ -332,7 +332,7 @@ describe('Backup delete', () => {
     const { user: admin } = createAdmin(testDb);
     const filename = 'backup-2026-04-06T12-00-00.zip';
 
-    vi.mocked(backupService.backupFileExists).mockReturnValue(true);
+    vi.mocked(backupService.backupFileExists).mockResolvedValue(true);
     vi.mocked(backupService.deleteBackup).mockReturnValue(undefined);
 
     const res = await request(app)
@@ -348,7 +348,7 @@ describe('Backup delete', () => {
   it('BACKUP-INT-009 — DELETE /backup/:filename returns 404 when not found', async () => {
     const { user: admin } = createAdmin(testDb);
 
-    vi.mocked(backupService.backupFileExists).mockReturnValue(false);
+    vi.mocked(backupService.backupFileExists).mockResolvedValue(false);
 
     const res = await request(app)
       .delete('/api/backup/backup-2026-04-06T12-00-00.zip')
