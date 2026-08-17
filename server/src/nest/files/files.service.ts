@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import path from 'path';
-import fs from 'fs';
 import type { Request } from 'express';
 import type { TrekWsPayload, TrekWsTripEventName } from '@trek/shared';
 import { RealtimeService } from '../realtime/realtime.service';
@@ -11,6 +10,7 @@ import { verifyJwtAndLoadUser } from '../auth/jwt-verify';
 import type { User, TripFile } from '../../types';
 import { DatabaseService, type TripAccess } from '../database/database.service';
 import { DEFAULT_ALLOWED_EXTENSIONS, filesDir } from './files.constants';
+import { StorageService } from '../storage/storage.service';
 
 type Trip = TripAccess;
 type FilePermission = 'file_upload' | 'file_edit' | 'file_delete';
@@ -60,6 +60,7 @@ export class FilesService {
     private readonly permissions: PermissionsService,
     private readonly realtime: RealtimeService,
     private readonly tokens: EphemeralTokenService,
+    private readonly storage: StorageService,
   ) {}
 
   verifyTripAccess(tripId: string | number, userId: number) {
@@ -105,6 +106,12 @@ export class FilesService {
     return { error: 'Authentication required', status: 401 };
   }
 
+  /**
+   * Absolute-path resolution for the one remaining raw-fs consumer, the plugin
+   * RPC read (files.rpc.ts). Deferred beyond slice 4 by user decision
+   * 2026-08-16; everything else in this domain addresses storage as
+   * ('files', <bare name>).
+   */
   resolveFilePath(filename: string): { resolved: string; safe: boolean } {
     const safeName = path.basename(filename);
     const filePath = path.join(filesDir, safeName);
@@ -244,14 +251,12 @@ export class FilesService {
   }
 
   async permanentDeleteFile(file: TripFile): Promise<void> {
-    const { resolved } = this.resolveFilePath(file.filename);
-    // `force: true` swallows ENOENT, replacing the prior existsSync+unlink
-    // double-call that blocked the event loop twice per deletion. Only
-    // drop the DB row when the on-disk unlink either succeeded or the
-    // file was already gone — otherwise a permission / ENOSPC failure
-    // would orphan the bytes on disk with no DB pointer left to clean it.
+    // storage.delete is idempotent on a missing object (the old rm force:true
+    // contract). Only drop the DB row when the delete either succeeded or the
+    // object was already gone — otherwise a permission / ENOSPC failure
+    // would orphan the bytes with no DB pointer left to clean them.
     try {
-      await fs.promises.rm(resolved, { force: true });
+      await this.storage.delete('files', path.basename(file.filename));
     } catch (e) {
       console.error(`[files] unlink failed for ${file.filename}, keeping DB row:`, e);
       throw e;
@@ -266,9 +271,8 @@ export class FilesService {
     // and a retry via the single-file delete path can try again.
     const successfullyUnlinked: number[] = [];
     await Promise.all(trashed.map(async (file) => {
-      const { resolved } = this.resolveFilePath(file.filename);
       try {
-        await fs.promises.rm(resolved, { force: true });
+        await this.storage.delete('files', path.basename(file.filename));
         successfullyUnlinked.push(Number(file.id));
       } catch (e) {
         console.error(`[files] unlink failed for ${file.filename}, keeping DB row:`, e);

@@ -92,7 +92,7 @@ export function createPluginRpcHostFactory(dbs: DatabaseService): PluginRpcHostF
   const queryHelpers = new QueryHelpersService(dbs);
   const todos = new TodoService(dbs, permissions, realtime);
   const packing = new PackingService(dbs, permissions, realtime, notificationsStub());
-  const files = new FilesService(dbs, permissions, realtime, new EphemeralTokenService());
+  const files = new FilesService(dbs, permissions, realtime, new EphemeralTokenService(), generalStorage);
   const reservations = new ReservationsService(dbs, permissions, budget, realtime, notificationsStub(), new ReservationsReadRepository(dbs));
   const collab = new CollabService(dbs, permissions, realtime, notificationsStub(), generalStorage);
   const vacay = new VacayService(dbs, realtime, notificationsStub());

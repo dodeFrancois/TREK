@@ -145,7 +145,7 @@ export function createMcpTestRegistry(): McpRegistry {
   const readModelService = new TripReadModelService(
     dbService, membersService, daysService, accommodationsService, budgetService,
     packingService, reservationsService, collabService, placesService, todoService,
-    new FilesService(dbService, permissionsService, realtimeService, new EphemeralTokenService()),
+    new FilesService(dbService, permissionsService, realtimeService, new EphemeralTokenService(), generalStorage),
   );
   const calendarService = new CalendarService(dbService, reservationsService);
   // The nine addon-gated surfaces read their toggle off an injected service now

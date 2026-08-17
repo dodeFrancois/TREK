@@ -103,7 +103,7 @@ const buildReadModel = (database: DatabaseService, roster: TripMembersService = 
     new CollabService(dbs(), new PermissionsService(dbs()), new RealtimeService(), notificationsStub(), makeStorageFixture('').storage),
     placesSvc,
     new TodoService(dbs(), new PermissionsService(dbs()), new RealtimeService()),
-    new FilesService(dbs(), new PermissionsService(dbs()), new RealtimeService(), new EphemeralTokenService()),
+    new FilesService(dbs(), new PermissionsService(dbs()), new RealtimeService(), new EphemeralTokenService(), makeStorageFixture('').storage),
   );
 
 const svc = buildReadModel(dbs());

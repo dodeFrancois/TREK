@@ -8,7 +8,6 @@
  */
 import { describe, it, expect, vi, beforeAll, beforeEach, afterAll, afterEach } from 'vitest';
 import path from 'path';
-import fs from 'fs';
 
 // ── DB setup ──────────────────────────────────────────────────────────────────
 
@@ -76,7 +75,9 @@ import type { TripFile, User } from '../../../src/types';
 import { RealtimeService } from '../../../src/nest/realtime/realtime.service';
 import { EphemeralTokenService } from '../../../src/nest/auth/ephemeral-token.service';
 
-const svc = new FilesService(new DatabaseService(testDb), permissionsStub, new RealtimeService(), new EphemeralTokenService());
+const storageDelete = vi.fn();
+const storageStub = { delete: storageDelete } as unknown as import('../../../src/nest/storage/storage.service').StorageService;
+const svc = new FilesService(new DatabaseService(testDb), permissionsStub, new RealtimeService(), new EphemeralTokenService(), storageStub);
 
 beforeAll(() => {
   createTables(testDb);
@@ -347,20 +348,20 @@ describe('toggleStarred / softDeleteFile / restoreFile', () => {
 // ── permanentDeleteFile / emptyTrash (unlink-first semantics) ─────────────────
 
 describe('permanentDeleteFile', () => {
-  it('FILE-SVC-022: removes the resolved path with force:true, then the DB row', async () => {
+  it('FILE-SVC-022: deletes the storage object (idempotent on missing), then the DB row', async () => {
     const { user, trip } = seedTrip();
     const file = makeFile(trip.id, user.id, { filename: 'on-disk.pdf' });
-    const rm = vi.spyOn(fs.promises, 'rm').mockResolvedValue(undefined);
+    storageDelete.mockResolvedValue(undefined);
     await svc.permanentDeleteFile(svc.getFileById(file.id, trip.id) as TripFile);
-    expect(rm).toHaveBeenCalledWith(svc.resolveFilePath('on-disk.pdf').resolved, { force: true });
+    expect(storageDelete).toHaveBeenCalledWith('files', 'on-disk.pdf');
     expect(svc.getFileById(file.id, trip.id)).toBeUndefined();
   });
 
-  it('FILE-SVC-023: an unlink failure logs [files], rethrows and keeps the DB row', async () => {
+  it('FILE-SVC-023: a delete failure logs [files], rethrows and keeps the DB row', async () => {
     const { user, trip } = seedTrip();
     const file = makeFile(trip.id, user.id, { filename: 'stuck.pdf' });
     const boom = new Error('EACCES');
-    vi.spyOn(fs.promises, 'rm').mockRejectedValue(boom);
+    storageDelete.mockRejectedValue(boom);
     const err = vi.spyOn(console, 'error').mockImplementation(() => {});
     await expect(svc.permanentDeleteFile(svc.getFileById(file.id, trip.id) as TripFile)).rejects.toThrow('EACCES');
     expect(err).toHaveBeenCalledWith('[files] unlink failed for stuck.pdf, keeping DB row:', boom);
@@ -376,7 +377,7 @@ describe('emptyTrash', () => {
     const kept = makeFile(trip.id, user.id, { filename: 'kept.pdf' });
     svc.softDeleteFile(a.id);
     svc.softDeleteFile(b.id);
-    vi.spyOn(fs.promises, 'rm').mockResolvedValue(undefined);
+    storageDelete.mockResolvedValue(undefined);
 
     await expect(svc.emptyTrash(trip.id)).resolves.toBe(2);
     expect(svc.listFiles(trip.id, true)).toEqual([]);
@@ -390,8 +391,8 @@ describe('emptyTrash', () => {
     svc.softDeleteFile(good.id);
     svc.softDeleteFile(bad.id);
     const boom = new Error('EBUSY');
-    vi.spyOn(fs.promises, 'rm').mockImplementation((p) =>
-      String(p).includes('bad.pdf') ? Promise.reject(boom) : Promise.resolve()
+    storageDelete.mockImplementation((_category: string, name: string) =>
+      name.includes('bad.pdf') ? Promise.reject(boom) : Promise.resolve()
     );
     const err = vi.spyOn(console, 'error').mockImplementation(() => {});
 
@@ -401,11 +402,10 @@ describe('emptyTrash', () => {
     expect(svc.getDeletedFile(bad.id, trip.id)).toBeDefined();
   });
 
-  it('FILE-SVC-026: an empty trash resolves to 0 without touching the disk', async () => {
+  it('FILE-SVC-026: an empty trash resolves to 0 without touching storage', async () => {
     const { trip } = seedTrip();
-    const rm = vi.spyOn(fs.promises, 'rm');
     await expect(svc.emptyTrash(trip.id)).resolves.toBe(0);
-    expect(rm).not.toHaveBeenCalled();
+    expect(storageDelete).not.toHaveBeenCalled();
   });
 });
 
