@@ -3,6 +3,7 @@ import { readEnv } from '../../app-config';
 import { logInfo, logError } from '../audit/audit-log.logger';
 import { BackupService } from './backup.service';
 import { CronRegistrarService } from '../scheduling/cron-registrar.service';
+import { StorageService } from '../storage/storage.service';
 import { parseAutoBackupBody } from './backup.impl';
 import {
   buildCronExpression,
@@ -24,6 +25,7 @@ export class AutoBackupJob implements OnApplicationBootstrap {
   constructor(
     private readonly backup: BackupService,
     private readonly registrar: CronRegistrarService,
+    private readonly storage: StorageService,
   ) {}
 
   onApplicationBootstrap(): void {
@@ -66,7 +68,7 @@ export class AutoBackupJob implements OnApplicationBootstrap {
 
     const settings = loadSettings();
     if (settings.keep_days > 0) {
-      cleanupOldBackups(settings.keep_days);
+      await cleanupOldBackups(this.storage, settings.keep_days);
     }
   }
 

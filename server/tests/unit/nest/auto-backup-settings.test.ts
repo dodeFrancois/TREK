@@ -38,24 +38,15 @@ import {
   saveSettings,
   type BackupSettings,
 } from '../../../src/nest/backup/auto-backup.settings';
+import type { StorageService } from '../../../src/nest/storage/storage.service';
 
-// readdirSync and statSync are overloaded in node:fs, and vi.mocked() picks the last
-// overload (Dirent[] / BigIntStats) rather than the one the cleanup calls. These handles
-// point at the very same mock functions from the factory above, pinned to the plain
-// string[] / Stats signatures that cleanupOldBackups actually uses.
+// The settings half still does file I/O; these handles pin the mock functions
+// from the factory above to the plain signatures loadSettings/saveSettings use.
+// (Retention no longer touches fs — it goes through StorageService.)
 const existsSyncMock = fs.existsSync as unknown as Mock<(path: string) => boolean>;
 const readFileSyncMock = fs.readFileSync as unknown as Mock<(path: string, enc: string) => string>;
 const writeFileSyncMock = fs.writeFileSync as unknown as Mock<(path: string, data: string) => void>;
 const mkdirSyncMock = fs.mkdirSync as unknown as Mock<(path: string, opts?: unknown) => void>;
-const readdirSyncMock = fs.readdirSync as unknown as Mock<(path: string) => string[]>;
-const statSyncMock = fs.statSync as unknown as Mock<(path: string) => fs.Stats>;
-const unlinkSyncMock = fs.unlinkSync as unknown as Mock<(path: string) => void>;
-
-// cleanupOldBackups reads nothing but mtimeMs off a stat result, so the stubs below stay
-// deliberately partial instead of faking a whole fs.Stats.
-function statStub(partial: Partial<fs.Stats>): fs.Stats {
-  return partial as fs.Stats;
-}
 
 function settings(overrides: Partial<BackupSettings> = {}): BackupSettings {
   return {
@@ -196,76 +187,91 @@ describe('cleanupOldBackups', () => {
     return `${prefix}-${stamp}.zip`;
   }
 
-  beforeEach(() => {
-    readdirSyncMock.mockReset();
-    statSyncMock.mockReset();
-    unlinkSyncMock.mockReset();
-    statSyncMock.mockReturnValue(statStub({ mtime: new Date(), mtimeMs: NOW, birthtimeMs: NOW, size: 0 }));
-  });
+  /** Retention runs against the backups category through storage now. */
+  function storageWith(entries: Array<{ key: string; mtimeMs?: number }>): StorageService {
+    return {
+      list: vi.fn(async function* () {
+        for (const e of entries) yield { size: 0, mtimeMs: NOW, ...e };
+      }),
+      delete: vi.fn(async () => {}),
+    } as unknown as StorageService;
+  }
+  const deletedKeys = (s: StorageService) => (s.delete as Mock).mock.calls.map(([, key]) => key as string);
 
-  it('never deletes manual backup-*.zip files regardless of age', () => {
+  it('never deletes manual backup-*.zip files regardless of age', async () => {
     const manual = isoFilename(365 * 5, 'backup');
-    const auto = isoFilename(0);
-    readdirSyncMock.mockReturnValue([manual, auto]);
-    cleanupOldBackups(7, NOW);
-    const deleted = unlinkSyncMock.mock.calls.map(([p]) => p);
-    expect(deleted.some(p => p.includes(manual))).toBe(false);
+    const storage = storageWith([{ key: manual }, { key: isoFilename(0) }]);
+    await cleanupOldBackups(storage, 7, NOW);
+    expect(deletedKeys(storage)).not.toContain(manual);
   });
 
-  it('keeps auto-backups newer than retention', () => {
-    const recent = isoFilename(3);
-    readdirSyncMock.mockReturnValue([recent]);
-    cleanupOldBackups(7, NOW);
-    expect(unlinkSyncMock).not.toHaveBeenCalled();
+  it('keeps auto-backups newer than retention', async () => {
+    const storage = storageWith([{ key: isoFilename(3) }]);
+    await cleanupOldBackups(storage, 7, NOW);
+    expect(storage.delete).not.toHaveBeenCalled();
   });
 
-  it('deletes auto-backups older than retention', () => {
+  it('deletes auto-backups older than retention', async () => {
     const old = isoFilename(30);
-    readdirSyncMock.mockReturnValue([old]);
-    cleanupOldBackups(7, NOW);
-    expect(unlinkSyncMock).toHaveBeenCalledOnce();
-    const [calledPath] = unlinkSyncMock.mock.calls[0];
-    expect(calledPath).toContain(old);
+    const storage = storageWith([{ key: old }]);
+    await cleanupOldBackups(storage, 7, NOW);
+    expect(storage.delete).toHaveBeenCalledOnce();
+    expect(storage.delete).toHaveBeenCalledWith('backups', old);
   });
 
-  it('overlayfs regression: birthtimeMs=0 does not delete a same-day backup', () => {
-    const fresh = isoFilename(0);
-    readdirSyncMock.mockReturnValue([fresh]);
-    statSyncMock.mockReturnValue(statStub({ birthtimeMs: 0, mtimeMs: NOW, mtime: new Date(NOW), size: 100 }));
-    cleanupOldBackups(7, NOW);
-    expect(unlinkSyncMock).not.toHaveBeenCalled();
+  it('ages by filename timestamp first: a fresh name survives a bogus epoch mtime (overlayfs regression)', async () => {
+    // On overlayfs the fs timestamps lie (birthtime 0); the filename stamp is
+    // authoritative. ObjectStat only carries mtimeMs — set it to epoch and the
+    // same-day filename must still win.
+    const storage = storageWith([{ key: isoFilename(0), mtimeMs: 0 }]);
+    await cleanupOldBackups(storage, 7, NOW);
+    expect(storage.delete).not.toHaveBeenCalled();
   });
 
-  it('malformed filename falls back to mtimeMs: keeps recent file', () => {
-    readdirSyncMock.mockReturnValue(['auto-backup-garbage.zip']);
-    statSyncMock.mockReturnValue(statStub({ birthtimeMs: 0, mtimeMs: NOW - 1 * DAY, mtime: new Date(NOW - 1 * DAY), size: 0 }));
-    cleanupOldBackups(7, NOW);
-    expect(unlinkSyncMock).not.toHaveBeenCalled();
+  it('malformed filename falls back to mtimeMs: keeps recent file', async () => {
+    const storage = storageWith([{ key: 'auto-backup-garbage.zip', mtimeMs: NOW - 1 * DAY }]);
+    await cleanupOldBackups(storage, 7, NOW);
+    expect(storage.delete).not.toHaveBeenCalled();
   });
 
-  it('malformed filename falls back to mtimeMs: deletes stale file', () => {
-    readdirSyncMock.mockReturnValue(['auto-backup-garbage.zip']);
-    statSyncMock.mockReturnValue(statStub({ birthtimeMs: 0, mtimeMs: NOW - 30 * DAY, mtime: new Date(NOW - 30 * DAY), size: 0 }));
-    cleanupOldBackups(7, NOW);
-    expect(unlinkSyncMock).toHaveBeenCalledOnce();
+  it('malformed filename falls back to mtimeMs: deletes stale file', async () => {
+    const storage = storageWith([{ key: 'auto-backup-garbage.zip', mtimeMs: NOW - 30 * DAY }]);
+    await cleanupOldBackups(storage, 7, NOW);
+    expect(storage.delete).toHaveBeenCalledOnce();
   });
 
-  it('ignores non-zip files and does not crash', () => {
+  it('ignores non-zip files and does not crash', async () => {
     const old = isoFilename(30);
-    readdirSyncMock.mockReturnValue([old, 'notes.txt']);
-    cleanupOldBackups(7, NOW);
-    const calls = unlinkSyncMock.mock.calls;
-    expect(calls.every(([p]) => !p.includes('notes.txt'))).toBe(true);
-    expect(calls.length).toBe(1);
+    const storage = storageWith([{ key: old }, { key: 'notes.txt', mtimeMs: 0 }]);
+    await cleanupOldBackups(storage, 7, NOW);
+    expect(deletedKeys(storage)).toEqual([old]);
   });
 
-  it('swallows readdirSync errors without throwing', () => {
-    readdirSyncMock.mockImplementation(() => { throw new Error('ENOENT'); });
-    expect(() => cleanupOldBackups(7, NOW)).not.toThrow();
+  it('ignores nested keys (storage.list recurses; the legacy readdir was single-level)', async () => {
+    const storage = storageWith([{ key: `restore-123/${isoFilename(30)}`, mtimeMs: 0 }]);
+    await cleanupOldBackups(storage, 7, NOW);
+    expect(storage.delete).not.toHaveBeenCalled();
   });
 
-  it('swallows non-Error throws without throwing (string rejection path)', () => {
-    readdirSyncMock.mockImplementation(() => { throw 'nope'; });
-    expect(() => cleanupOldBackups(7, NOW)).not.toThrow();
+  it('swallows storage list errors without throwing', async () => {
+    const storage = {
+      list: vi.fn(() => { throw new Error('ENOENT'); }),
+      delete: vi.fn(async () => {}),
+    } as unknown as StorageService;
+    await expect(cleanupOldBackups(storage, 7, NOW)).resolves.toBeUndefined();
+  });
+
+  it('swallows delete failures without throwing (mirror replica or fs error)', async () => {
+    const storage = storageWith([{ key: isoFilename(30) }]);
+    (storage.delete as Mock).mockRejectedValue(new Error('EACCES'));
+    await expect(cleanupOldBackups(storage, 7, NOW)).resolves.toBeUndefined();
+  });
+
+  it('swallows non-Error throws without throwing (string rejection path)', async () => {
+    const storage = {
+      list: vi.fn(() => { throw 'nope'; }),
+      delete: vi.fn(async () => {}),
+    } as unknown as StorageService;
+    await expect(cleanupOldBackups(storage, 7, NOW)).resolves.toBeUndefined();
   });
 });

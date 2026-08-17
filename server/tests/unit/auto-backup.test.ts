@@ -111,6 +111,7 @@ function makeJob() {
     // BackupService: inject the storage stub as the first argument.
     { createBackup: (prefix?: 'backup' | 'auto-backup') => createBackup(storageStub as unknown as StorageService, prefix) } as unknown as BackupService,
     registrar as unknown as CronRegistrarService,
+    storageStub as unknown as StorageService,
   );
   return { job, registered, registrar };
 }
@@ -141,6 +142,7 @@ describe('auto-backup run', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    resetStorageStub();
     // No ENCRYPTION_KEY in the env means the key file is the source of truth and
     // has to travel with the backup.
     delete process.env.ENCRYPTION_KEY;
@@ -178,15 +180,21 @@ describe('auto-backup run', () => {
 
   it('keeps the auto-backup-*.zip naming so retention still prunes it', async () => {
     fsMock.existsSync.mockImplementation((p: string) => String(p).endsWith('backup-settings.json'));
-    fsMock.readdirSync.mockReturnValue(['auto-backup-2020-01-01T02-00-00.zip'] as unknown as string[]);
+    // An expired scheduled archive sits in the backups category (retention
+    // lists through storage now); the category enumeration stays empty.
+    storageStub.list = vi.fn((category: string) =>
+      (async function* () {
+        if (category === 'backups') yield { key: 'auto-backup-2020-01-01T02-00-00.zip', size: 0, mtimeMs: 0 };
+      })(),
+    );
     stubArchiver();
 
     await scheduledRun()();
 
     expect(logMock.logInfo).toHaveBeenCalledWith(expect.stringMatching(/^Auto-Backup created: auto-backup-[\dT-]+\.zip$/));
-    // cleanupOldBackups(keep_days) still runs after the archive and only sees
-    // files it can match by prefix
-    expect(fsMock.unlinkSync).toHaveBeenCalledWith(expect.stringContaining('auto-backup-2020-01-01T02-00-00.zip'));
+    // cleanupOldBackups(storage, keep_days) still runs after the archive and
+    // only prunes objects it can match by prefix — through storage.delete
+    expect(storageStub.delete).toHaveBeenCalledWith('backups', 'auto-backup-2020-01-01T02-00-00.zip');
   });
 
   it('logs the failure, drops the partial zip and skips retention', async () => {
@@ -204,13 +212,15 @@ describe('auto-backup run', () => {
     expect(storageStub.put).not.toHaveBeenCalled();
     expect(fsMock.rmSync).toHaveBeenCalledWith(expect.stringContaining('zip-build-auto-backup-'), { force: true });
     expect(fsMock.rmSync).toHaveBeenCalledWith(expect.stringContaining('travel-snap-auto-backup-'), { force: true });
-    expect(fsMock.readdirSync).not.toHaveBeenCalled();
+    expect(storageStub.list).not.toHaveBeenCalledWith('backups');
+    expect(storageStub.delete).not.toHaveBeenCalled();
   });
 });
 
 describe('auto-backup scheduling (AutoBackupJob.start)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetStorageStub();
     fsMock.existsSync.mockImplementation(() => false);
     fsMock.readFileSync.mockReturnValue('{}');
   });
@@ -272,13 +282,14 @@ describe('auto-backup scheduling (AutoBackupJob.start)', () => {
 
     await (registered.at(-1)?.onTick as () => Promise<void>)();
     expect(logMock.logInfo).toHaveBeenCalledWith(expect.stringContaining('Auto-Backup created'));
-    expect(fsMock.readdirSync).not.toHaveBeenCalled(); // cleanupOldBackups never ran
+    expect(storageStub.list).not.toHaveBeenCalledWith('backups'); // cleanupOldBackups never ran
+    expect(storageStub.delete).not.toHaveBeenCalled();
   });
 
   it('a non-Error rejection from createBackup is stringified into the failure log', async () => {
     const broken = { createBackup: vi.fn().mockRejectedValue('plain string') } as unknown as BackupService;
     const registrar = { isEnabled: vi.fn(() => true), register: vi.fn(() => true), unregister: vi.fn() };
-    const job = new AutoBackupJob(broken, registrar as unknown as CronRegistrarService);
+    const job = new AutoBackupJob(broken, registrar as unknown as CronRegistrarService, storageStub as unknown as StorageService);
     await job.runBackup();
     expect(logMock.logError).toHaveBeenCalledWith('Auto-Backup: plain string');
   });
@@ -309,6 +320,7 @@ describe('auto-backup scheduling (AutoBackupJob.start)', () => {
 describe('BACKUP-047 updateAutoSettings', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetStorageStub();
     fsMock.existsSync.mockImplementation(() => false);
     fsMock.readFileSync.mockReturnValue('{}');
   });

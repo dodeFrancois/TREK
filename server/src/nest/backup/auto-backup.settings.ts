@@ -1,16 +1,19 @@
 import path from 'node:path';
 import fs from 'node:fs';
 import { logInfo, logError } from '../audit/audit-log.logger';
+import type { StorageService } from '../storage/storage.service';
 
 /**
  * Auto-backup settings and retention — the pure half of the auto-backup cron
  * (moved from src/scheduler.ts). Stays a plain module beside backup.impl.ts
- * for the same reason that does: file I/O against data/backup-settings.json
- * and data/backups, no container state. AutoBackupJob owns the scheduling.
+ * for the same reason that does: file I/O against data/backup-settings.json,
+ * no container state. AutoBackupJob owns the scheduling and passes its
+ * injected StorageService into cleanupOldBackups — retention addresses the
+ * backups category through the facade so expired archives leave mirror
+ * replicas too.
  */
 
 const dataDir = path.join(__dirname, '../../../data');
-const backupsDir = path.join(dataDir, 'backups');
 const settingsFile = path.join(dataDir, 'backup-settings.json');
 
 export const VALID_INTERVALS = ['hourly', 'daily', 'weekly', 'monthly'];
@@ -70,16 +73,16 @@ function autoBackupTimestampMs(filename: string): number | null {
   return Number.isNaN(ms) ? null : ms;
 }
 
-export function cleanupOldBackups(keepDays: number, now: number = Date.now()): void {
+export async function cleanupOldBackups(storage: StorageService, keepDays: number, now: number = Date.now()): Promise<void> {
   try {
     const cutoff = now - keepDays * 24 * 60 * 60 * 1000;
-    const files = fs.readdirSync(backupsDir).filter(f => f.startsWith('auto-backup-') && f.endsWith('.zip'));
-    for (const file of files) {
-      const filePath = path.join(backupsDir, file);
-      const ageMs = autoBackupTimestampMs(file) ?? fs.statSync(filePath).mtimeMs;
+    for await (const obj of storage.list('backups')) {
+      if (obj.key.includes('/')) continue; // list() recurses; retention is top-level-only like the readdir it replaces
+      if (!obj.key.startsWith('auto-backup-') || !obj.key.endsWith('.zip')) continue; // manual backup-*.zip is never auto-deleted
+      const ageMs = autoBackupTimestampMs(obj.key) ?? obj.mtimeMs;
       if (ageMs < cutoff) {
-        fs.unlinkSync(filePath);
-        logInfo(`Auto-Backup old backup deleted: ${file}`);
+        await storage.delete('backups', obj.key); // fans out to mirror replicas too
+        logInfo(`Auto-Backup old backup deleted: ${obj.key}`);
       }
     }
   } catch (err: unknown) {
