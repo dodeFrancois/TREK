@@ -10,6 +10,7 @@ import { invalidatePermissionsCache } from '../permissions/permissions-cache';
 import { pluginsCodeRoot, pluginsDataRoot } from '../plugins/paths';
 import { stageExtractedPluginTrees, applyStagedRestoreNow } from '../plugins/plugin-backup';
 import { snapshotAllPluginDataDbs } from '../plugins/host/plugin-data.service';
+import type { StorageService } from '../storage/storage.service';
 
 // ---------------------------------------------------------------------------
 // Paths
@@ -84,8 +85,8 @@ export function backupFilePath(filename: string): string {
   return path.join(backupsDir, filename);
 }
 
-export function backupFileExists(filename: string): boolean {
-  return fs.existsSync(path.join(backupsDir, filename));
+export function backupFileExists(storage: StorageService, filename: string): Promise<boolean> {
+  return storage.exists('backups', filename);
 }
 
 // ---------------------------------------------------------------------------
@@ -122,21 +123,21 @@ export interface BackupInfo {
   created_at: string;
 }
 
-export function listBackups(): BackupInfo[] {
-  ensureBackupsDir();
-  return fs.readdirSync(backupsDir)
-    .filter(f => f.endsWith('.zip'))
-    .map(filename => {
-      const filePath = path.join(backupsDir, filename);
-      const stat = fs.statSync(filePath);
-      return {
-        filename,
-        size: stat.size,
-        sizeText: formatSize(stat.size),
-        created_at: stat.mtime.toISOString(),
-      };
-    })
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+export async function listBackups(storage: StorageService): Promise<BackupInfo[]> {
+  const backups: BackupInfo[] = [];
+  for await (const obj of storage.list('backups')) {
+    // storage.list() recurses; the legacy readdir was single-level. Nested keys
+    // (a restore-* staging tree when data and uploads map to the same dir) and
+    // non-zip files must not surface.
+    if (obj.key.includes('/') || !obj.key.endsWith('.zip')) continue;
+    backups.push({
+      filename: obj.key,
+      size: obj.size,
+      sizeText: formatSize(obj.size),
+      created_at: new Date(obj.mtimeMs).toISOString(),
+    });
+  }
+  return backups.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 }
 
 // ---------------------------------------------------------------------------
@@ -482,9 +483,8 @@ export async function restoreFromZip(zipPath: string): Promise<RestoreResult> {
 // Delete backup
 // ---------------------------------------------------------------------------
 
-export function deleteBackup(filename: string): void {
-  const filePath = path.join(backupsDir, filename);
-  fs.unlinkSync(filePath);
+export function deleteBackup(storage: StorageService, filename: string): Promise<void> {
+  return storage.delete('backups', filename);
 }
 
 // ---------------------------------------------------------------------------

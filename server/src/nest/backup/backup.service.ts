@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { StorageService } from '../storage/storage.service';
 import * as svc from './backup.impl';
 
 /**
@@ -13,14 +14,16 @@ import * as svc from './backup.impl';
  */
 @Injectable()
 export class BackupService {
-  listBackups() { return svc.listBackups(); }
+  constructor(private readonly storage: StorageService) {}
+
+  listBackups() { return svc.listBackups(this.storage); }
   createBackup(prefix?: 'backup' | 'auto-backup') { return svc.createBackup(prefix); }
   restoreFromZip(zipPath: string) { return svc.restoreFromZip(zipPath); }
-  deleteBackup(filename: string) { return svc.deleteBackup(filename); }
+  deleteBackup(filename: string) { return svc.deleteBackup(this.storage, filename); }
 
   isValidBackupFilename(filename: string) { return svc.isValidBackupFilename(filename); }
   backupFilePath(filename: string) { return svc.backupFilePath(filename); }
-  backupFileExists(filename: string) { return svc.backupFileExists(filename); }
+  backupFileExists(filename: string) { return svc.backupFileExists(this.storage, filename); }
   checkRateLimit(key: string, maxAttempts: number, windowMs: number) { return svc.checkRateLimit(key, maxAttempts, windowMs); }
 
   get rateWindow() { return svc.BACKUP_RATE_WINDOW; }

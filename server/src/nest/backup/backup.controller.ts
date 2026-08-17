@@ -60,9 +60,9 @@ export class BackupController {
   ) {}
 
   @Get('list')
-  list() {
+  async list() {
     try {
-      return { backups: this.backup.listBackups() };
+      return { backups: await this.backup.listBackups() };
     } catch {
       throw new HttpException({ error: 'Error loading backups' }, 500);
     }
@@ -84,11 +84,11 @@ export class BackupController {
   }
 
   @Get('download/:filename')
-  download(@Param('filename') filename: string, @Res() res: Response): void {
+  async download(@Param('filename') filename: string, @Res() res: Response): Promise<void> {
     if (!this.backup.isValidBackupFilename(filename)) {
       throw new HttpException({ error: 'Invalid filename' }, 400);
     }
-    if (!this.backup.backupFileExists(filename)) {
+    if (!(await this.backup.backupFileExists(filename))) {
       throw new HttpException({ error: 'Backup not found' }, 404);
     }
     res.download(this.backup.backupFilePath(filename), filename);
@@ -101,7 +101,7 @@ export class BackupController {
     if (!this.backup.isValidBackupFilename(filename)) {
       throw new HttpException({ error: 'Invalid filename' }, 400);
     }
-    if (!this.backup.backupFileExists(filename)) {
+    if (!(await this.backup.backupFileExists(filename))) {
       throw new HttpException({ error: 'Backup not found' }, 404);
     }
     try {
@@ -177,14 +177,14 @@ export class BackupController {
   }
 
   @Delete(':filename')
-  remove(@CurrentUser() user: User, @Param('filename') filename: string, @Req() req: Request) {
+  async remove(@CurrentUser() user: User, @Param('filename') filename: string, @Req() req: Request) {
     if (!this.backup.isValidBackupFilename(filename)) {
       throw new HttpException({ error: 'Invalid filename' }, 400);
     }
-    if (!this.backup.backupFileExists(filename)) {
+    if (!(await this.backup.backupFileExists(filename))) {
       throw new HttpException({ error: 'Backup not found' }, 404);
     }
-    this.backup.deleteBackup(filename);
+    await this.backup.deleteBackup(filename);
     this.audit.writeAudit({ userId: user.id, action: 'backup.delete', resource: filename, ip: getClientIp(req) });
     return { success: true };
   }

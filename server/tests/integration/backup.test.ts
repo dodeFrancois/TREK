@@ -334,7 +334,8 @@ describe('Backup delete', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(vi.mocked(backupService.deleteBackup)).toHaveBeenCalledWith(filename);
+    // First arg is the app's real StorageService (BackupService forwards it).
+    expect(vi.mocked(backupService.deleteBackup)).toHaveBeenCalledWith(expect.anything(), filename);
   });
 
   it('BACKUP-INT-009 — DELETE /backup/:filename returns 404 when not found', async () => {

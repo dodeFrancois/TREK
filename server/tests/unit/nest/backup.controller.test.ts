@@ -93,9 +93,9 @@ describe('AdminGuard (used by BackupController)', () => {
 });
 
 describe('BackupController', () => {
-  it('GET /list returns backups, 500 on error', () => {
-    expect(bc(svc({ listBackups: vi.fn().mockReturnValue([{ filename: 'a.zip' }]) } as Partial<BackupService>)).list()).toEqual({ backups: [{ filename: 'a.zip' }] });
-    expect(thrown(() => bc(svc({ listBackups: vi.fn(() => { throw new Error('io'); }) } as Partial<BackupService>)).list())).toEqual({ status: 500, body: { error: 'Error loading backups' } });
+  it('GET /list returns backups, 500 on error', async () => {
+    await expect(bc(svc({ listBackups: vi.fn().mockResolvedValue([{ filename: 'a.zip' }]) } as Partial<BackupService>)).list()).resolves.toEqual({ backups: [{ filename: 'a.zip' }] });
+    expect(await thrownAsync(() => bc(svc({ listBackups: vi.fn(() => { throw new Error('io'); }) } as Partial<BackupService>)).list())).toEqual({ status: 500, body: { error: 'Error loading backups' } });
   });
 
   it('POST /create 429 when rate-limited, else creates + audits', async () => {
@@ -106,11 +106,11 @@ describe('BackupController', () => {
     expect(writeAudit).toHaveBeenCalledWith(expect.objectContaining({ action: 'backup.create', resource: 'b.zip' }));
   });
 
-  it('GET /download 400 invalid / 404 missing, else res.download', () => {
+  it('GET /download 400 invalid / 404 missing, else res.download', async () => {
     const res = { download: vi.fn() } as unknown as Response;
-    expect(thrown(() => bc(svc({ isValidBackupFilename: vi.fn().mockReturnValue(false) })).download('x', res))).toEqual({ status: 400, body: { error: 'Invalid filename' } });
-    expect(thrown(() => bc(svc({ backupFileExists: vi.fn().mockReturnValue(false) })).download('x.zip', res))).toEqual({ status: 404, body: { error: 'Backup not found' } });
-    bc(svc()).download('x.zip', res);
+    expect(await thrownAsync(() => bc(svc({ isValidBackupFilename: vi.fn().mockReturnValue(false) })).download('x', res))).toEqual({ status: 400, body: { error: 'Invalid filename' } });
+    expect(await thrownAsync(() => bc(svc({ backupFileExists: vi.fn().mockResolvedValue(false) })).download('x.zip', res))).toEqual({ status: 404, body: { error: 'Backup not found' } });
+    await bc(svc()).download('x.zip', res);
     expect(res.download).toHaveBeenCalledWith('/b/x.zip', 'x.zip');
   });
 
@@ -187,21 +187,24 @@ describe('BackupController', () => {
     expect(writeAudit).toHaveBeenCalledWith(expect.objectContaining({ action: 'backup.auto_settings' }));
   });
 
-  it('DELETE /:filename 400/404, else deletes + audits', () => {
-    expect(thrown(() => bc(svc({ isValidBackupFilename: vi.fn().mockReturnValue(false) })).remove(user, 'x', req))).toEqual({ status: 400, body: { error: 'Invalid filename' } });
-    expect(thrown(() => bc(svc({ backupFileExists: vi.fn().mockReturnValue(false) })).remove(user, 'x.zip', req))).toEqual({ status: 404, body: { error: 'Backup not found' } });
+  it('DELETE /:filename 400/404, else deletes + audits', async () => {
+    expect(await thrownAsync(() => bc(svc({ isValidBackupFilename: vi.fn().mockReturnValue(false) })).remove(user, 'x', req))).toEqual({ status: 400, body: { error: 'Invalid filename' } });
+    expect(await thrownAsync(() => bc(svc({ backupFileExists: vi.fn().mockResolvedValue(false) })).remove(user, 'x.zip', req))).toEqual({ status: 404, body: { error: 'Backup not found' } });
     const deleteBackup = vi.fn();
-    expect(bc(svc({ deleteBackup } as Partial<BackupService>)).remove(user, 'x.zip', req)).toEqual({ success: true });
+    await expect(bc(svc({ deleteBackup } as Partial<BackupService>)).remove(user, 'x.zip', req)).resolves.toEqual({ success: true });
     expect(deleteBackup).toHaveBeenCalledWith('x.zip');
   });
 });
 
 describe('BackupService (wrapper)', () => {
-  const wrapper = new RealBackupService();
+  // The impl module is fully mocked above, so an empty sentinel stands in for
+  // the injected StorageService — the wrapper's job is passing it through.
+  const storage = { __sentinel: 'storage' } as unknown as import('../../../src/nest/storage/storage.service').StorageService;
+  const wrapper = new RealBackupService(storage);
 
   it('forwards every call straight to the legacy backup service', async () => {
     expect(wrapper.listBackups()).toEqual([{ filename: 'svc.zip' }]);
-    expect(backupSvc.listBackups).toHaveBeenCalled();
+    expect(backupSvc.listBackups).toHaveBeenCalledWith(storage);
 
     await expect(wrapper.createBackup()).resolves.toEqual({ filename: 'svc.zip', size: 5 });
     expect(backupSvc.createBackup).toHaveBeenCalled();
@@ -210,7 +213,7 @@ describe('BackupService (wrapper)', () => {
     expect(backupSvc.restoreFromZip).toHaveBeenCalledWith('/tmp/a.zip');
 
     wrapper.deleteBackup('svc.zip');
-    expect(backupSvc.deleteBackup).toHaveBeenCalledWith('svc.zip');
+    expect(backupSvc.deleteBackup).toHaveBeenCalledWith(storage, 'svc.zip');
 
     expect(wrapper.isValidBackupFilename('svc.zip')).toBe(true);
     expect(backupSvc.isValidBackupFilename).toHaveBeenCalledWith('svc.zip');
@@ -219,7 +222,7 @@ describe('BackupService (wrapper)', () => {
     expect(backupSvc.backupFilePath).toHaveBeenCalledWith('svc.zip');
 
     expect(wrapper.backupFileExists('svc.zip')).toBe(true);
-    expect(backupSvc.backupFileExists).toHaveBeenCalledWith('svc.zip');
+    expect(backupSvc.backupFileExists).toHaveBeenCalledWith(storage, 'svc.zip');
 
     expect(wrapper.checkRateLimit('ip', 3, 1000)).toBe(true);
     expect(backupSvc.checkRateLimit).toHaveBeenCalledWith('ip', 3, 1000);

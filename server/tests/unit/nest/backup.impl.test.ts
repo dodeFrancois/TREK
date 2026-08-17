@@ -78,6 +78,36 @@ import {
   backupFileExists,
   listBackups,
 } from '../../../src/nest/backup/backup.impl';
+import type { StorageService } from '../../../src/nest/storage/storage.service';
+
+// ---------------------------------------------------------------------------
+// Storage stub — backup.impl functions receive StorageService as a parameter
+// (BackupService injects it and forwards). This file mocks fs wholesale, so a
+// real LocalDriver would see the mocked fs: use plain stub objects instead.
+// ---------------------------------------------------------------------------
+
+function stubStorage(overrides: Record<string, unknown> = {}): StorageService {
+  return {
+    // async generator; tests override with listOf(...) entries
+    list: vi.fn(async function* () {}),
+    stat: vi.fn(async () => null),
+    exists: vi.fn(async () => false),
+    delete: vi.fn(async () => {}),
+    put: vi.fn(async () => {}),
+    getStream: vi.fn(),
+    sendToResponse: vi.fn(async () => {}),
+    withLocalFile: vi.fn(async (_c: string, _k: string, fn: (p: string) => Promise<unknown>) => fn('/stub/local/path')),
+    spoolDirFor: vi.fn(() => '/stub/spool'),
+    tempDir: vi.fn(() => '/stub/tmp'),
+    health: vi.fn(() => ({ replicaFailures: [] })),
+    ...overrides,
+  } as unknown as StorageService;
+}
+
+const listOf = (entries: Array<{ key: string; size?: number; mtimeMs?: number }>) =>
+  vi.fn(async function* () {
+    for (const e of entries) yield { size: 0, mtimeMs: 0, ...e };
+  });
 
 // ---------------------------------------------------------------------------
 // formatSize
@@ -633,25 +663,22 @@ describe('BACKUP-037 deleteBackup', () => {
     vi.clearAllMocks();
   });
 
-  it('BACKUP-037a — happy path: calls unlinkSync with correct path', () => {
-    fsMock.unlinkSync.mockReturnValue(undefined);
+  it('BACKUP-037a — happy path: deletes through storage under the backups category', async () => {
+    const storage = stubStorage();
 
-    deleteBackup('backup-2026-04-06T12-00-00.zip');
+    await deleteBackup(storage, 'backup-2026-04-06T12-00-00.zip');
 
-    expect(fsMock.unlinkSync).toHaveBeenCalledOnce();
-    expect(fsMock.unlinkSync).toHaveBeenCalledWith(
-      expect.stringContaining('backup-2026-04-06T12-00-00.zip')
-    );
+    expect(storage.delete).toHaveBeenCalledOnce();
+    expect(storage.delete).toHaveBeenCalledWith('backups', 'backup-2026-04-06T12-00-00.zip');
   });
 
-  it('BACKUP-037b — throws when unlinkSync throws (file not found)', () => {
-    fsMock.unlinkSync.mockImplementation(() => {
-      const err: NodeJS.ErrnoException = new Error('ENOENT: no such file or directory');
-      err.code = 'ENOENT';
-      throw err;
-    });
+  it('BACKUP-037b — propagates a storage delete failure', async () => {
+    // Note: storage.delete is idempotent on a MISSING object (route parity holds
+    // because the controller pre-checks existence and 404s); this pins that a
+    // real backend failure still surfaces.
+    const storage = stubStorage({ delete: vi.fn(async () => { throw new Error('EIO: i/o error'); }) });
 
-    expect(() => deleteBackup('backup-missing.zip')).toThrow('ENOENT');
+    await expect(deleteBackup(storage, 'backup-missing.zip')).rejects.toThrow('EIO');
   });
 });
 
@@ -894,17 +921,15 @@ describe('BACKUP-040 backupFileExists', () => {
     vi.clearAllMocks();
   });
 
-  it('BACKUP-040a — returns true when existsSync returns true', () => {
-    fsMock.existsSync.mockReturnValue(true);
-    expect(backupFileExists('backup-2026-01-01T00-00-00.zip')).toBe(true);
-    expect(fsMock.existsSync).toHaveBeenCalledWith(
-      expect.stringContaining('backup-2026-01-01T00-00-00.zip')
-    );
+  it('BACKUP-040a — returns true when storage.exists resolves true', async () => {
+    const storage = stubStorage({ exists: vi.fn(async () => true) });
+    await expect(backupFileExists(storage, 'backup-2026-01-01T00-00-00.zip')).resolves.toBe(true);
+    expect(storage.exists).toHaveBeenCalledWith('backups', 'backup-2026-01-01T00-00-00.zip');
   });
 
-  it('BACKUP-040b — returns false when existsSync returns false', () => {
-    fsMock.existsSync.mockReturnValue(false);
-    expect(backupFileExists('backup-missing.zip')).toBe(false);
+  it('BACKUP-040b — returns false when storage.exists resolves false', async () => {
+    const storage = stubStorage({ exists: vi.fn(async () => false) });
+    await expect(backupFileExists(storage, 'backup-missing.zip')).resolves.toBe(false);
   });
 });
 
@@ -915,23 +940,20 @@ describe('BACKUP-040 backupFileExists', () => {
 describe('BACKUP-041 listBackups', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // ensureBackupsDir: backupsDir already exists so mkdirSync is not called
-    fsMock.existsSync.mockReturnValue(true);
   });
 
-  it('BACKUP-041a — returns empty array when no .zip files in directory', () => {
-    fsMock.readdirSync.mockReturnValue([]);
-    expect(listBackups()).toEqual([]);
+  it('BACKUP-041a — returns empty array when the category has no objects', async () => {
+    const storage = stubStorage();
+    await expect(listBackups(storage)).resolves.toEqual([]);
+    expect(storage.list).toHaveBeenCalledWith('backups');
   });
 
-  it('BACKUP-041b — returns BackupInfo array for each .zip file', () => {
-    fsMock.readdirSync.mockReturnValue(['backup-2026-01-01T00-00-00.zip']);
-    fsMock.statSync.mockReturnValue({
-      size: 1024,
-      mtime: new Date('2026-01-01T00:00:00Z'),
+  it('BACKUP-041b — returns BackupInfo for each .zip object', async () => {
+    const storage = stubStorage({
+      list: listOf([{ key: 'backup-2026-01-01T00-00-00.zip', size: 1024, mtimeMs: Date.parse('2026-01-01T00:00:00Z') }]),
     });
 
-    const result = listBackups();
+    const result = await listBackups(storage);
 
     expect(result).toHaveLength(1);
     expect(result[0].filename).toBe('backup-2026-01-01T00-00-00.zip');
@@ -940,37 +962,47 @@ describe('BACKUP-041 listBackups', () => {
     expect(result[0].created_at).toBe('2026-01-01T00:00:00.000Z');
   });
 
-  it('BACKUP-041c — sorts results newest-first', () => {
-    fsMock.readdirSync.mockReturnValue([
-      'backup-2026-01-01T00-00-00.zip',
-      'backup-2026-06-01T00-00-00.zip',
-    ]);
-    fsMock.statSync.mockImplementation((p: string) => {
-      if (String(p).includes('2026-01-01')) {
-        return { size: 512, mtime: new Date('2026-01-01T00:00:00Z') };
-      }
-      return { size: 2048, mtime: new Date('2026-06-01T00:00:00Z') };
+  it('BACKUP-041c — sorts results newest-first by mtime', async () => {
+    const storage = stubStorage({
+      list: listOf([
+        { key: 'backup-2026-01-01T00-00-00.zip', size: 512, mtimeMs: Date.parse('2026-01-01T00:00:00Z') },
+        { key: 'backup-2026-06-01T00-00-00.zip', size: 2048, mtimeMs: Date.parse('2026-06-01T00:00:00Z') },
+      ]),
     });
 
-    const result = listBackups();
+    const result = await listBackups(storage);
 
     expect(result).toHaveLength(2);
     expect(result[0].filename).toBe('backup-2026-06-01T00-00-00.zip');
     expect(result[1].filename).toBe('backup-2026-01-01T00-00-00.zip');
   });
 
-  it('BACKUP-041d — filters out non-.zip files', () => {
-    fsMock.readdirSync.mockReturnValue([
-      'backup-2026-01-01T00-00-00.zip',
-      'README.txt',
-      'backup-partial.tar.gz',
-    ]);
-    fsMock.statSync.mockReturnValue({
-      size: 1024,
-      mtime: new Date('2026-01-01T00:00:00Z'),
+  it('BACKUP-041d — filters out non-.zip objects', async () => {
+    const storage = stubStorage({
+      list: listOf([
+        { key: 'backup-2026-01-01T00-00-00.zip', size: 1024, mtimeMs: Date.parse('2026-01-01T00:00:00Z') },
+        { key: 'README.txt' },
+        { key: 'backup-partial.tar.gz' },
+      ]),
     });
 
-    const result = listBackups();
+    const result = await listBackups(storage);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].filename).toBe('backup-2026-01-01T00-00-00.zip');
+  });
+
+  it('BACKUP-041e — skips nested keys (storage.list recurses; the legacy readdir was single-level)', async () => {
+    // A restore-* staging tree only sits under the backups root when an install
+    // maps data and uploads to the same directory — it must not surface.
+    const storage = stubStorage({
+      list: listOf([
+        { key: 'restore-123/uploads/x.zip' },
+        { key: 'backup-2026-01-01T00-00-00.zip', size: 1024, mtimeMs: Date.parse('2026-01-01T00:00:00Z') },
+      ]),
+    });
+
+    const result = await listBackups(storage);
 
     expect(result).toHaveLength(1);
     expect(result[0].filename).toBe('backup-2026-01-01T00-00-00.zip');
