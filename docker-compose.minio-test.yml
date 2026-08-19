@@ -46,6 +46,7 @@ services:
     command: minio server /data --license /minio.license
     ports:
       - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
     volumes:
       - ./minio-licence.key:/minio.license:ro
     environment:
