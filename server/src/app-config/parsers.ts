@@ -46,6 +46,13 @@ export function positiveIntOr(raw: string | undefined, fallback: number): number
   return Number.isFinite(n) && n > 0 ? n : fallback;
 }
 
+/** Integer ≥ 0 (zero is meaningful — e.g. retries disabled), else the fallback. */
+export function nonNegativeIntOr(raw: string | undefined, fallback: number): number {
+  if (raw === undefined || raw.trim() === '') return fallback;
+  const n = Number.parseInt(raw, 10);
+  return Number.isFinite(n) && n >= 0 ? n : fallback;
+}
+
 /** Comma-split + trim, null when unset — the websocket ALLOWED_ORIGINS variant (no empty-entry filter). */
 export function csvList(raw: string | undefined): string[] | null {
   return raw ? raw.split(',').map((o) => o.trim()) : null;

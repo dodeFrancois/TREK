@@ -20,6 +20,7 @@ export {
   deriveDb,
   derivePaths,
   deriveNet,
+  deriveS3,
 } from './derive';
 export * from './parsers';
 export { envSchema } from './env.schema';

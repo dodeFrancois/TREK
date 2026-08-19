@@ -18,6 +18,7 @@ import { SUPPORTED_LANGUAGE_CODES } from '@trek/shared';
 import {
   csvList,
   csvListFiltered,
+  nonNegativeIntOr,
   numberOr,
   parseBool,
   parseDurationMs,
@@ -268,6 +269,31 @@ export function deriveNet(raw: RawEnv) {
   };
 }
 
+/**
+ * S3 backend (spec: docs/superpowers/specs/2026-08-17-s3-storage-driver-design.md).
+ * New namespace — no legacy call site, so semantics are chosen clean: trim
+ * everything, blank = unset. `configured` is the registry's gate; partial sets
+ * are refused at boot by s3Preconditions (env.ts), never silently degraded.
+ */
+export function deriveS3(raw: RawEnv) {
+  const endpoint = (raw.TREK_S3_ENDPOINT ?? '').trim();
+  const bucket = (raw.TREK_S3_BUCKET ?? '').trim();
+  const accessKeyId = (raw.TREK_S3_ACCESS_KEY_ID ?? '').trim();
+  const secretAccessKey = (raw.TREK_S3_SECRET_ACCESS_KEY ?? '').trim();
+  return {
+    configured: Boolean(endpoint && bucket && accessKeyId && secretAccessKey),
+    endpoint,
+    bucket,
+    accessKeyId,
+    secretAccessKey,
+    /** Arbitrary values accepted — non-AWS endpoints ignore it (R2 wants 'auto'). */
+    region: (raw.TREK_S3_REGION ?? '').trim() || 'us-east-1',
+    keyPrefix: (raw.TREK_S3_KEY_PREFIX ?? '').trim(),
+    retries: nonNegativeIntOr(raw.TREK_S3_RETRIES, 1),
+    timeoutMs: positiveNumberOr(raw.TREK_S3_TIMEOUT_MS, 30000),
+  };
+}
+
 export function deriveAll(raw: RawEnv) {
   return {
     app: deriveApp(raw),
@@ -286,6 +312,7 @@ export function deriveAll(raw: RawEnv) {
     backup: deriveBackup(raw),
     db: deriveDb(raw),
     paths: derivePaths(raw),
+    s3: deriveS3(raw),
     net: deriveNet(raw),
   };
 }

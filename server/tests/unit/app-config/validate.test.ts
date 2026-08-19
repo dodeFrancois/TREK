@@ -156,6 +156,45 @@ describe('validateEnvAtBoot — centrally administered preconditions', () => {
   });
 });
 
+describe('validateEnvAtBoot — S3 all-or-nothing preconditions', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const full = {
+    TREK_S3_ENDPOINT: 'http://127.0.0.1:9000',
+    TREK_S3_BUCKET: 'trek',
+    TREK_S3_ACCESS_KEY_ID: 'ak',
+    TREK_S3_SECRET_ACCESS_KEY: 'sk',
+  };
+  it('S3-BOOT-001: refuses a partial TREK_S3_* set', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    expect(() => validateEnvAtBoot({ TREK_S3_ENDPOINT: full.TREK_S3_ENDPOINT })).toThrow(
+      /Invalid environment configuration \(3 problems\)/,
+    );
+  });
+  it('S3-BOOT-002: names each missing variable and the why', () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    expect(() => validateEnvAtBoot({ TREK_S3_REGION: 'auto' })).toThrow();
+    const report = error.mock.calls.map((c) => c.join(' ')).join('\n');
+    expect(report).toContain('TREK_S3_ENDPOINT is unset');
+    expect(report).toContain('TREK_S3_SECRET_ACCESS_KEY is unset');
+    expect(report).toContain('required when any TREK_S3_');
+  });
+  it('S3-BOOT-003: passes with the full required set', () => {
+    expect(() => validateEnvAtBoot(full)).not.toThrow();
+  });
+  it('S3-BOOT-004: inert when no TREK_S3_* variable is set', () => {
+    expect(() => validateEnvAtBoot({})).not.toThrow();
+  });
+  it('S3-BOOT-005: rejects a malformed key prefix alongside schema problems', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    expect(() => validateEnvAtBoot({ ...full, TREK_S3_KEY_PREFIX: '../evil', TREK_S3_ENDPOINT: 'not a url' })).toThrow(
+      /Invalid environment configuration \(2 problems\)/,
+    );
+  });
+});
+
 describe('readEnv', () => {
   it('reads process.env live — a runtime mutation is visible on the next call', () => {
     const before = process.env.DEMO_MODE;

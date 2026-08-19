@@ -13,6 +13,7 @@ import {
   deriveBackup,
   deriveNet,
   derivePaths,
+  deriveS3,
   deriveAll,
 } from '../../../src/app-config/derive';
 
@@ -233,6 +234,28 @@ describe('derivePaths', () => {
   });
 });
 
+describe('deriveS3', () => {
+  const full = {
+    TREK_S3_ENDPOINT: 'http://127.0.0.1:9000',
+    TREK_S3_BUCKET: 'trek',
+    TREK_S3_ACCESS_KEY_ID: 'ak',
+    TREK_S3_SECRET_ACCESS_KEY: 'sk',
+  };
+  it('is unconfigured when nothing is set, with defaults intact', () => {
+    const s3 = deriveS3({});
+    expect(s3.configured).toBe(false);
+    expect(s3).toMatchObject({ region: 'us-east-1', keyPrefix: '', retries: 1, timeoutMs: 30000 });
+  });
+  it('is configured only when all four required vars are non-blank', () => {
+    expect(deriveS3(full).configured).toBe(true);
+    expect(deriveS3({ ...full, TREK_S3_BUCKET: ' ' }).configured).toBe(false);
+  });
+  it('applies overrides and trims values', () => {
+    const s3 = deriveS3({ ...full, TREK_S3_REGION: ' auto ', TREK_S3_KEY_PREFIX: 'trek/prod', TREK_S3_RETRIES: '0', TREK_S3_TIMEOUT_MS: '5000' });
+    expect(s3).toMatchObject({ region: 'auto', keyPrefix: 'trek/prod', retries: 0, timeoutMs: 5000 });
+  });
+});
+
 describe('deriveAll', () => {
   it('assembles every namespace', () => {
     const env = deriveAll({ PORT: '4000', DEMO_MODE: 'true' });
@@ -240,7 +263,7 @@ describe('deriveAll', () => {
     expect(env.demo.enabled).toBe(true);
     for (const ns of [
       'app', 'http', 'session', 'demo', 'adminBootstrap', 'oidc', 'smtp', 'mcp',
-      'plugins', 'webauthn', 'integrations', 'backup', 'db', 'paths', 'net',
+      'plugins', 'webauthn', 'integrations', 'backup', 'db', 'paths', 'net', 's3',
     ] as const) {
       expect(env[ns]).toBeDefined();
     }

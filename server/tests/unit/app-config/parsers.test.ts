@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest';
 import {
   csvList,
   csvListFiltered,
+  nonNegativeIntOr,
   numberOr,
   parseBool,
   parseDurationMs,
@@ -77,6 +78,19 @@ describe('positiveIntOr', () => {
     expect(positiveIntOr('-1', 20)).toBe(20);
     expect(positiveIntOr('abc', 20)).toBe(20);
     expect(positiveIntOr(undefined, 20)).toBe(20);
+  });
+});
+
+describe('nonNegativeIntOr', () => {
+  it('accepts zero (0 disables retries) and positive integers', () => {
+    expect(nonNegativeIntOr('0', 1)).toBe(0);
+    expect(nonNegativeIntOr('3', 1)).toBe(3);
+  });
+  it('falls back on unset, blank, negative, and non-numeric', () => {
+    expect(nonNegativeIntOr(undefined, 1)).toBe(1);
+    expect(nonNegativeIntOr('  ', 1)).toBe(1);
+    expect(nonNegativeIntOr('-1', 1)).toBe(1);
+    expect(nonNegativeIntOr('nope', 1)).toBe(1);
   });
 });
 
