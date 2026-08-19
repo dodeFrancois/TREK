@@ -1,3 +1,4 @@
+/// <reference types="@aws-lite/s3-types" />
 import awsLite from '@aws-lite/client';
 import type { Readable } from 'node:stream';
 import { assertValidKey, assertValidPrefix } from '../storage-keys';
@@ -65,10 +66,7 @@ export type S3DriverOptions = Omit<S3ClientOptions, 'keepAlive'> & {
 
 /** Bare GetObject content-sniffs; streamResponsePayload is mandatory (spec, Client). */
 export async function defaultClientFactory(opts: S3ClientOptions): Promise<S3Api> {
-  // AwsLiteClient's ambient .S3 augmentation (@aws-lite/s3-types) isn't picked
-  // up by tsc without an explicit reference, so this is the one sanctioned
-  // `as unknown as` boundary — no other cast in this file.
-  const client = (await awsLite({
+  const client = await awsLite({
     accessKeyId: opts.accessKeyId,
     secretAccessKey: opts.secretAccessKey,
     region: opts.region,
@@ -76,8 +74,16 @@ export async function defaultClientFactory(opts: S3ClientOptions): Promise<S3Api
     retries: opts.retries,
     keepAlive: opts.keepAlive,
     plugins: [await import('@aws-lite/s3')],
-  })) as unknown as { S3: S3Api };
-  return client.S3;
+  });
+  // The `/// <reference types="@aws-lite/s3-types" />` above pulls in the
+  // declaration-merged `AwsLiteClient.S3` (https://aws-lite.org/using-typescript),
+  // so `client.S3` itself needs no cast. This one narrow cast remains because
+  // of a genuine structural mismatch: the real PutObject/Upload signatures
+  // require `Bucket`/`Key` (plus other required fields), which S3Api's
+  // deliberately permissive `Record<string, unknown>` input can't guarantee —
+  // method-syntax parameter bivariance still rejects that narrowing. This is
+  // the one sanctioned `as unknown as` boundary; no other cast in this file.
+  return client.S3 as unknown as S3Api;
 }
 
 function statusCode(err: unknown): number | undefined {
