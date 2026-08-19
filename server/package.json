@@ -25,6 +25,8 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@aws-lite/client": "^0.23.7",
+    "@aws-lite/s3": "^0.2.7",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@nestjs/common": "^11.1.24",
     "@nestjs/config": "^4.0.4",
@@ -81,6 +83,7 @@
     "file-type": "^21.3.4"
   },
   "devDependencies": {
+    "@aws-lite/s3-types": "^0.2.8",
     "@eslint/js": "^10.0.1",
     "@nestjs/testing": "^11.1.24",
     "@swc/core": "^1.15.40",
