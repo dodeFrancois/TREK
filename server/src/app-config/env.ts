@@ -84,7 +84,14 @@ const S3_VARS = [
   'TREK_S3_RETRIES',
   'TREK_S3_TIMEOUT_MS',
 ] as const;
-const S3_REQUIRED = S3_VARS.slice(0, 4);
+// Explicit, not `S3_VARS.slice(0, 4)` — the required set must not silently
+// shift if S3_VARS is ever reordered.
+const S3_REQUIRED: (typeof S3_VARS)[number][] = [
+  'TREK_S3_ENDPOINT',
+  'TREK_S3_BUCKET',
+  'TREK_S3_ACCESS_KEY_ID',
+  'TREK_S3_SECRET_ACCESS_KEY',
+];
 
 /**
  * All-or-nothing: any TREK_S3_* set means the operator wants off-box storage;
@@ -92,7 +99,7 @@ const S3_REQUIRED = S3_VARS.slice(0, 4);
  * Prefix shape delegates to storage-keys — the single source of key rules.
  */
 function s3Preconditions(raw: RawEnv): string[] {
-  const present = (key: string): boolean => Boolean(raw[key]?.trim());
+  const present = (key: (typeof S3_VARS)[number]): boolean => Boolean(raw[key]?.trim());
   if (!S3_VARS.some(present)) return [];
   const problems: string[] = [];
   for (const key of S3_REQUIRED) {

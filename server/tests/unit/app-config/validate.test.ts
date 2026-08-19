@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 
 import { validateEnvAtBoot, readEnv } from '../../../src/app-config/env';
+import { deriveS3 } from '../../../src/app-config/derive';
 
 describe('validateEnvAtBoot', () => {
   afterEach(() => {
@@ -192,6 +193,11 @@ describe('validateEnvAtBoot — S3 all-or-nothing preconditions', () => {
     expect(() => validateEnvAtBoot({ ...full, TREK_S3_KEY_PREFIX: '../evil', TREK_S3_ENDPOINT: 'not a url' })).toThrow(
       /Invalid environment configuration \(2 problems\)/,
     );
+  });
+  it('S3-BOOT-006: a slash-wrapped key prefix passes boot validation (shape-checked stripped of its slashes), while deriveS3 keeps it un-normalized', () => {
+    const withPrefix = { ...full, TREK_S3_KEY_PREFIX: '/trek/prod/' };
+    expect(() => validateEnvAtBoot(withPrefix)).not.toThrow();
+    expect(deriveS3(withPrefix).keyPrefix).toBe('/trek/prod/');
   });
 });
 

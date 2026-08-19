@@ -8,8 +8,8 @@ import { S3Driver } from '../../../../src/nest/storage/drivers/s3.driver';
 import { describeStorageDriver, type DriverHarness } from './storage-driver.contract';
 
 /**
- * Env-gated: engages only when TREK_TEST_S3_* is set (CI's MinIO job; locally
- * via `docker compose -f docker-compose.minio-test.yml up`). Local runs stay
+ * Env-gated: engages only when TREK_TEST_S3_* is set (manual-only, via
+ * `docker compose -f docker-compose.minio-test.yml up`). Local runs stay
  * hermetic. Deviation from local/mirror's bare top-level call: the gate must
  * wrap describeStorageDriver because the contract file owns its own describe.
  */

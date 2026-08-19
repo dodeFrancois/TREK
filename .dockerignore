@@ -16,6 +16,7 @@ chart/
 docs/
 docker-compose.yml
 docker-compose.minio-test.yml
+minio-licence.key
 unraid-template.xml
 *.sqlite
 *.sqlite-shm

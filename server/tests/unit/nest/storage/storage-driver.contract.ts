@@ -98,6 +98,16 @@ export function describeStorageDriver(name: string, makeHarness: () => Promise<D
       expect(await h.driver.stat('a/empty.bin')).toBeNull();
     });
 
+    it('roundtrips a zero-byte LocalTempFile source and consumes the temp file', async () => {
+      const tmp = await h.makeTempFile('');
+      await h.driver.put('a/empty-tmpfile.bin', { tmpPath: tmp });
+      expect((await readAll('a/empty-tmpfile.bin')).length).toBe(0);
+      expect((await h.driver.stat('a/empty-tmpfile.bin'))!.size).toBe(0);
+      expect(fs.existsSync(tmp)).toBe(false); // ownership transferred
+      await h.driver.delete('a/empty-tmpfile.bin');
+      expect(await h.driver.stat('a/empty-tmpfile.bin')).toBeNull();
+    });
+
     it('rejects getStream on a missing key with StorageNotFoundError', async () => {
       await expect(h.driver.getStream('a/nope.bin')).rejects.toBeInstanceOf(StorageNotFoundError);
     });

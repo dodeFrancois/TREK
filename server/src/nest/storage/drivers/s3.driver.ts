@@ -124,7 +124,8 @@ function isNotFound(err: unknown): boolean {
  *   `signedHeaders()` (aws4.js:311-322, which just map/join whatever
  *   `filterHeaders()` produced) sign `content-length` *twice*
  *   (`SignedHeaders=content-length;content-length;...`, confirmed live
- *   against MinIO in the repro below). MinIO's own canonicalization of the
+ *   against MinIO (see the manual procedure in docker-compose.minio-test.yml)).
+ *   MinIO's own canonicalization of the
  *   headers it actually received doesn't reproduce that duplicate, so the
  *   signatures disagree — 403. Any non-empty body makes
  *   `headers['content-length']` a truthy number, so aws4's guard never fires
@@ -480,6 +481,12 @@ function peekStream(source: Readable, limit: number): Promise<{ chunks: Buffer[]
         const chunk = Buffer.isBuffer(raw) ? raw : Buffer.from(raw);
         chunks.push(chunk);
         size += chunk.length;
+        // Strictly `>`, not `>=`: a stream ending at exactly `limit` bytes is
+        // "ended within the limit" and buffers to PutObject, while a
+        // LocalTempFile of exactly `MULTIPART_THRESHOLD` (see put()'s `size <
+        // MULTIPART_THRESHOLD` check) goes to Upload instead. Both boundaries
+        // are correct on their own terms — deliberate asymmetry, not a bug;
+        // do not "align" them.
         if (size > limit) {
           cleanup();
           resolve({ chunks, size, ended: false });
