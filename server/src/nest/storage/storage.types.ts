@@ -11,18 +11,9 @@ import type { Readable } from 'node:stream';
  * — zero changes to controllers or services.
  */
 
-export const STORAGE_CATEGORIES = [
-  'files',
-  'journey',
-  'covers',
-  'avatars',
-  'places',
-  'photos',
-  'photos-google',
-  'photos-trek',
-  'backups',
-] as const;
-export type StorageCategory = (typeof STORAGE_CATEGORIES)[number];
+// Relocated to shared (the wire schema needs it; a second copy is forbidden).
+// Re-exported so every existing `./storage.types` import keeps working.
+export { STORAGE_CATEGORIES, type StorageCategory } from '@trek/shared';
 
 export interface ObjectStat {
   key: string;

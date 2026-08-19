@@ -41,6 +41,7 @@ export * from './collab/collab.schema';
 export * from './file/file.schema';
 export * from './journey/journey.schema';
 export * from './share/share.schema';
+export * from './storage/storage.schema';
 export * from './settings/settings.schema';
 export * from './appearance/appearance.schema';
 export * from './backup/backup.schema';
