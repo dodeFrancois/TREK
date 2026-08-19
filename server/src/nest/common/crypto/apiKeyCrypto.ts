@@ -41,3 +41,8 @@ export function maybe_encrypt_api_key(value: unknown) {
   return encrypt_api_key(trimmed);
 }
 
+/** True exactly for values carrying the enc:v1: envelope produced by encrypt_api_key. */
+export function is_encrypted_api_key(value: unknown): value is string {
+  return typeof value === 'string' && value.startsWith(ENCRYPTED_PREFIX);
+}
+

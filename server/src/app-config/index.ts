@@ -19,6 +19,7 @@ export {
   deriveBackup,
   deriveDb,
   derivePaths,
+  deriveSecurity,
   deriveNet,
 } from './derive';
 export * from './parsers';
