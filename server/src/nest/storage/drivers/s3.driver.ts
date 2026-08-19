@@ -103,10 +103,11 @@ function isNotFound(err: unknown): boolean {
 }
 
 /**
- * Workaround for a verified upstream signing defect: a zero-byte PutObject
- * body fails against real S3-compatible servers (confirmed against MinIO)
- * with 403 SignatureDoesNotMatch, while any non-empty body succeeds via the
- * identical code path. Root cause, traced through the installed deps:
+ * Workaround for a verified upstream signing defect, scoped ONLY to the
+ * buffered zero-byte `Body` path in `put()` below — a zero-byte PutObject
+ * `Body: Buffer` fails against real S3-compatible servers (confirmed against
+ * MinIO) with 403 SignatureDoesNotMatch, while any non-empty `Body` succeeds
+ * via the identical code path. Root cause, traced through the installed deps:
  *
  * - `@aws-lite/s3`'s PutObject (node_modules/@aws-lite/s3/src/put-object.mjs:99,
  *   the default `!ApplyChecksum` "unsigned payload" branch) always sets
@@ -117,8 +118,11 @@ function isNotFound(err: unknown): boolean {
  *   `!0 === true`, so aws4 treats the already-set `0` as "unset" and injects
  *   a SECOND, differently-cased `Content-Length` header onto the same object.
  *   JS object keys are case-sensitive, so both survive; aws4's
- *   canonicalHeaders()/signedHeaders() (aws4.js:311-322) don't dedupe by
- *   lowercased name, so `content-length` is signed *twice*
+ *   `filterHeaders()` (aws4.js:302-308) lowercases each header entry for
+ *   canonicalization WITHOUT deduping by that lowercased name — the two
+ *   distinct keys stay two distinct entries — so `canonicalHeaders()`/
+ *   `signedHeaders()` (aws4.js:311-322, which just map/join whatever
+ *   `filterHeaders()` produced) sign `content-length` *twice*
  *   (`SignedHeaders=content-length;content-length;...`, confirmed live
  *   against MinIO in the repro below). MinIO's own canonicalization of the
  *   headers it actually received doesn't reproduce that duplicate, so the
@@ -126,6 +130,14 @@ function isNotFound(err: unknown): boolean {
  *   `headers['content-length']` a truthy number, so aws4's guard never fires
  *   and no duplicate is ever added — hence the bug is exactly the size-0
  *   boundary, nothing else.
+ *
+ * The `File` route (`put-object.mjs:87`, `payload = createReadStream(File)`)
+ * is NOT affected and must NOT get this workaround: aws-lite's request
+ * builder (`@aws-lite/client/src/request/index.js:60,90`) sets
+ * `params.body = undefined` for any stream payload, so aws4.js:151's
+ * `request.body && ...` guard never even evaluates truthy there — a
+ * zero-byte temp file signs correctly today. Only the buffered `Body: Buffer`
+ * call site below needs this.
  *
  * `ApplyChecksum: true` routes PutObject through @aws-lite/s3's OTHER branch
  * (put-object.mjs:106-118), which never pre-sets Content-Length itself —
@@ -181,10 +193,7 @@ export class S3Driver implements StorageDriver {
       try {
         const { size } = await fs.promises.stat(source.tmpPath);
         if (size < MULTIPART_THRESHOLD) {
-          await this.deadlined(
-            s3.PutObject({ ...base, File: source.tmpPath, ...zeroByteChecksumWorkaround(size) }),
-            `put '${key}'`,
-          );
+          await this.deadlined(s3.PutObject({ ...base, File: source.tmpPath }), `put '${key}'`);
         } else {
           await this.uploadMonitored(s3, base, fs.createReadStream(source.tmpPath), key);
         }

@@ -4,14 +4,18 @@
 #     TREK_TEST_S3_BUCKET=trek-test TREK_TEST_S3_ACCESS_KEY_ID=trekci \
 #     TREK_TEST_S3_SECRET_ACCESS_KEY=trekci-secret \
 #     npx vitest run tests/unit/nest/storage/s3.driver.contract.test.ts
-# 127.0.0.1 is load-bearing: aws-lite picks path-style only for IP/localhost
-# hosts, and stock MinIO only speaks path-style (no MINIO_DOMAIN here).
+# 127.0.0.1 is load-bearing on both sides: aws-lite picks path-style only for
+# IP/localhost hosts (stock MinIO only speaks path-style, no MINIO_DOMAIN
+# here), and the port publish below binds 127.0.0.1 only — not 0.0.0.0 — so
+# this fixed-credential test instance is never reachable from the LAN.
 services:
   minio:
-    image: minio/minio:RELEASE.2025-09-07T16-13-09Z # pinned — repo frozen upstream, tag is stable
+    # Docker Hub's minio/minio repo is archived — quay.io is the maintained
+    # registry going forward. Pinned tag: repo is stable/frozen upstream.
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z.hotfix.7aa24e772
     command: server /data
     ports:
-      - "9000:9000"
+      - "127.0.0.1:9000:9000"
     environment:
       - MINIO_ROOT_USER=trekci
       - MINIO_ROOT_PASSWORD=trekci-secret

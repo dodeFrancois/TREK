@@ -381,16 +381,6 @@ describe('S3Driver put — LocalTempFile ownership', () => {
     expect(api.PutObject).toHaveBeenCalledWith(
       expect.objectContaining({ File: tmp, Key: 'a/t.bin', ContentType: 'image/png' }),
     );
-    expect((api.PutObject as ReturnType<typeof vi.fn>).mock.calls[0][0].ApplyChecksum).toBeUndefined();
-    expect(fs.existsSync(tmp)).toBe(false);
-  });
-  it('applies the zero-byte checksum workaround to a zero-byte temp file too (same aws4 signing defect)', async () => {
-    const api = makeMockApi({ PutObject: vi.fn().mockResolvedValue({}) });
-    const tmp = await makeTmp(0);
-    await makeDriver(api).put('a/empty-tmp.bin', { tmpPath: tmp });
-    expect(api.PutObject).toHaveBeenCalledWith(
-      expect.objectContaining({ File: tmp, Key: 'a/empty-tmp.bin', ApplyChecksum: true }),
-    );
     expect(fs.existsSync(tmp)).toBe(false);
   });
   it('routes a threshold-sized temp file to Upload', async () => {
