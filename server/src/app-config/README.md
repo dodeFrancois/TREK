@@ -66,14 +66,17 @@ fallthrough and the strip-ALL-slashes quirk (see `parsers.ts`
 DI in Nest, module-top `readEnv()` consts elsewhere):
 PORT, HOST, TRUST_PROXY, SESSION_DURATION(_REMEMBER), MCP_SESSION_TTL,
 MCP_MAX_SESSION_PER_USER, MCP_SSE_KEEPALIVE, TREK_PLUGIN_RPC_*/LOG_*/MAX_RSS_MB,
-TREK_PLUGIN_REGISTRY_URL, TREK_WIKI_DIR*, TREK_PLACE_PHOTO_DIR,
-TREK_UPLOADS_DIR, BACKUP_*,
+TREK_PLUGIN_REGISTRY_URL, TREK_WIKI_DIR*, TREK_PLACE_PHOTO_DIR, BACKUP_*,
 TRANSIT_API_URL, LOG_LEVEL*, ALLOW_INTERNAL_NETWORK*, DEFAULT_LANGUAGE,
-TREK_DB_FILE, TREK_DB_JOURNAL_MODE, TREK_DB_SYNCHRONOUS, ENCRYPTION_KEY,
-TREK_S3_* (endpoint/bucket/credentials/region/keyPrefix/retries/timeoutMs —
-read once by the storage registry at driver init, not on the request path).
+TREK_DB_FILE, TREK_DB_JOURNAL_MODE, TREK_DB_SYNCHRONOUS, ENCRYPTION_KEY.
 (* frozen today because the consuming module captures it at import; tests that
 override these set them at file top, before the SUT import.)
+
+**Tombstoned** (boot-aborting since the admin-config slice — configure storage
+in the admin UI / `data/storage-config.json` instead): `TREK_S3_ENDPOINT`,
+`TREK_S3_BUCKET`, `TREK_S3_ACCESS_KEY_ID`, `TREK_S3_SECRET_ACCESS_KEY`,
+`TREK_S3_REGION`, `TREK_S3_KEY_PREFIX`, `TREK_S3_RETRIES`, `TREK_S3_TIMEOUT_MS`,
+`TREK_UPLOADS_DIR` (see `storageTombstonePreconditions` in `env.ts`).
 
 **Runtime-toggled** (read live on every access via `readEnv()` /
 `RuntimeEnvService`; tests mutate these mid-lifetime):

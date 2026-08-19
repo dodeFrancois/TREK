@@ -24,13 +24,12 @@ import { createTables } from '../../../../src/db/schema';
 import { runMigrations } from '../../../../src/db/migrations';
 import { DatabaseService } from '../../../../src/nest/database/database.service';
 import type { RuntimeEnvService } from '../../../../src/nest/app-config/runtime-env.service';
-import type { deriveS3 } from '../../../../src/app-config/derive';
 import { encrypt_api_key } from '../../../../src/nest/common/crypto/apiKeyCrypto';
 import { StorageRegistryService } from '../../../../src/nest/storage/storage-registry.service';
 import { LocalDriver } from '../../../../src/nest/storage/drivers/local.driver';
 import { MirrorDriver, type ReplicaFailure } from '../../../../src/nest/storage/drivers/mirror.driver';
 import { S3Driver } from '../../../../src/nest/storage/drivers/s3.driver';
-import { GLOBAL_TEMP_DIR, DEFAULT_BACKUPS_ROOT } from '../../../../src/nest/storage/storage-paths';
+import { GLOBAL_TEMP_DIR, DEFAULT_BACKUPS_ROOT, DEFAULT_UPLOADS_ROOT } from '../../../../src/nest/storage/storage-paths';
 import { STORAGE_CATEGORIES } from '../../../../src/nest/storage/storage.types';
 
 const db = new DatabaseService(testDb);
@@ -50,38 +49,13 @@ function makeTmpDir(): string {
 }
 
 interface EnvPaths {
-  uploadsDir?: string;
   placePhotoDir?: string;
 }
 
-type EnvS3 = ReturnType<typeof deriveS3>;
-const S3_OFF: EnvS3 = {
-  configured: false,
-  endpoint: '',
-  bucket: '',
-  accessKeyId: '',
-  secretAccessKey: '',
-  region: 'us-east-1',
-  keyPrefix: '',
-  retries: 1,
-  timeoutMs: 30000,
-};
-const S3_ON: EnvS3 = {
-  ...S3_OFF,
-  configured: true,
-  endpoint: 'http://127.0.0.1:9000',
-  bucket: 'trek',
-  accessKeyId: 'ak',
-  secretAccessKey: 'sk',
-};
-
-function makeEnvStub(
-  initial: EnvPaths,
-  s3: EnvS3 = S3_OFF,
-): { env: RuntimeEnvService; setPaths: (p: EnvPaths) => void } {
+function makeEnvStub(initial: EnvPaths): { env: RuntimeEnvService; setPaths: (p: EnvPaths) => void } {
   let paths = initial;
   return {
-    env: { env: () => ({ paths, s3 }) } as unknown as RuntimeEnvService,
+    env: { env: () => ({ paths }) } as unknown as RuntimeEnvService,
     setPaths: (p) => {
       paths = p;
     },
@@ -92,13 +66,43 @@ function setSetting(key: string, value: string): void {
   testDb.prepare('INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)').run(key, value);
 }
 
-/** Registry rooted in a fresh temp uploads dir; boots unless told not to. */
-function makeRegistry(paths?: EnvPaths, opts: { boot?: boolean; s3?: EnvS3 } = {}) {
-  const uploadsRoot = paths?.uploadsDir ?? makeTmpDir();
-  const stub = makeEnvStub({ uploadsDir: uploadsRoot, placePhotoDir: paths?.placePhotoDir }, opts.s3);
+function uploadsOverride(root: string): unknown {
+  return { name: 'uploads-local', type: 'local', options: { root } };
+}
+
+interface RegistryOpts {
+  uploadsRoot?: string;
+  placePhotoDir?: string;
+  boot?: boolean;
+  /** Extra storage.backends entries, appended after the uploads-local override. */
+  backends?: unknown[];
+  categories?: Record<string, string>;
+}
+
+/**
+ * TREK_UPLOADS_DIR is removed: the uploads-local root is the computed default,
+ * relocatable only via a settings override row bearing the built-in's name
+ * (first-class merge-by-name). The helper seeds that override so unit runs
+ * never write into the real server/uploads.
+ */
+function makeRegistry(opts: RegistryOpts = {}) {
+  const uploadsRoot = opts.uploadsRoot ?? makeTmpDir();
+  setSetting('storage.backends', JSON.stringify([uploadsOverride(uploadsRoot), ...(opts.backends ?? [])]));
+  if (opts.categories) setSetting('storage.categories', JSON.stringify(opts.categories));
+  const stub = makeEnvStub({ placePhotoDir: opts.placePhotoDir });
   const registry = new StorageRegistryService(db, stub.env);
   if (opts.boot !== false) registry.onModuleInit();
-  return { registry, uploadsRoot, setPaths: stub.setPaths };
+  return { registry, uploadsRoot, setPaths: stub.setPaths, setUploadsRoot: (root: string) => rewriteUploadsOverride(root) };
+}
+
+/** For reload tests: swap the override row's root in place. */
+function rewriteUploadsOverride(root: string): void {
+  const row = testDb.prepare("SELECT value FROM app_settings WHERE key = 'storage.backends'").get() as
+    | { value: string }
+    | undefined;
+  const entries = row?.value ? (JSON.parse(row.value) as Array<{ name: string; options: { root: string } }>) : [];
+  const next = entries.map((e) => (e.name === 'uploads-local' ? { ...e, options: { root } } : e));
+  setSetting('storage.backends', JSON.stringify(next));
 }
 
 beforeEach(() => {
@@ -161,6 +165,25 @@ describe('StorageRegistryService defaults', () => {
     expect(fs.statSync(GLOBAL_TEMP_DIR).isDirectory()).toBe(true);
     expect(fs.statSync(path.join(DEFAULT_BACKUPS_ROOT, '.tmp')).isDirectory()).toBe(true);
   });
+
+  it('roots uploads-local at the computed default when no override row exists', () => {
+    const { registry } = makeRegistry({ boot: false });
+    testDb.prepare("DELETE FROM app_settings WHERE key = 'storage.backends'").run();
+    registry.onModuleInit();
+    const files = registry.resolve('files');
+    expect(files.backendName).toBe('uploads-local');
+    expect(files.driver.getLocalPath!('files/x.pdf')).toBe(
+      path.join(fs.realpathSync(DEFAULT_UPLOADS_ROOT), 'files/x.pdf'),
+    );
+  });
+
+  it('a settings row bearing a built-in name replaces it (first-class override)', () => {
+    const relocated = makeTmpDir();
+    const { registry } = makeRegistry({ uploadsRoot: relocated });
+    expect(registry.resolve('files').driver.getLocalPath!('files/x.pdf')).toBe(
+      path.join(fs.realpathSync(relocated), 'files/x.pdf'),
+    );
+  });
 });
 
 // ── settings merge + validation ───────────────────────────────────────────────
@@ -168,16 +191,13 @@ describe('StorageRegistryService defaults', () => {
 describe('StorageRegistryService settings', () => {
   it('merges app_settings backends/categories over the defaults (backup mirror)', () => {
     const nasRoot = makeTmpDir();
-    setSetting(
-      'storage.backends',
-      JSON.stringify([
+    const { registry } = makeRegistry({
+      backends: [
         { name: 'nas-backups', type: 'local', options: { root: nasRoot } },
         { name: 'backup-mirror', type: 'mirror', options: { primary: 'backups-local', replicas: ['nas-backups'] } },
-      ]),
-    );
-    setSetting('storage.categories', JSON.stringify({ backups: 'backup-mirror' }));
-
-    const { registry } = makeRegistry();
+      ],
+      categories: { backups: 'backup-mirror' },
+    });
     const backups = registry.resolve('backups');
     expect(backups.backendName).toBe('backup-mirror');
     expect(backups.keyPrefix).toBe('');
@@ -213,25 +233,24 @@ describe('StorageRegistryService settings', () => {
     ['unknown category name', undefined, JSON.stringify({ 'not-a-category': 'uploads-local' })],
     ['malformed JSON', 'not json at all', undefined],
   ])('falls back to built-in defaults at boot on invalid settings: %s', (_label, backendsRow, categoriesRow) => {
+    const { registry } = makeRegistry({ boot: false });
     if (backendsRow !== undefined) setSetting('storage.backends', backendsRow);
     if (categoriesRow !== undefined) setSetting('storage.categories', categoriesRow);
+    registry.onModuleInit();
 
-    const { registry } = makeRegistry();
     expect(registry.resolve('files').backendName).toBe('uploads-local');
     expect(registry.resolve('backups').backendName).toBe('backups-local');
   });
 
   it('keeps the last-good config (not defaults) when a reload() sees invalid settings', () => {
     const nasRoot = makeTmpDir();
-    setSetting(
-      'storage.backends',
-      JSON.stringify([
+    const { registry } = makeRegistry({
+      backends: [
         { name: 'nas-backups', type: 'local', options: { root: nasRoot } },
         { name: 'backup-mirror', type: 'mirror', options: { primary: 'backups-local', replicas: ['nas-backups'] } },
-      ]),
-    );
-    setSetting('storage.categories', JSON.stringify({ backups: 'backup-mirror' }));
-    const { registry } = makeRegistry();
+      ],
+      categories: { backups: 'backup-mirror' },
+    });
     expect(registry.resolve('backups').backendName).toBe('backup-mirror');
 
     setSetting('storage.categories', 'garbage {');
@@ -246,11 +265,11 @@ describe('StorageRegistryService settings', () => {
 
 describe('StorageRegistryService reload', () => {
   it('swaps the map atomically: new resolves see the new instance, held refs stay usable', async () => {
-    const { registry, setPaths } = makeRegistry();
+    const { registry, setUploadsRoot } = makeRegistry();
     const before = registry.resolve('files');
     await before.driver.put('files/pre-reload.bin', Readable.from('old root'));
 
-    setPaths({ uploadsDir: makeTmpDir() });
+    setUploadsRoot(makeTmpDir());
     registry.reload();
 
     const after = registry.resolve('files');
@@ -274,7 +293,7 @@ describe('StorageRegistryService reload', () => {
     // process may be spooling into the same tree — see LocalDriver.init).
     const old = new Date(Date.now() - 2 * 60 * 60 * 1000);
     fs.utimesSync(stray, old, old);
-    const { registry } = makeRegistry({ uploadsDir: uploadsRoot });
+    const { registry } = makeRegistry({ uploadsRoot });
     expect(fs.existsSync(stray)).toBe(false); // boot reclaimed it
 
     fs.writeFileSync(stray, 'in-flight upload');
@@ -304,44 +323,6 @@ describe('StorageRegistryService replica health', () => {
   });
 });
 
-// ── s3-main (env-declared) ────────────────────────────────────────────────────
-
-describe('s3-main (env-declared)', () => {
-  it('appears only when TREK_S3_* is configured, with no category mapped to it', () => {
-    const { registry } = makeRegistry({}, { s3: S3_ON });
-    expect(() => registry.resolve('backups')).not.toThrow();
-    for (const category of STORAGE_CATEGORIES) {
-      expect(registry.resolve(category).backendName).not.toBe('s3-main');
-    }
-  });
-
-  it('is absent when the env is unset (zero behavior change)', () => {
-    setSetting('storage.categories', JSON.stringify({ backups: 's3-main' }));
-    const { registry } = makeRegistry(); // S3_OFF
-    // invalid mapping → last-good/defaults kept, per the standing mechanism
-    expect(registry.resolve('backups').backendName).toBe('backups-local');
-  });
-
-  it('is assignable to any category via settings (S3Driver instance)', () => {
-    setSetting('storage.categories', JSON.stringify({ covers: 's3-main' }));
-    const { registry } = makeRegistry({}, { s3: S3_ON });
-    const resolved = registry.resolve('covers');
-    expect(resolved.backendName).toBe('s3-main');
-    expect(resolved.driver).toBeInstanceOf(S3Driver);
-    expect(resolved.keyPrefix).toBe('covers/');
-  });
-
-  it('serves as a mirror replica (local primary + s3 replica on backups)', () => {
-    setSetting(
-      'storage.backends',
-      JSON.stringify([{ name: 'backup-mirror', type: 'mirror', options: { primary: 'backups-local', replicas: ['s3-main'] } }]),
-    );
-    setSetting('storage.categories', JSON.stringify({ backups: 'backup-mirror' }));
-    const { registry } = makeRegistry({}, { s3: S3_ON });
-    expect(registry.resolve('backups').backendName).toBe('backup-mirror');
-  });
-});
-
 // ── settings-declared s3 backends (admin-config slice: acceptance) ───────────
 
 describe('settings-declared s3 backends', () => {
@@ -357,9 +338,10 @@ describe('settings-declared s3 backends', () => {
   };
 
   it('accepts a settings s3 backend and assigns it to a category', () => {
-    setSetting('storage.backends', JSON.stringify([{ name: 'off-box', type: 's3', options: s3Options }]));
-    setSetting('storage.categories', JSON.stringify({ covers: 'off-box' }));
-    const { registry } = makeRegistry();
+    const { registry } = makeRegistry({
+      backends: [{ name: 'off-box', type: 's3', options: s3Options }],
+      categories: { covers: 'off-box' },
+    });
     const resolved = registry.resolve('covers');
     expect(resolved.backendName).toBe('off-box');
     expect(resolved.driver).toBeInstanceOf(S3Driver);
@@ -367,51 +349,41 @@ describe('settings-declared s3 backends', () => {
   });
 
   it('decrypts an enc:v1: secretAccessKey at build (decrypt-at-build)', () => {
-    setSetting(
-      'storage.backends',
-      JSON.stringify([
-        { name: 'off-box', type: 's3', options: { ...s3Options, secretAccessKey: encrypt_api_key('sk-secret') } },
-      ]),
-    );
-    setSetting('storage.categories', JSON.stringify({ backups: 'off-box' }));
-    const { registry } = makeRegistry();
+    const { registry } = makeRegistry({
+      backends: [{ name: 'off-box', type: 's3', options: { ...s3Options, secretAccessKey: encrypt_api_key('sk-secret') } }],
+      categories: { backups: 'off-box' },
+    });
     expect(registry.resolve('backups').driver).toBeInstanceOf(S3Driver);
   });
 
   it('applies the shared-schema defaults for omitted optional fields', () => {
     const { endpoint, bucket, accessKeyId, secretAccessKey } = s3Options;
-    setSetting(
-      'storage.backends',
-      JSON.stringify([{ name: 'off-box', type: 's3', options: { endpoint, bucket, accessKeyId, secretAccessKey } }]),
-    );
-    setSetting('storage.categories', JSON.stringify({ backups: 'off-box' }));
-    const { registry } = makeRegistry();
+    const { registry } = makeRegistry({
+      backends: [{ name: 'off-box', type: 's3', options: { endpoint, bucket, accessKeyId, secretAccessKey } }],
+      categories: { backups: 'off-box' },
+    });
     expect(registry.resolve('backups').backendName).toBe('off-box');
   });
 
   it('serves as a mirror replica (local primary + settings s3 replica on backups)', () => {
     const nasRoot = makeTmpDir();
-    setSetting(
-      'storage.backends',
-      JSON.stringify([
+    const { registry } = makeRegistry({
+      backends: [
         { name: 'off-box', type: 's3', options: s3Options },
         { name: 'nas-backups', type: 'local', options: { root: nasRoot } },
         { name: 'backup-mirror', type: 'mirror', options: { primary: 'nas-backups', replicas: ['off-box'] } },
-      ]),
-    );
-    setSetting('storage.categories', JSON.stringify({ backups: 'backup-mirror' }));
-    const { registry } = makeRegistry();
+      ],
+      categories: { backups: 'backup-mirror' },
+    });
     expect(registry.resolve('backups').backendName).toBe('backup-mirror');
     expect(registry.resolve('backups').driver).toBeInstanceOf(MirrorDriver);
   });
 
   it('falls back with the pinned message when s3 options fail the shared schema', () => {
     const errorSpy = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
-    setSetting(
-      'storage.backends',
-      JSON.stringify([{ name: 'off-box', type: 's3', options: { ...s3Options, endpoint: 'not a url' } }]),
-    );
-    const { registry } = makeRegistry();
+    const { registry } = makeRegistry({
+      backends: [{ name: 'off-box', type: 's3', options: { ...s3Options, endpoint: 'not a url' } }],
+    });
     expect(registry.resolve('backups').backendName).toBe('backups-local');
     const logged = errorSpy.mock.calls.map((call) => String(call[0])).join('\n');
     expect(logged).toContain("s3 backend 'off-box' has invalid options — endpoint:");
@@ -419,12 +391,10 @@ describe('settings-declared s3 backends', () => {
 
   it('falls back with the pinned message when the ciphertext cannot be decrypted', () => {
     const errorSpy = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
-    setSetting(
-      'storage.backends',
-      JSON.stringify([{ name: 'off-box', type: 's3', options: { ...s3Options, secretAccessKey: 'enc:v1:AAAA' } }]),
-    );
-    setSetting('storage.categories', JSON.stringify({ backups: 'off-box' }));
-    const { registry } = makeRegistry();
+    const { registry } = makeRegistry({
+      backends: [{ name: 'off-box', type: 's3', options: { ...s3Options, secretAccessKey: 'enc:v1:AAAA' } }],
+      categories: { backups: 'off-box' },
+    });
     expect(registry.resolve('backups').backendName).toBe('backups-local');
     const logged = errorSpy.mock.calls.map((call) => String(call[0])).join('\n');
     expect(logged).toContain("s3 backend 'off-box': could not decrypt 'secretAccessKey'");

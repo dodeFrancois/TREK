@@ -1,10 +1,5 @@
 import { deriveAll, type AppEnv, type RawEnv } from './derive';
 import { envSchema } from './env.schema';
-// storage-keys is the single source of truth for key/prefix shape — deliberately
-// imported here rather than re-implementing the rule for TREK_S3_KEY_PREFIX. It
-// is a plain module with no imports back into app-config, so this does not
-// create a cycle.
-import { isValidPrefix } from '../nest/storage/storage-keys';
 
 export type { AppEnv, RawEnv };
 
@@ -35,7 +30,7 @@ export function validateEnvAtBoot(raw: RawEnv = process.env as RawEnv): void {
         const key = String(issue.path[0]);
         return `  - ${key}=${JSON.stringify(raw[key])}: ${issue.message}`;
       });
-  lines.push(...managedPreconditions(raw), ...s3Preconditions(raw));
+  lines.push(...managedPreconditions(raw), ...storageTombstonePreconditions(raw));
   if (lines.length === 0) return;
   console.error(`Invalid environment configuration:\n${lines.join('\n')}`);
   throw new Error(
@@ -74,7 +69,15 @@ function managedPreconditions(raw: RawEnv): string[] {
   return problems;
 }
 
-const S3_VARS = [
+/**
+ * Storage configuration moved wholesale to the admin UI / data/storage-config.json
+ * (spec: docs/superpowers/specs/2026-08-19-storage-admin-config-design.md).
+ * These variables are tombstoned rather than ignored: an upgrading operator
+ * with them set would otherwise silently run local-only — the exact
+ * half-configured trap the old all-or-nothing rule existed to prevent.
+ * TREK_PLACE_PHOTO_DIR intentionally survives (documented, prod-supported).
+ */
+const REMOVED_STORAGE_VARS = [
   'TREK_S3_ENDPOINT',
   'TREK_S3_BUCKET',
   'TREK_S3_ACCESS_KEY_ID',
@@ -83,39 +86,11 @@ const S3_VARS = [
   'TREK_S3_KEY_PREFIX',
   'TREK_S3_RETRIES',
   'TREK_S3_TIMEOUT_MS',
+  'TREK_UPLOADS_DIR',
 ] as const;
-// Explicit, not `S3_VARS.slice(0, 4)` — the required set must not silently
-// shift if S3_VARS is ever reordered.
-const S3_REQUIRED: (typeof S3_VARS)[number][] = [
-  'TREK_S3_ENDPOINT',
-  'TREK_S3_BUCKET',
-  'TREK_S3_ACCESS_KEY_ID',
-  'TREK_S3_SECRET_ACCESS_KEY',
-];
 
-/**
- * All-or-nothing: any TREK_S3_* set means the operator wants off-box storage;
- * booting with a partial set would silently run without it (fail closed).
- * Prefix shape delegates to storage-keys — the single source of key rules.
- */
-function s3Preconditions(raw: RawEnv): string[] {
-  const present = (key: (typeof S3_VARS)[number]): boolean => Boolean(raw[key]?.trim());
-  if (!S3_VARS.some(present)) return [];
-  const problems: string[] = [];
-  for (const key of S3_REQUIRED) {
-    if (!present(key)) {
-      problems.push(
-        `  - ${key} is unset: required when any TREK_S3_* variable is set, because a ` +
-          'half-configured s3 backend would boot without the off-box storage the operator asked for.',
-      );
-    }
-  }
-  const prefix = raw.TREK_S3_KEY_PREFIX?.trim().replace(/^\/+|\/+$/g, '');
-  if (prefix && !isValidPrefix(`${prefix}/`)) {
-    problems.push(
-      `  - TREK_S3_KEY_PREFIX=${JSON.stringify(raw.TREK_S3_KEY_PREFIX)}: must be plain key segments ` +
-        '(no dot-segments, backslashes, or control characters).',
-    );
-  }
-  return problems;
+function storageTombstonePreconditions(raw: RawEnv): string[] {
+  return REMOVED_STORAGE_VARS.filter((key) => Boolean(raw[key]?.trim())).map(
+    (key) => `  - ${key} was removed — configure storage in the admin UI or data/storage-config.json.`,
+  );
 }

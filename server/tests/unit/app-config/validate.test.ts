@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 
 import { validateEnvAtBoot, readEnv } from '../../../src/app-config/env';
-import { deriveS3 } from '../../../src/app-config/derive';
 
 describe('validateEnvAtBoot', () => {
   afterEach(() => {
@@ -157,47 +156,35 @@ describe('validateEnvAtBoot — centrally administered preconditions', () => {
   });
 });
 
-describe('validateEnvAtBoot — S3 all-or-nothing preconditions', () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
+describe('validateEnvAtBoot — removed storage variables (tombstones)', () => {
+  const removed = [
+    'TREK_S3_ENDPOINT',
+    'TREK_S3_BUCKET',
+    'TREK_S3_ACCESS_KEY_ID',
+    'TREK_S3_SECRET_ACCESS_KEY',
+    'TREK_S3_REGION',
+    'TREK_S3_KEY_PREFIX',
+    'TREK_S3_RETRIES',
+    'TREK_S3_TIMEOUT_MS',
+    'TREK_UPLOADS_DIR',
+  ] as const;
+
+  it.each(removed)('TOMB-001 %s present at boot aborts, naming the replacement', (key) => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    expect(() => validateEnvAtBoot({ [key]: 'anything' })).toThrow(
+      /Invalid environment configuration \(1 problem\)/,
+    );
+    const report = error.mock.calls.map((c) => c.join(' ')).join('\n');
+    expect(report).toContain(`${key} was removed`);
+    expect(report).toContain('admin UI or data/storage-config.json');
   });
 
-  const full = {
-    TREK_S3_ENDPOINT: 'http://127.0.0.1:9000',
-    TREK_S3_BUCKET: 'trek',
-    TREK_S3_ACCESS_KEY_ID: 'ak',
-    TREK_S3_SECRET_ACCESS_KEY: 'sk',
-  };
-  it('S3-BOOT-001: refuses a partial TREK_S3_* set', () => {
-    vi.spyOn(console, 'error').mockImplementation(() => {});
-    expect(() => validateEnvAtBoot({ TREK_S3_ENDPOINT: full.TREK_S3_ENDPOINT })).toThrow(
-      /Invalid environment configuration \(3 problems\)/,
-    );
+  it('TOMB-002 TREK_PLACE_PHOTO_DIR survives (documented, prod-supported)', () => {
+    expect(() => validateEnvAtBoot({ TREK_PLACE_PHOTO_DIR: '/photos' })).not.toThrow();
   });
-  it('S3-BOOT-002: names each missing variable and the why', () => {
-    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
-    expect(() => validateEnvAtBoot({ TREK_S3_REGION: 'auto' })).toThrow();
-    const report = error.mock.calls.map((c) => c.join(' ')).join('\n');
-    expect(report).toContain('TREK_S3_ENDPOINT is unset');
-    expect(report).toContain('TREK_S3_SECRET_ACCESS_KEY is unset');
-    expect(report).toContain('required when any TREK_S3_');
-  });
-  it('S3-BOOT-003: passes with the full required set', () => {
-    expect(() => validateEnvAtBoot(full)).not.toThrow();
-  });
-  it('S3-BOOT-004: inert when no TREK_S3_* variable is set', () => {
-    expect(() => validateEnvAtBoot({})).not.toThrow();
-  });
-  it('S3-BOOT-005: rejects a malformed key prefix alongside schema problems', () => {
-    vi.spyOn(console, 'error').mockImplementation(() => {});
-    expect(() => validateEnvAtBoot({ ...full, TREK_S3_KEY_PREFIX: '../evil', TREK_S3_ENDPOINT: 'not a url' })).toThrow(
-      /Invalid environment configuration \(2 problems\)/,
-    );
-  });
-  it('S3-BOOT-006: a slash-wrapped key prefix passes boot validation (shape-checked stripped of its slashes), while deriveS3 keeps it un-normalized', () => {
-    const withPrefix = { ...full, TREK_S3_KEY_PREFIX: '/trek/prod/' };
-    expect(() => validateEnvAtBoot(withPrefix)).not.toThrow();
-    expect(deriveS3(withPrefix).keyPrefix).toBe('/trek/prod/');
+
+  it('TOMB-003 blank values are unset-equivalent and do not trip the tombstone', () => {
+    expect(() => validateEnvAtBoot({ TREK_UPLOADS_DIR: '   ', TREK_S3_BUCKET: '' })).not.toThrow();
   });
 });
 

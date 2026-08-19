@@ -124,19 +124,8 @@ export const envSchema = z.object({
   TREK_DB_SYNCHRONOUS: anyString,
   TREK_WIKI_DIR: anyString,
   TREK_PLACE_PHOTO_DIR: anyString,
-  TREK_UPLOADS_DIR: anyString,
   BACKUP_UPLOAD_LIMIT_MB: positiveNumber,
   BACKUP_MAX_DECOMPRESSED_MB: positiveNumber,
-
-  // S3 storage backend (all-or-nothing set — cross-field rule in env.ts s3Preconditions)
-  TREK_S3_ENDPOINT: url,
-  TREK_S3_BUCKET: anyString,
-  TREK_S3_ACCESS_KEY_ID: anyString,
-  TREK_S3_SECRET_ACCESS_KEY: anyString,
-  TREK_S3_REGION: anyString,
-  TREK_S3_KEY_PREFIX: anyString,
-  TREK_S3_RETRIES: integer(0, Number.MAX_SAFE_INTEGER, 'must be a non-negative integer (0 disables retries)'),
-  TREK_S3_TIMEOUT_MS: positiveNumber,
 
   // Admin / demo
   ADMIN_EMAIL: anyString,

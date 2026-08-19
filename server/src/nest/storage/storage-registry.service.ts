@@ -177,33 +177,16 @@ export class StorageRegistryService implements OnModuleInit {
 
   private build(settings: { backends: unknown; categories: unknown }, boot: boolean): RegistryState {
     // 1. Env is read fresh on every load (never snapshotted — RuntimeEnvService rule).
-    const paths = this.env.env().paths;
-    const uploadsRoot = paths.uploadsDir || DEFAULT_UPLOADS_ROOT;
-    const placePhotoDir = paths.placePhotoDir;
+    const placePhotoDir = this.env.env().paths.placePhotoDir;
 
     // 2. Built-in defaults; settings entries with the same name/category override.
+    //    uploads-local's root is the computed default since TREK_UPLOADS_DIR was
+    //    removed — relocation is a settings override row with the built-in's name.
     const backends = new Map<string, BackendConfig>();
-    backends.set('uploads-local', { name: 'uploads-local', type: 'local', options: { root: uploadsRoot } });
+    backends.set('uploads-local', { name: 'uploads-local', type: 'local', options: { root: DEFAULT_UPLOADS_ROOT } });
     backends.set('backups-local', { name: 'backups-local', type: 'local', options: { root: DEFAULT_BACKUPS_ROOT } });
     if (placePhotoDir) {
       backends.set('place-photos-local', { name: 'place-photos-local', type: 'local', options: { root: placePhotoDir } });
-    }
-    const s3 = this.env.env().s3;
-    if (s3.configured) {
-      backends.set('s3-main', {
-        name: 's3-main',
-        type: 's3',
-        options: {
-          endpoint: s3.endpoint,
-          region: s3.region,
-          bucket: s3.bucket,
-          keyPrefix: s3.keyPrefix,
-          accessKeyId: s3.accessKeyId,
-          secretAccessKey: s3.secretAccessKey,
-          retries: s3.retries,
-          timeoutMs: s3.timeoutMs,
-        },
-      });
     }
     for (const config of parseBackendList(settings.backends)) backends.set(config.name, config);
 
