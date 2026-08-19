@@ -4,6 +4,7 @@ import { DatabaseService } from '../database/database.service';
 import { RuntimeEnvService } from '../app-config/runtime-env.service';
 import { LocalDriver } from './drivers/local.driver';
 import { MirrorDriver, type ReplicaFailure } from './drivers/mirror.driver';
+import { S3Driver } from './drivers/s3.driver';
 import { DEFAULT_BACKUPS_ROOT, DEFAULT_UPLOADS_ROOT, GLOBAL_TEMP_DIR } from './storage-paths';
 import {
   STORAGE_CATEGORIES,
@@ -28,7 +29,21 @@ interface MirrorBackendConfig {
   type: 'mirror';
   options: { primary: string; replicas: string[] };
 }
-type BackendConfig = LocalBackendConfig | MirrorBackendConfig;
+interface S3BackendConfig {
+  name: string;
+  type: 's3';
+  options: {
+    endpoint: string;
+    region: string;
+    bucket: string;
+    keyPrefix: string;
+    accessKeyId: string;
+    secretAccessKey: string;
+    retries: number;
+    timeoutMs: number;
+  };
+}
+type BackendConfig = LocalBackendConfig | MirrorBackendConfig | S3BackendConfig;
 
 interface RegistryState {
   drivers: Map<string, StorageDriver>;
@@ -158,6 +173,23 @@ export class StorageRegistryService implements OnModuleInit {
     if (placePhotoDir) {
       backends.set('place-photos-local', { name: 'place-photos-local', type: 'local', options: { root: placePhotoDir } });
     }
+    const s3 = this.env.env().s3;
+    if (s3.configured) {
+      backends.set('s3-main', {
+        name: 's3-main',
+        type: 's3',
+        options: {
+          endpoint: s3.endpoint,
+          region: s3.region,
+          bucket: s3.bucket,
+          keyPrefix: s3.keyPrefix,
+          accessKeyId: s3.accessKeyId,
+          secretAccessKey: s3.secretAccessKey,
+          retries: s3.retries,
+          timeoutMs: s3.timeoutMs,
+        },
+      });
+    }
     for (const config of parseBackendList(settings.backends)) backends.set(config.name, config);
 
     const categoryBackends = new Map<StorageCategory, string>();
@@ -192,6 +224,10 @@ export class StorageRegistryService implements OnModuleInit {
         .filter((prefix) => prefix !== '');
       driver.init({ ensurePrefixes, cleanSpool: boot });
       drivers.set(config.name, driver);
+    }
+    for (const config of backends.values()) {
+      if (config.type !== 's3') continue;
+      drivers.set(config.name, new S3Driver({ id: config.name, ...config.options }));
     }
     for (const config of backends.values()) {
       if (config.type !== 'mirror') continue;
@@ -239,6 +275,12 @@ function parseBackendList(raw: unknown): BackendConfig[] {
         throw new StorageBackendError(`mirror backend '${entry.name}' needs 'options.primary' and 'options.replicas'`);
       }
       return { name: entry.name, type: 'mirror', options: { primary: options.primary, replicas: replicas as string[] } };
+    }
+    if (entry.type === 's3') {
+      throw new StorageBackendError(
+        `s3 backend '${entry.name}' cannot be declared in '${BACKENDS_KEY}' — s3 backends are ` +
+          'env-declared only in v1 (TREK_S3_*; credentials never live in the database)',
+      );
     }
     throw new StorageBackendError(`backend '${entry.name}' has unknown type '${String(entry.type)}'`);
   });

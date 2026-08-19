@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest';
+import { Logger } from '@nestjs/common';
 
 // ── DB setup (the permissions.service.test.ts pattern: real in-memory SQLite
 // so the app_settings SQL is exercised faithfully) ────────────────────────────
@@ -22,9 +23,11 @@ import { createTables } from '../../../../src/db/schema';
 import { runMigrations } from '../../../../src/db/migrations';
 import { DatabaseService } from '../../../../src/nest/database/database.service';
 import type { RuntimeEnvService } from '../../../../src/nest/app-config/runtime-env.service';
+import type { deriveS3 } from '../../../../src/app-config/derive';
 import { StorageRegistryService } from '../../../../src/nest/storage/storage-registry.service';
 import { LocalDriver } from '../../../../src/nest/storage/drivers/local.driver';
 import { MirrorDriver, type ReplicaFailure } from '../../../../src/nest/storage/drivers/mirror.driver';
+import { S3Driver } from '../../../../src/nest/storage/drivers/s3.driver';
 import { GLOBAL_TEMP_DIR, DEFAULT_BACKUPS_ROOT } from '../../../../src/nest/storage/storage-paths';
 import { STORAGE_CATEGORIES } from '../../../../src/nest/storage/storage.types';
 
@@ -49,10 +52,34 @@ interface EnvPaths {
   placePhotoDir?: string;
 }
 
-function makeEnvStub(initial: EnvPaths): { env: RuntimeEnvService; setPaths: (p: EnvPaths) => void } {
+type EnvS3 = ReturnType<typeof deriveS3>;
+const S3_OFF: EnvS3 = {
+  configured: false,
+  endpoint: '',
+  bucket: '',
+  accessKeyId: '',
+  secretAccessKey: '',
+  region: 'us-east-1',
+  keyPrefix: '',
+  retries: 1,
+  timeoutMs: 30000,
+};
+const S3_ON: EnvS3 = {
+  ...S3_OFF,
+  configured: true,
+  endpoint: 'http://127.0.0.1:9000',
+  bucket: 'trek',
+  accessKeyId: 'ak',
+  secretAccessKey: 'sk',
+};
+
+function makeEnvStub(
+  initial: EnvPaths,
+  s3: EnvS3 = S3_OFF,
+): { env: RuntimeEnvService; setPaths: (p: EnvPaths) => void } {
   let paths = initial;
   return {
-    env: { env: () => ({ paths }) } as unknown as RuntimeEnvService,
+    env: { env: () => ({ paths, s3 }) } as unknown as RuntimeEnvService,
     setPaths: (p) => {
       paths = p;
     },
@@ -64,9 +91,9 @@ function setSetting(key: string, value: string): void {
 }
 
 /** Registry rooted in a fresh temp uploads dir; boots unless told not to. */
-function makeRegistry(paths?: EnvPaths, opts: { boot?: boolean } = {}) {
+function makeRegistry(paths?: EnvPaths, opts: { boot?: boolean; s3?: EnvS3 } = {}) {
   const uploadsRoot = paths?.uploadsDir ?? makeTmpDir();
-  const stub = makeEnvStub({ uploadsDir: uploadsRoot, placePhotoDir: paths?.placePhotoDir });
+  const stub = makeEnvStub({ uploadsDir: uploadsRoot, placePhotoDir: paths?.placePhotoDir }, opts.s3);
   const registry = new StorageRegistryService(db, stub.env);
   if (opts.boot !== false) registry.onModuleInit();
   return { registry, uploadsRoot, setPaths: stub.setPaths };
@@ -176,7 +203,11 @@ describe('StorageRegistryService settings', () => {
       ]),
       JSON.stringify({ backups: 'm2' }),
     ],
-    ['unknown driver type', JSON.stringify([{ name: 'x', type: 's3', options: {} }]), undefined],
+    [
+      'settings-declared s3 backend (env-only in v1)',
+      JSON.stringify([{ name: 'x', type: 's3', options: {} }]),
+      undefined,
+    ],
     ['unknown category name', undefined, JSON.stringify({ 'not-a-category': 'uploads-local' })],
     ['malformed JSON', 'not json at all', undefined],
   ])('falls back to built-in defaults at boot on invalid settings: %s', (_label, backendsRow, categoriesRow) => {
@@ -268,5 +299,55 @@ describe('StorageRegistryService replica health', () => {
     expect(failures).toHaveLength(50);
     expect(failures[0].key).toBe('backup-10.zip'); // oldest 10 dropped
     expect(failures[49].key).toBe('backup-59.zip');
+  });
+});
+
+// ── s3-main (env-declared) ────────────────────────────────────────────────────
+
+describe('s3-main (env-declared)', () => {
+  it('appears only when TREK_S3_* is configured, with no category mapped to it', () => {
+    const { registry } = makeRegistry({}, { s3: S3_ON });
+    expect(() => registry.resolve('backups')).not.toThrow();
+    for (const category of STORAGE_CATEGORIES) {
+      expect(registry.resolve(category).backendName).not.toBe('s3-main');
+    }
+  });
+
+  it('is absent when the env is unset (zero behavior change)', () => {
+    setSetting('storage.categories', JSON.stringify({ backups: 's3-main' }));
+    const { registry } = makeRegistry(); // S3_OFF
+    // invalid mapping → last-good/defaults kept, per the standing mechanism
+    expect(registry.resolve('backups').backendName).toBe('backups-local');
+  });
+
+  it('is assignable to any category via settings (S3Driver instance)', () => {
+    setSetting('storage.categories', JSON.stringify({ covers: 's3-main' }));
+    const { registry } = makeRegistry({}, { s3: S3_ON });
+    const resolved = registry.resolve('covers');
+    expect(resolved.backendName).toBe('s3-main');
+    expect(resolved.driver).toBeInstanceOf(S3Driver);
+    expect(resolved.keyPrefix).toBe('covers/');
+  });
+
+  it('serves as a mirror replica (local primary + s3 replica on backups)', () => {
+    setSetting(
+      'storage.backends',
+      JSON.stringify([{ name: 'backup-mirror', type: 'mirror', options: { primary: 'backups-local', replicas: ['s3-main'] } }]),
+    );
+    setSetting('storage.categories', JSON.stringify({ backups: 'backup-mirror' }));
+    const { registry } = makeRegistry({}, { s3: S3_ON });
+    expect(registry.resolve('backups').backendName).toBe('backup-mirror');
+  });
+
+  it('rejects a settings-declared s3 backend with the intentional message', () => {
+    const errorSpy = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    setSetting('storage.backends', JSON.stringify([{ name: 'rogue', type: 's3', options: {} }]));
+    const { registry } = makeRegistry({}, { s3: S3_ON });
+    expect(registry.resolve('backups').backendName).toBe('backups-local'); // defaults kept
+
+    const logged = errorSpy.mock.calls.map((call) => String(call[0])).join('\n');
+    expect(logged).toContain("s3 backend 'rogue' cannot be declared in 'storage.backends'");
+    expect(logged).toContain('env-declared only in v1');
+    expect(logged).toContain('credentials never live in the database');
   });
 });
