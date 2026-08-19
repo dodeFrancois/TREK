@@ -1,7 +1,9 @@
 import fs from 'node:fs';
 import { Injectable, Logger, type OnModuleInit } from '@nestjs/common';
+import { STORAGE_BACKEND_TYPES } from '@trek/shared';
 import { DatabaseService } from '../database/database.service';
 import { RuntimeEnvService } from '../app-config/runtime-env.service';
+import { decrypt_api_key } from '../common/crypto/apiKeyCrypto';
 import { LocalDriver } from './drivers/local.driver';
 import { MirrorDriver, type ReplicaFailure } from './drivers/mirror.driver';
 import { S3Driver } from './drivers/s3.driver';
@@ -106,6 +108,19 @@ export class StorageRegistryService implements OnModuleInit {
   /** Re-read settings, validate, atomically swap. In-flight ops keep their resolved instances. */
   reload(): void {
     this.load(false);
+  }
+
+  /**
+   * Validate a candidate config by running the real build() — merge over
+   * built-ins → parse → validateConfig → driver construction (network-free) —
+   * and discard the result. Throws exactly what a failing load would log;
+   * never touches this.state (admin writes must not take the silent boot-time
+   * fallback). Shares one side effect with any successful save: local roots
+   * and prefix dirs are created — an uncreatable root is exactly the error to
+   * surface before persisting. cleanSpool stays boot-only (boot=false here).
+   */
+  preview(candidate: { backends: unknown; categories: unknown }): void {
+    void this.build(candidate, false);
   }
 
   resolve(category: StorageCategory): ResolvedCategory {
@@ -227,7 +242,10 @@ export class StorageRegistryService implements OnModuleInit {
     }
     for (const config of backends.values()) {
       if (config.type !== 's3') continue;
-      drivers.set(config.name, new S3Driver({ id: config.name, ...config.options }));
+      drivers.set(
+        config.name,
+        new S3Driver({ id: config.name, ...config.options, secretAccessKey: decryptedSecret(config) }),
+      );
     }
     for (const config of backends.values()) {
       if (config.type !== 'mirror') continue;
@@ -277,10 +295,17 @@ function parseBackendList(raw: unknown): BackendConfig[] {
       return { name: entry.name, type: 'mirror', options: { primary: options.primary, replicas: replicas as string[] } };
     }
     if (entry.type === 's3') {
-      throw new StorageBackendError(
-        `s3 backend '${entry.name}' cannot be declared in '${BACKENDS_KEY}' — s3 backends are ` +
-          'env-declared only in v1 (TREK_S3_*; credentials never live in the database)',
-      );
+      const parsed = STORAGE_BACKEND_TYPES.s3.optionsSchema.safeParse(options);
+      if (!parsed.success) {
+        const first = parsed.error.issues[0];
+        throw new StorageBackendError(
+          `s3 backend '${entry.name}' has invalid options` +
+            (first ? ` — ${first.path.join('.') || '(options)'}: ${first.message}` : ''),
+        );
+      }
+      // secretAccessKey stays as stored (usually enc:v1:) — decrypted only at
+      // driver construction, so config maps and snapshots never hold plaintext.
+      return { name: entry.name, type: 's3', options: parsed.data };
     }
     throw new StorageBackendError(`backend '${entry.name}' has unknown type '${String(entry.type)}'`);
   });
@@ -298,6 +323,21 @@ function parseCategoryMap(raw: unknown): Array<[StorageCategory, string]> {
     }
     return [category as StorageCategory, backendName];
   });
+}
+
+/**
+ * Secrets live encrypted inside the storage.backends JSON (admin-config spec);
+ * plaintext passthrough is tolerated as belt-and-braces (decrypt_api_key's
+ * legacy-plaintext rule), though seed and PUT always store encrypted.
+ */
+function decryptedSecret(config: S3BackendConfig): string {
+  const plain = decrypt_api_key(config.options.secretAccessKey);
+  if (plain === null) {
+    throw new StorageBackendError(
+      `s3 backend '${config.name}': could not decrypt 'secretAccessKey' — was ENCRYPTION_KEY changed or the row edited by hand?`,
+    );
+  }
+  return plain;
 }
 
 function validateConfig(backends: Map<string, BackendConfig>, categories: Map<StorageCategory, string>): void {

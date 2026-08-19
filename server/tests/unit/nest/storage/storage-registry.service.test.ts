@@ -14,6 +14,7 @@ const { testDb, dbMock } = vi.hoisted(() => {
 });
 
 vi.mock('../../../../src/db/database', () => dbMock);
+vi.mock('../../../../src/config', () => ({ ENCRYPTION_KEY: 'storage-registry-test-key' }));
 
 import fs from 'node:fs';
 import os from 'node:os';
@@ -24,6 +25,7 @@ import { runMigrations } from '../../../../src/db/migrations';
 import { DatabaseService } from '../../../../src/nest/database/database.service';
 import type { RuntimeEnvService } from '../../../../src/nest/app-config/runtime-env.service';
 import type { deriveS3 } from '../../../../src/app-config/derive';
+import { encrypt_api_key } from '../../../../src/nest/common/crypto/apiKeyCrypto';
 import { StorageRegistryService } from '../../../../src/nest/storage/storage-registry.service';
 import { LocalDriver } from '../../../../src/nest/storage/drivers/local.driver';
 import { MirrorDriver, type ReplicaFailure } from '../../../../src/nest/storage/drivers/mirror.driver';
@@ -204,7 +206,7 @@ describe('StorageRegistryService settings', () => {
       JSON.stringify({ backups: 'm2' }),
     ],
     [
-      'settings-declared s3 backend (env-only in v1)',
+      'settings s3 backend with invalid options',
       JSON.stringify([{ name: 'x', type: 's3', options: {} }]),
       undefined,
     ],
@@ -338,16 +340,118 @@ describe('s3-main (env-declared)', () => {
     const { registry } = makeRegistry({}, { s3: S3_ON });
     expect(registry.resolve('backups').backendName).toBe('backup-mirror');
   });
+});
 
-  it('rejects a settings-declared s3 backend with the intentional message', () => {
+// ── settings-declared s3 backends (admin-config slice: acceptance) ───────────
+
+describe('settings-declared s3 backends', () => {
+  const s3Options = {
+    endpoint: 'http://127.0.0.1:9000',
+    bucket: 'trek',
+    accessKeyId: 'ak',
+    secretAccessKey: 'sk-plain',
+    region: 'us-east-1',
+    keyPrefix: '',
+    retries: 1,
+    timeoutMs: 30000,
+  };
+
+  it('accepts a settings s3 backend and assigns it to a category', () => {
+    setSetting('storage.backends', JSON.stringify([{ name: 'off-box', type: 's3', options: s3Options }]));
+    setSetting('storage.categories', JSON.stringify({ covers: 'off-box' }));
+    const { registry } = makeRegistry();
+    const resolved = registry.resolve('covers');
+    expect(resolved.backendName).toBe('off-box');
+    expect(resolved.driver).toBeInstanceOf(S3Driver);
+    expect(resolved.keyPrefix).toBe('covers/');
+  });
+
+  it('decrypts an enc:v1: secretAccessKey at build (decrypt-at-build)', () => {
+    setSetting(
+      'storage.backends',
+      JSON.stringify([
+        { name: 'off-box', type: 's3', options: { ...s3Options, secretAccessKey: encrypt_api_key('sk-secret') } },
+      ]),
+    );
+    setSetting('storage.categories', JSON.stringify({ backups: 'off-box' }));
+    const { registry } = makeRegistry();
+    expect(registry.resolve('backups').driver).toBeInstanceOf(S3Driver);
+  });
+
+  it('applies the shared-schema defaults for omitted optional fields', () => {
+    const { endpoint, bucket, accessKeyId, secretAccessKey } = s3Options;
+    setSetting(
+      'storage.backends',
+      JSON.stringify([{ name: 'off-box', type: 's3', options: { endpoint, bucket, accessKeyId, secretAccessKey } }]),
+    );
+    setSetting('storage.categories', JSON.stringify({ backups: 'off-box' }));
+    const { registry } = makeRegistry();
+    expect(registry.resolve('backups').backendName).toBe('off-box');
+  });
+
+  it('serves as a mirror replica (local primary + settings s3 replica on backups)', () => {
+    const nasRoot = makeTmpDir();
+    setSetting(
+      'storage.backends',
+      JSON.stringify([
+        { name: 'off-box', type: 's3', options: s3Options },
+        { name: 'nas-backups', type: 'local', options: { root: nasRoot } },
+        { name: 'backup-mirror', type: 'mirror', options: { primary: 'nas-backups', replicas: ['off-box'] } },
+      ]),
+    );
+    setSetting('storage.categories', JSON.stringify({ backups: 'backup-mirror' }));
+    const { registry } = makeRegistry();
+    expect(registry.resolve('backups').backendName).toBe('backup-mirror');
+    expect(registry.resolve('backups').driver).toBeInstanceOf(MirrorDriver);
+  });
+
+  it('falls back with the pinned message when s3 options fail the shared schema', () => {
     const errorSpy = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
-    setSetting('storage.backends', JSON.stringify([{ name: 'rogue', type: 's3', options: {} }]));
-    const { registry } = makeRegistry({}, { s3: S3_ON });
-    expect(registry.resolve('backups').backendName).toBe('backups-local'); // defaults kept
-
+    setSetting(
+      'storage.backends',
+      JSON.stringify([{ name: 'off-box', type: 's3', options: { ...s3Options, endpoint: 'not a url' } }]),
+    );
+    const { registry } = makeRegistry();
+    expect(registry.resolve('backups').backendName).toBe('backups-local');
     const logged = errorSpy.mock.calls.map((call) => String(call[0])).join('\n');
-    expect(logged).toContain("s3 backend 'rogue' cannot be declared in 'storage.backends'");
-    expect(logged).toContain('env-declared only in v1');
-    expect(logged).toContain('credentials never live in the database');
+    expect(logged).toContain("s3 backend 'off-box' has invalid options — endpoint:");
+  });
+
+  it('falls back with the pinned message when the ciphertext cannot be decrypted', () => {
+    const errorSpy = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    setSetting(
+      'storage.backends',
+      JSON.stringify([{ name: 'off-box', type: 's3', options: { ...s3Options, secretAccessKey: 'enc:v1:AAAA' } }]),
+    );
+    setSetting('storage.categories', JSON.stringify({ backups: 'off-box' }));
+    const { registry } = makeRegistry();
+    expect(registry.resolve('backups').backendName).toBe('backups-local');
+    const logged = errorSpy.mock.calls.map((call) => String(call[0])).join('\n');
+    expect(logged).toContain("s3 backend 'off-box': could not decrypt 'secretAccessKey'");
+  });
+});
+
+// ── preview() — admin writes never take the silent fallback ──────────────────
+
+describe('preview()', () => {
+  it('throws the exact registry error for an invalid candidate and mutates nothing', () => {
+    const { registry } = makeRegistry();
+    const before = registry.resolve('backups').driver;
+    expect(() =>
+      registry.preview({ backends: [], categories: { backups: 'nope' } }),
+    ).toThrow("category 'backups' maps to unknown backend 'nope'");
+    expect(registry.resolve('backups').driver).toBe(before); // same instance — state untouched
+  });
+
+  it('accepts a valid candidate without changing resolution', () => {
+    const nasRoot = makeTmpDir();
+    const { registry } = makeRegistry();
+    const before = registry.resolve('backups').driver;
+    registry.preview({
+      backends: [{ name: 'nas-backups', type: 'local', options: { root: nasRoot } }],
+      categories: { backups: 'nas-backups' },
+    });
+    expect(registry.resolve('backups').driver).toBe(before);
+    expect(registry.resolve('backups').backendName).toBe('backups-local');
   });
 });
