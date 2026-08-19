@@ -102,6 +102,44 @@ function isNotFound(err: unknown): boolean {
   return statusCode(err) === 404 || code === 'NoSuchKey' || code === 'NotFound';
 }
 
+/**
+ * Workaround for a verified upstream signing defect: a zero-byte PutObject
+ * body fails against real S3-compatible servers (confirmed against MinIO)
+ * with 403 SignatureDoesNotMatch, while any non-empty body succeeds via the
+ * identical code path. Root cause, traced through the installed deps:
+ *
+ * - `@aws-lite/s3`'s PutObject (node_modules/@aws-lite/s3/src/put-object.mjs:99,
+ *   the default `!ApplyChecksum` "unsigned payload" branch) always sets
+ *   `headers['content-length'] = dataSize` — a *number*, including `0`.
+ * - `aws4`'s signer (node_modules/aws4/aws4.js:151-152, aws4@1.13.2) then runs
+ *   `if (request.body && !headers['Content-Length'] && !headers['content-length'])
+ *      headers['Content-Length'] = Buffer.byteLength(request.body)`.
+ *   `!0 === true`, so aws4 treats the already-set `0` as "unset" and injects
+ *   a SECOND, differently-cased `Content-Length` header onto the same object.
+ *   JS object keys are case-sensitive, so both survive; aws4's
+ *   canonicalHeaders()/signedHeaders() (aws4.js:311-322) don't dedupe by
+ *   lowercased name, so `content-length` is signed *twice*
+ *   (`SignedHeaders=content-length;content-length;...`, confirmed live
+ *   against MinIO in the repro below). MinIO's own canonicalization of the
+ *   headers it actually received doesn't reproduce that duplicate, so the
+ *   signatures disagree — 403. Any non-empty body makes
+ *   `headers['content-length']` a truthy number, so aws4's guard never fires
+ *   and no duplicate is ever added — hence the bug is exactly the size-0
+ *   boundary, nothing else.
+ *
+ * `ApplyChecksum: true` routes PutObject through @aws-lite/s3's OTHER branch
+ * (put-object.mjs:106-118), which never pre-sets Content-Length itself —
+ * aws4 then adds it exactly once, and independently computes a correct
+ * `x-amz-content-sha256` for the (empty) body instead of `UNSIGNED-PAYLOAD`.
+ * Verified end-to-end against real MinIO: 200 OK, correct empty-object ETag.
+ * The extra checksum cost is nil for a 0-byte body. Delete this workaround
+ * once aws4 dedupes header keys case-insensitively before signing (or
+ * @aws-lite/s3 stops pre-setting a falsy-numeric Content-Length).
+ */
+function zeroByteChecksumWorkaround(size: number): { ApplyChecksum: true } | Record<string, never> {
+  return size === 0 ? { ApplyChecksum: true } : {};
+}
+
 export class S3Driver implements StorageDriver {
   readonly id: string;
   private readonly bucket: string;
@@ -143,7 +181,10 @@ export class S3Driver implements StorageDriver {
       try {
         const { size } = await fs.promises.stat(source.tmpPath);
         if (size < MULTIPART_THRESHOLD) {
-          await this.deadlined(s3.PutObject({ ...base, File: source.tmpPath }), `put '${key}'`);
+          await this.deadlined(
+            s3.PutObject({ ...base, File: source.tmpPath, ...zeroByteChecksumWorkaround(size) }),
+            `put '${key}'`,
+          );
         } else {
           await this.uploadMonitored(s3, base, fs.createReadStream(source.tmpPath), key);
         }
@@ -167,7 +208,11 @@ export class S3Driver implements StorageDriver {
     // the PassThrough — but ended means the chunks already hold everything.
     if (peeked.ended || source.readableEnded) {
       try {
-        await this.deadlined(s3.PutObject({ ...base, Body: Buffer.concat(peeked.chunks) }), `put '${key}'`);
+        const body = Buffer.concat(peeked.chunks);
+        await this.deadlined(
+          s3.PutObject({ ...base, Body: body, ...zeroByteChecksumWorkaround(body.length) }),
+          `put '${key}'`,
+        );
       } catch (err) {
         throw this.wrap(err, `put failed for '${key}'`);
       }

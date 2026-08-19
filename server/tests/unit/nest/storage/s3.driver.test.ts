@@ -251,6 +251,18 @@ describe('S3Driver put — bounded peek routing', () => {
     await makeDriver(api).put('a/empty.bin', Readable.from([]));
     const input = (api.PutObject as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(Buffer.isBuffer(input.Body) && input.Body.length).toBe(0);
+    // aws4@1.13.2 signing workaround (see zeroByteChecksumWorkaround in
+    // s3.driver.ts): a zero-byte Body must set ApplyChecksum: true so
+    // @aws-lite/s3's PutObject never pre-sets a falsy-numeric Content-Length
+    // that aws4 then duplicates, breaking the signature against real S3.
+    expect(input.ApplyChecksum).toBe(true);
+  });
+  it('does not apply the zero-byte checksum workaround to a 1-byte stream (boundary is exactly size 0)', async () => {
+    const api = makeMockApi({ PutObject: vi.fn().mockResolvedValue({}) });
+    await makeDriver(api).put('a/one-byte.bin', Readable.from(Buffer.from([7])));
+    const input = (api.PutObject as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(input.Body.length).toBe(1);
+    expect(input.ApplyChecksum).toBeUndefined();
   });
   it('routes a stream exceeding the threshold to Upload with the peeked prefix re-attached', async () => {
     let uploaded: Buffer | null = null;
@@ -368,6 +380,16 @@ describe('S3Driver put — LocalTempFile ownership', () => {
     await makeDriver(api).put('a/t.bin', { tmpPath: tmp }, { contentType: 'image/png' });
     expect(api.PutObject).toHaveBeenCalledWith(
       expect.objectContaining({ File: tmp, Key: 'a/t.bin', ContentType: 'image/png' }),
+    );
+    expect((api.PutObject as ReturnType<typeof vi.fn>).mock.calls[0][0].ApplyChecksum).toBeUndefined();
+    expect(fs.existsSync(tmp)).toBe(false);
+  });
+  it('applies the zero-byte checksum workaround to a zero-byte temp file too (same aws4 signing defect)', async () => {
+    const api = makeMockApi({ PutObject: vi.fn().mockResolvedValue({}) });
+    const tmp = await makeTmp(0);
+    await makeDriver(api).put('a/empty-tmp.bin', { tmpPath: tmp });
+    expect(api.PutObject).toHaveBeenCalledWith(
+      expect.objectContaining({ File: tmp, Key: 'a/empty-tmp.bin', ApplyChecksum: true }),
     );
     expect(fs.existsSync(tmp)).toBe(false);
   });
