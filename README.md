@@ -508,7 +508,7 @@ Caddy handles TLS and WebSockets automatically.
 
 ### Off-box backups (S3)
 
-You can mirror backups to any S3-compatible store (AWS S3, Cloudflare R2, Backblaze B2, Garage, MinIO — we pull MinIO from quay.io since the Docker Hub repo is archived; Garage is the maintained self-host alternative). Replica failures are logged and surfaced, never fail the request. Media categories on S3 are functional but unoptimized (every served byte proxies through the server; no HTTP Range on the proxy path). Switching a populated category's backend does not move existing objects. AWS caveat: Object-Lock buckets or checksum-requiring bucket policies reject the server's checksum-less uploads. Reference `docker-compose.minio-test.yml` for running the contract suite locally.
+You can mirror backups to any S3-compatible store (AWS S3, Cloudflare R2, Backblaze B2, Garage, MinIO — MinIO's community line is discontinued entirely (both the archived Docker Hub repo and quay.io get no further updates); the maintained successor, AIStor, requires a license key, so Garage is the maintained self-host alternative without that requirement). Replica failures are logged and surfaced, never fail the request. Media categories on S3 are functional but unoptimized (every served byte proxies through the server; no HTTP Range on the proxy path). Switching a populated category's backend does not move existing objects. AWS caveat: Object-Lock buckets or checksum-requiring bucket policies reject the server's checksum-less uploads. Running the contract suite against a live MinIO/AIStor is a manual, license-gated procedure — see `docker-compose.minio-test.yml`'s header for the full setup and run steps; it is not part of CI.
 
 To mirror backups, configure the mirror backend via SQL:
 

@@ -175,64 +175,6 @@ jobs:
           path: server/coverage/
           retention-days: 7
 
-  s3-contract:
-    name: S3 Driver Contract (MinIO)
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Ensure @swc/core's Linux binary for unplugin-swc
-        # The lockfile was generated on Windows and omits @swc/core's Linux
-        # optional native binary, so npm ci/install skips it on the runner.
-        # Install the matching version explicitly so the server's SWC transform
-        # (server/vitest.config.ts) can load.
-        run: |
-          SWC_VERSION=$(node -p "require('@swc/core/package.json').version")
-          npm install --no-save --legacy-peer-deps "@swc/core-linux-x64-gnu@$SWC_VERSION"
-
-      - name: Build shared
-        run: npm run build --workspace=shared
-
-      - name: Start MinIO
-        # `services:` can't pass the `server /data` command to minio/minio, so
-        # the container starts via docker run. Tag pinned — quay.io is the
-        # maintained registry (Docker Hub minio/minio is archived). 127.0.0.1
-        # endpoint is load-bearing: aws-lite picks path-style only for IP/localhost
-        # hosts, which is all stock MinIO speaks.
-        run: |
-          docker run -d --name minio -p 127.0.0.1:9000:9000 \
-            -e MINIO_ROOT_USER=trekci -e MINIO_ROOT_PASSWORD=trekci-secret \
-            quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z.hotfix.7aa24e772 server /data
-
-      - name: Wait for MinIO
-        # curl was removed from the MinIO image — poll from the runner instead.
-        run: |
-          for i in $(seq 1 30); do
-            curl -sf http://127.0.0.1:9000/minio/health/live && exit 0
-            sleep 1
-          done
-          echo "MinIO never became healthy" >&2
-          docker logs minio >&2
-          exit 1
-
-      - name: Run the S3 driver contract suite
-        env:
-          TREK_TEST_S3_ENDPOINT: http://127.0.0.1:9000
-          TREK_TEST_S3_BUCKET: trek-test
-          TREK_TEST_S3_ACCESS_KEY_ID: trekci
-          TREK_TEST_S3_SECRET_ACCESS_KEY: trekci-secret
-        run: cd server && npx vitest run tests/unit/nest/storage/s3.driver.contract.test.ts
-
   client-quality:
     # Split out of client-tests: the suite takes ~11 minutes, and having the
     # gates in front of it meant a single lint finding threw away the whole test
