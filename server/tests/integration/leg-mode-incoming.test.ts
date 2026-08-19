@@ -43,10 +43,17 @@ describe('incoming_leg_transport_mode migration', () => {
     //
     // >>> Appending a migration? Re-point the undo below at whatever yours
     // >>> does. That is the whole maintenance cost of this guard.
-    // Trailing migrations today (a dev/feat-storage-driver merge landed two
-    // in one release window, so the rewind spans both):
-    //   version-2 — reservation_day_positions cross-trip cleanup: undone by
+    // Trailing migrations today (a dev/feat-storage-driver merge landed five
+    // in one release window, so the rewind spans all of them):
+    //   version-5 — reservation_day_positions cross-trip cleanup: undone by
     //               re-inserting a mismatched reservation/day pair.
+    //   version-4 — #1939 instance API key promotion: nothing to undo — the
+    //               seeded users are not admins and hold no keys, so the
+    //               replay is a no-op by its own guards.
+    //   version-3 — trek_photos capture metadata (#1614): column-guarded, so
+    //               the replay is a no-op; the from-scratch case above covers it.
+    //   version-2 — journey_share_tokens.newest_first: undone by dropping the
+    //               column and letting the replay put it back.
     //   version-1 — storage slice-2 trip_files 'files/' prefix strip: undone
     //               by re-inserting a prefixed row.
     const upgraded = new Database(':memory:');
@@ -68,7 +75,15 @@ describe('incoming_leg_transport_mode migration', () => {
     insertPosition.run(reservationOnA, dayOnA, 2); // a legitimate one it must leave alone
     upgraded.prepare("INSERT INTO trip_files (trip_id, filename, original_name) VALUES (?, 'files/aaa.pdf', 'a.pdf')").run(tripA);
 
-    upgraded.prepare('UPDATE schema_version SET version = ?').run(version - 2);
+    const hasNewestFirst = () =>
+      (upgraded.prepare("SELECT name FROM pragma_table_info('journey_share_tokens')").all() as { name: string }[])
+        .some(c => c.name === 'newest_first');
+
+    expect(hasNewestFirst()).toBe(true);
+    upgraded.exec('ALTER TABLE journey_share_tokens DROP COLUMN newest_first');
+    expect(hasNewestFirst()).toBe(false);
+
+    upgraded.prepare('UPDATE schema_version SET version = ?').run(version - 5);
 
     runMigrations(upgraded);
 
@@ -76,6 +91,7 @@ describe('incoming_leg_transport_mode migration', () => {
     expect(positions).toEqual([{ day_id: Number(dayOnA) }]);
     const files = upgraded.prepare('SELECT filename FROM trip_files').all() as { filename: string }[];
     expect(files.map(r => r.filename)).toEqual(['aaa.pdf']);
+    expect(hasNewestFirst()).toBe(true);
     expect(upgraded.prepare('SELECT version FROM schema_version').get()).toEqual({ version });
     upgraded.close();
   });

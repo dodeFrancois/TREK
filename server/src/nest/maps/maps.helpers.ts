@@ -22,6 +22,17 @@ export function buildUserAgent(instanceUrl: string | undefined): string {
 // Computed once at load — getAppUrl() reads only env vars, which don't change at runtime.
 export const UA = buildUserAgent(getAppUrl());
 
+/**
+ * The fields places:searchText is asked for.
+ *
+ * Here rather than beside the call because the admin panel's key test has to
+ * send the same mask: a key restricted to a narrower set of Places SKUs answers
+ * a one-field probe with 200 and the real search with 403, which is the second
+ * way to reach the #1939 report ("test button green, searching fails").
+ */
+export const SEARCH_TEXT_FIELD_MASK =
+  'places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.websiteUri,places.nationalPhoneNumber,places.types,places.googleMapsUri,places.businessStatus';
+
 // TREK's internal language codes mostly coincide with valid BCP-47 codes, but a
 // couple don't: 'br' is Brazilian Portuguese here (BCP-47 'pt-BR'; bare 'br' is
 // Breton) and 'gr' is Greek (BCP-47 'el'). Outbound geo APIs (Google Places,
@@ -118,17 +129,29 @@ export function namesOverlap(a: string, b: string): boolean {
 }
 
 const GOOGLE_FTID_RE = /^0x[0-9a-f]+:0x[0-9a-f]+$/i;
+// The same id inside the `data=` pathname blob, where a resolved share link keeps it:
+// /maps/place/<name>/data=!4m6!3m5!1s0x47e66e1f06e2b70f:0x40b82c3688c9460!8m2!3d48.85!4d2.29
+const GOOGLE_FTID_DATA_RE = /!1s(0x[0-9a-f]{1,20}:0x[0-9a-f]{1,20})/i;
 
-// Extracts a Google Maps feature id (ftid, 0x..:0x..) from a URL's ?ftid= param.
+// Extracts a Google Maps feature id (ftid, 0x..:0x..) from a URL.
+// Two shapes carry it. The `?ftid=` query parameter is the old one. A share link that
+// resolveGoogleMapsUrl has followed to its final hop carries it instead in the `data=`
+// pathname blob, in the same `!1s…!3d…!4d…` run the coordinates come from (#1954) — so
+// reading only the query parameter dropped the id for every pasted maps.app.goo.gl link.
 // The Places API (New) googleMapsUri is usually a cid-style URL (https://maps.google.com/?cid=NNN)
-// with no ftid, so this returns null for most API responses — the precise query_place_id link is
-// used instead. It does recover an ftid from a /place/?...&ftid= URL, e.g. a pasted share link
-// resolved by resolveGoogleMapsUrl or a Google MyMaps list import.
+// with neither, so this still returns null for most API responses — the precise
+// query_place_id link is used instead.
 export function googleFtidFromMapsUrl(url?: string | null): string | null {
   if (!url) return null;
   try {
-    const ftid = new URL(url).searchParams.get('ftid')?.trim();
-    return ftid && GOOGLE_FTID_RE.test(ftid) ? ftid.toLowerCase() : null;
+    const parsed = new URL(url);
+    const ftid = parsed.searchParams.get('ftid')?.trim();
+    if (ftid && GOOGLE_FTID_RE.test(ftid)) return ftid.toLowerCase();
+    // Only for a place URL. A /maps/dir/ route carries one !1s per waypoint and the
+    // first one is the origin, not the place the link is about.
+    if (!parsed.pathname.includes('/place/')) return null;
+    const fromPath = GOOGLE_FTID_DATA_RE.exec(parsed.pathname)?.[1];
+    return fromPath ? fromPath.toLowerCase() : null;
   } catch {
     return null;
   }

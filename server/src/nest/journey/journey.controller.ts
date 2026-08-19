@@ -25,6 +25,7 @@ import type { User } from '../../types';
 import { StorageService } from '../storage/storage.service';
 import { journeyThumbName } from '../memories/thumbnail.service';
 import { JourneyService } from './journey.service';
+import { PhotoCaptureBackfillService } from '../memories/photo-capture-backfill.service';
 import { AddonGuard } from '../addons/addon.guard';
 import { RequireAddon } from '../addons/require-addon.decorator';
 import { ADDON_IDS } from '../../addons';
@@ -126,6 +127,7 @@ export class JourneyController {
   constructor(
     private readonly journey: JourneyService,
     private readonly storage: StorageService,
+    private readonly captureBackfill: PhotoCaptureBackfillService,
   ) {}
 
   /**
@@ -145,6 +147,16 @@ export class JourneyController {
       }
       throw err;
     }
+  }
+
+  // The add call carries only an asset id, so when and where the picture was taken
+  // are fetched from the provider afterwards rather than trusted from the client
+  // (#1614). Detached: a slow or unreachable provider must not hold up the add.
+  private backfillCapture(photos: unknown[], userId: number): void {
+    const ids = photos
+      .map(p => (p as { photo_id?: number } | null)?.photo_id)
+      .filter((id): id is number => typeof id === 'number');
+    this.captureBackfill.schedule(ids, userId);
   }
 
   // ── Static prefix routes (before /:id) ──────────────────────────────────
@@ -226,6 +238,7 @@ export class JourneyController {
     if (!results.length) {
       throw new HttpException({ error: 'Not allowed' }, 403);
     }
+    this.backfillCapture(results, user.id);
     return { photos: results };
   }
 
@@ -239,6 +252,7 @@ export class JourneyController {
         const photo = this.journey.addProviderPhoto(Number(entryId), user.id, String(body.provider), String(id), body.caption as string | undefined, pp, mt);
         if (photo) added.push(photo);
       });
+      this.backfillCapture(added, user.id);
       return { photos: added, added: added.length };
     }
     if (!body.provider || !body.asset_id) {
@@ -248,6 +262,7 @@ export class JourneyController {
     if (!photo) {
       throw new HttpException({ error: 'Not allowed or duplicate' }, 403);
     }
+    this.backfillCapture([photo], user.id);
     return photo;
   }
 
@@ -332,6 +347,9 @@ export class JourneyController {
     if (!photos.length) {
       throw new HttpException({ error: 'Not allowed' }, 403);
     }
+    // An uploaded file carries its own EXIF; reading it is what puts the photo on
+    // the map later. Detached, like the provider branch.
+    this.backfillCapture(photos, user.id);
     return { photos };
   }
 
@@ -390,6 +408,7 @@ export class JourneyController {
         const photo = this.journey.addProviderPhotoToGallery(Number(id), user.id, String(body.provider), String(aid), undefined, pp, mt);
         if (photo) added.push(photo);
       });
+      this.backfillCapture(added, user.id);
       return { photos: added, added: added.length };
     }
     if (!body.provider || !body.asset_id) {
@@ -399,6 +418,7 @@ export class JourneyController {
     if (!photo) {
       throw new HttpException({ error: 'Not allowed or duplicate' }, 403);
     }
+    this.backfillCapture([photo], user.id);
     return photo;
   }
 

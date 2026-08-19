@@ -5,6 +5,7 @@ import { ImmichService } from './immich.service';
 import { SynologyService } from './synology.service';
 import { UnifiedMemoriesService } from './unified-memories.service';
 import { PhotoResolverService } from './photo-resolver.service';
+import { PhotoCaptureBackfillService } from './photo-capture-backfill.service';
 import { ThumbnailService } from './thumbnail.service';
 import { TrekPhotoCacheService } from './trek-photo-cache.service';
 import { TrekPhotoCacheJob } from './trek-photo-cache.job';
@@ -54,6 +55,7 @@ import { StorageModule } from '../storage/storage.module';
     SynologyService,
     UnifiedMemoriesService,
     PhotoResolverService,
+    PhotoCaptureBackfillService,
     ThumbnailService,
     TrekPhotoCacheService,
     TrekPhotoCacheJob,
@@ -67,6 +69,6 @@ import { StorageModule } from '../storage/storage.module';
       inject: [ImmichPhotoProvider, SynologyPhotoProvider],
     },
   ],
-  exports: [MemoriesAccessService, PhotoResolverService, ImmichService, SynologyService, PhotoProviderRegistry],
+  exports: [MemoriesAccessService, PhotoResolverService, PhotoCaptureBackfillService, ImmichService, SynologyService, PhotoProviderRegistry],
 })
 export class MemoriesModule {}

@@ -3909,13 +3909,89 @@ function runMigrations(db: Database.Database): void {
          )
       `);
     },
+    // #1939 — the Google Places and Unsplash keys are instance configuration and
+    // now resolve out of app_settings (nest/settings/instance-api-keys.ts). This
+    // carries the value the old resolver would have handed out — the lowest-id
+    // admin who has one — into that row, so an install that upgrades keeps the
+    // key it was searching with instead of falling back to OpenStreetMap.
+    // Only where that key already was the whole install's, though. The resolver
+    // reads the instance row before the caller's own column, so promoting a
+    // personal key while a second row still holds one would move that member
+    // onto a stranger's key and a stranger's bill without anyone saying so. As
+    // soon as another row has a value for the same column nothing is written:
+    // everybody keeps resolving what they resolved before, and a member with no
+    // key of their own searches via OpenStreetMap until an admin saves the
+    // instance key once in the panel. Handing a key to the whole instance is the
+    // admin's call, not a migration's.
+    // The users columns are left alone: they are still the per-user fallback,
+    // and nothing here can lose a value. Stored blobs are copied verbatim; both
+    // sides use the same apiKeyCrypto format, legacy plaintext included.
+    // Appended LAST — the array is index-addressed against schema_version.
+    () => {
+      const upsert = db.prepare(
+        `INSERT INTO app_settings (key, value) VALUES (?, ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value`
+      );
+      for (const column of ['maps_api_key', 'unsplash_api_key'] as const) {
+        const existing = db.prepare('SELECT value FROM app_settings WHERE key = ?').get(column) as
+          | { value: string | null }
+          | undefined;
+        if (existing?.value) continue;
+        const row = db
+          .prepare(
+            `SELECT id, ${column} AS value FROM users
+              WHERE role = 'admin' AND ${column} IS NOT NULL AND ${column} != ''
+              ORDER BY id ASC LIMIT 1`
+          )
+          .get() as { id: number; value: string } | undefined;
+        if (!row?.value) continue;
+        const otherHolder = db
+          .prepare(
+            `SELECT 1 FROM users
+              WHERE id != ? AND ${column} IS NOT NULL AND ${column} != '' LIMIT 1`
+          )
+          .get(row.id);
+        if (otherHolder) continue;
+        upsert.run(column, row.value);
+      }
+    },
+    // Capture metadata on the photo itself (#1614): when it was taken and where.
+    // Both are needed before photos can sit on the Journey map by their own
+    // coordinates, and before a gallery can be ordered by when a picture was
+    // taken rather than when it happened to be added. Nullable throughout —
+    // most providers answer with neither, and a photo without them is normal.
+    // Guarded so re-running the migration tail is a no-op.
+    () => {
+      const cols = db.prepare("SELECT name FROM pragma_table_info('trek_photos')").all() as Array<{ name: string }>;
+      const has = (name: string) => cols.some(c => c.name === name);
+      if (!has('taken_at')) db.exec('ALTER TABLE trek_photos ADD COLUMN taken_at TEXT');
+      if (!has('lat')) db.exec('ALTER TABLE trek_photos ADD COLUMN lat REAL');
+      if (!has('lng')) db.exec('ALTER TABLE trek_photos ADD COLUMN lng REAL');
+      // Answering "which photos of this journey have coordinates" without a scan.
+      db.exec('CREATE INDEX IF NOT EXISTS idx_trek_photos_geo ON trek_photos(lat, lng) WHERE lat IS NOT NULL AND lng IS NOT NULL');
+    },
+    // A journey shared while the trip is still running reads like a blog, and a
+    // blog puts the newest entry first (#1614). The owner decides per share link,
+    // because it is a property of how the link is meant to be read, not of the
+    // journey. Off by default: an already-published link must not reorder itself
+    // under its readers.
+    () => {
+      const cols = db.prepare("SELECT name FROM pragma_table_info('journey_share_tokens')").all() as Array<{ name: string }>;
+      if (!cols.some(c => c.name === 'newest_first')) {
+        db.exec('ALTER TABLE journey_share_tokens ADD COLUMN newest_first INTEGER NOT NULL DEFAULT 0');
+      }
+    },
     // Storage slice 2 — collab note attachments historically stored 'files/<name>'
     // in trip_files.filename while the file manager stored bare names in the same
     // column; the storage layer addresses objects as category + bare name, so
     // normalize the legacy rows. substr is 1-indexed: 7 drops the six chars of
     // 'files/'. The LIKE guard makes it a no-op on already-bare rows.
-    // Appended LAST: the array is index-addressed against schema_version, so a
-    // slot inserted above this line never runs on an existing database.
+    // Appended LAST (again): this slot moved below the three dev slots above in
+    // the dev merge — the array is index-addressed against schema_version, and
+    // the dev slots keep the indices they shipped with. A database that already
+    // ran this migration at its pre-merge index replays it harmlessly (the LIKE
+    // guard) but SKIPS the #1939 key promotion — acceptable only because this
+    // branch was never published; do not repeat this with a released slot.
     () => {
       db.exec("UPDATE trip_files SET filename = substr(filename, 7) WHERE filename LIKE 'files/%'");
     },

@@ -1411,7 +1411,11 @@ describe('Edge cases', () => {
     expect(JSON.parse(raw.pros_cons)).toEqual({ pros: ['Fun'], cons: [] });
   });
 
-  it('JOURNEY-SVC-086: addTripToJourney syncs trip photos when present', () => {
+  // #1614 — photos live in journeys now. Linking a trip used to copy its
+  // trip_photos into the gallery; that surface lost its UI in 3.1.0, nothing
+  // writes to it on a newer install, and the copy was how a photo one member had
+  // chosen not to share could reach a journey at all.
+  it('JOURNEY-SVC-086: addTripToJourney no longer pulls trip photos into the gallery', () => {
     const { user } = createUser(testDb);
     const journey = createJourney(testDb, user.id);
     const trip = createTrip(testDb, user.id, {
@@ -1421,16 +1425,10 @@ describe('Edge cases', () => {
     });
     addTripPhoto(testDb, trip.id, user.id, 'immich-photo-1', 'immich', { shared: true });
 
-    svc.addTripToJourney(journey.id, trip.id, user.id);
+    expect(svc.addTripToJourney(journey.id, trip.id, user.id)).toBe(true);
 
-    // Trip photos now go straight into the journey gallery (no wrapper entry).
-    const photos = testDb.prepare(`
-      SELECT jp.*, tkp.asset_id FROM journey_photos jp
-      JOIN trek_photos tkp ON tkp.id = jp.photo_id
-      WHERE jp.journey_id = ?
-    `).all(journey.id);
-    expect(photos.length).toBe(1);
-    expect((photos[0] as any).asset_id).toBe('immich-photo-1');
+    const photos = testDb.prepare('SELECT 1 FROM journey_photos WHERE journey_id = ?').all(journey.id);
+    expect(photos).toHaveLength(0);
   });
 
   it('JOURNEY-SVC-087: removeTripFromJourney detaches filled entries, deletes skeletons', () => {
@@ -2077,5 +2075,48 @@ describe('journeyTracks', () => {
     const journey = svc.createJourney(user.id, { title: 'J', trip_ids: [trip.id] });
 
     expect(svc.journeyTracks(journey.id, stranger.id)).toBeNull();
+  });
+});
+
+// ── Trip linking: whose journey, and whose photos (#1614 review) ─────────────
+
+describe('addTripToJourney guards', () => {
+  it('JOURNEY-SVC-100: refuses to link into a journey the caller cannot reach', () => {
+    const { user: owner } = createUser(testDb);
+    const { user: stranger } = createUser(testDb);
+    const journey = createJourney(testDb, owner.id, { title: "Owner's journey" });
+    const trip = createTrip(testDb, stranger.id, { title: 'Stranger trip' });
+
+    // The stranger owns the trip, so the trip gate passes — only the journey gate stops this.
+    expect(svc.addTripToJourney(journey.id, trip.id, stranger.id)).toBe(false);
+    const links = testDb.prepare('SELECT * FROM journey_trips WHERE journey_id = ?').all(journey.id);
+    expect(links).toHaveLength(0);
+  });
+
+  it('JOURNEY-SVC-101: a contributor may still link, the owner obviously too', () => {
+    const { user: owner } = createUser(testDb);
+    const { user: helper } = createUser(testDb);
+    const journey = createJourney(testDb, owner.id, { title: 'Shared journey' });
+    testDb.prepare('INSERT INTO journey_contributors (journey_id, user_id, role, added_at) VALUES (?, ?, ?, ?)')
+      .run(journey.id, helper.id, 'editor', new Date().toISOString());
+    const trip = createTrip(testDb, helper.id, { title: 'Helper trip' });
+
+    expect(svc.addTripToJourney(journey.id, trip.id, helper.id)).toBe(true);
+  });
+
+  it('JOURNEY-SVC-102: not even a shared trip photo is copied any more', () => {
+    const { user } = createUser(testDb);
+    const journey = createJourney(testDb, user.id, { title: 'Photo journey' });
+    const trip = createTrip(testDb, user.id, { title: 'Photo trip' });
+
+    const r = testDb.prepare(
+      "INSERT INTO trek_photos (provider, asset_id, owner_id, media_type) VALUES ('immich', 'shared-asset', ?, 'image')",
+    ).run(user.id);
+    testDb.prepare('INSERT INTO trip_photos (trip_id, user_id, photo_id, shared) VALUES (?, ?, ?, 1)')
+      .run(trip.id, user.id, Number(r.lastInsertRowid));
+
+    svc.addTripToJourney(journey.id, trip.id, user.id);
+
+    expect(testDb.prepare('SELECT 1 FROM journey_photos WHERE journey_id = ?').all(journey.id)).toHaveLength(0);
   });
 });
