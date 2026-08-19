@@ -81,6 +81,23 @@ export function describeStorageDriver(name: string, makeHarness: () => Promise<D
       expect((await readAll('a/range.bin', { start: 7 })).toString()).toBe('789');
     });
 
+    it('returns the full-object stat on a ranged read', async () => {
+      // Pins LocalDriver parity for remote drivers: size is the TOTAL object
+      // size (S3: from the 206 Content-Range total), never the range length.
+      await h.driver.put('a/rstat.bin', Readable.from('0123456789'));
+      const { stream, stat } = await h.driver.getStream('a/rstat.bin', { start: 2, end: 5 });
+      for await (const _ of stream) void _; // drain so the harness can clean up
+      expect(stat).toMatchObject({ key: 'a/rstat.bin', size: 10 });
+    });
+
+    it('roundtrips a zero-byte stream source', async () => {
+      await h.driver.put('a/empty.bin', Readable.from([]));
+      expect((await readAll('a/empty.bin')).length).toBe(0);
+      expect((await h.driver.stat('a/empty.bin'))!.size).toBe(0);
+      await h.driver.delete('a/empty.bin');
+      expect(await h.driver.stat('a/empty.bin')).toBeNull();
+    });
+
     it('rejects getStream on a missing key with StorageNotFoundError', async () => {
       await expect(h.driver.getStream('a/nope.bin')).rejects.toBeInstanceOf(StorageNotFoundError);
     });
