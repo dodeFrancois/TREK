@@ -194,6 +194,8 @@ jobs:
       - name: Ensure @swc/core's Linux binary for unplugin-swc
         # The lockfile was generated on Windows and omits @swc/core's Linux
         # optional native binary, so npm ci/install skips it on the runner.
+        # Install the matching version explicitly so the server's SWC transform
+        # (server/vitest.config.ts) can load.
         run: |
           SWC_VERSION=$(node -p "require('@swc/core/package.json').version")
           npm install --no-save --legacy-peer-deps "@swc/core-linux-x64-gnu@$SWC_VERSION"
@@ -208,7 +210,7 @@ jobs:
         # endpoint is load-bearing: aws-lite picks path-style only for IP/localhost
         # hosts, which is all stock MinIO speaks.
         run: |
-          docker run -d --name minio -p 9000:9000 \
+          docker run -d --name minio -p 127.0.0.1:9000:9000 \
             -e MINIO_ROOT_USER=trekci -e MINIO_ROOT_PASSWORD=trekci-secret \
             quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z.hotfix.7aa24e772 server /data
 
