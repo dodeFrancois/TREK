@@ -1,6 +1,6 @@
 /// <reference types="@aws-lite/s3-types" />
 import awsLite from '@aws-lite/client';
-import { PassThrough, type Readable } from 'node:stream';
+import { PassThrough, Transform, type Readable } from 'node:stream';
 import fs from 'node:fs';
 import { assertValidKey, assertValidPrefix, isValidKey } from '../storage-keys';
 import {
@@ -20,8 +20,9 @@ import {
  * is a driver-internal detail — nothing outside this file imports aws-lite.
  * aws-lite exposes no request timeout or abort signal, so the driver owns the
  * deadline: per client call for single-request operations, inactivity-based
- * for multipart Upload (destroying the interposed PassThrough drives Upload's
- * own error path — in-flight parts drain, then AbortMultipartUpload fires).
+ * for multipart Upload (destroying the interposed monitoring Transform drives
+ * Upload's own error path — in-flight parts drain, then AbortMultipartUpload
+ * fires).
  */
 
 /** One multipart chunk (aws-lite Upload default) — also the peek threshold. */
@@ -186,8 +187,23 @@ export class S3Driver implements StorageDriver {
   /**
    * Multipart Upload under an INACTIVITY deadline: a fixed whole-operation
    * deadline would break large backups, so the timer resets on data movement.
-   * Expiry destroys the monitored stream, driving Upload's own error path —
-   * in-flight parts drain, then AbortMultipartUpload fires (verified upstream).
+   *
+   * The reset signal comes from an interposed Transform, NOT a `'data'`
+   * listener on `body` itself: `Readable.on('data', ...)` calls `resume()`
+   * on the next tick, so `body` would start flowing before aws-lite's Upload
+   * ever attaches its own consumer (it awaits a full CreateMultipartUpload
+   * round trip first) — anything emitted in that window has nowhere to land
+   * and is lost, silently truncating the object. A Transform's readable side
+   * only flows once something actually reads it, so bytes queue in its
+   * internal buffer (bounded by backpressure) until Upload's real consumer
+   * attaches; nothing is dropped, and "inactivity" tracks real data
+   * movement through the transform.
+   *
+   * Expiry destroys the Transform, the piped `body`, and (for the streaming
+   * put path) the original source — driving Upload's own error path
+   * (in-flight parts drain, then AbortMultipartUpload fires, verified
+   * upstream). Any OTHER Upload failure gets the same cleanup so a failed
+   * large upload never leaks an open fd/socket.
    */
   private async uploadMonitored(
     s3: S3Api,
@@ -201,6 +217,7 @@ export class S3Driver implements StorageDriver {
       const err = new StorageBackendError(
         `put '${key}' stalled for ${this.timeoutMs}ms on '${this.id}' — multipart upload aborted`,
       );
+      monitored.destroy(err);
       body.destroy(err);
       sourceToDestroy?.destroy(err);
     };
@@ -209,13 +226,45 @@ export class S3Driver implements StorageDriver {
       timer = setTimeout(expire, this.timeoutMs);
       timer.unref?.();
     };
-    body.on('data', reset); // body is consumed by Upload; extra listener observes only
+    const monitored = new Transform({
+      transform(chunk, _encoding, callback) {
+        reset();
+        callback(null, chunk);
+      },
+    });
+    // Attached BEFORE pipe()/destroy() can fire: an 'error' emitted on a
+    // Readable with no listener crashes the process, and both a genuine
+    // upstream read failure and our own expire()/catch cleanup emit one.
+    // `monitored` gets its own last-resort no-op: real aws-lite Upload
+    // attaches its own listener to `monitored` (the `Body` it receives)
+    // only after its CreateMultipartUpload round trip, so an expiry that
+    // fires in that window would otherwise destroy an unlistened stream —
+    // Upload's later read still observes the already-errored/destroyed
+    // state, so this doesn't swallow anything Upload would have seen.
+    //
+    // `onBodyError` is intentionally never `.off()`'d: `expire()` calls
+    // `monitored.destroy(err)` and `body.destroy(err)` back to back, each
+    // scheduling its own deferred 'error' emission. The FIRST (monitored's)
+    // rejects `s3.Upload(...)`, whose `catch`/`finally` runs as an
+    // interleaved microtask — before the SECOND (body's) emission gets its
+    // turn. Removing the listener there would leave that second emission
+    // unlistened and crash the process (verified with a standalone repro).
+    // Leaving it attached is harmless: `body` is single-use and discarded
+    // with `uploadMonitored`, so nothing keeps accumulating listeners.
+    const onBodyError = (err: Error) => monitored.destroy(err);
+    body.on('error', onBodyError);
+    monitored.on('error', () => {});
     reset();
+    body.pipe(monitored);
     try {
-      await s3.Upload({ ...base, Body: body, ChunkSize: MULTIPART_THRESHOLD });
+      await s3.Upload({ ...base, Body: monitored, ChunkSize: MULTIPART_THRESHOLD });
+    } catch (err) {
+      monitored.destroy();
+      body.destroy();
+      sourceToDestroy?.destroy();
+      throw err;
     } finally {
       clearTimeout(timer);
-      body.off('data', reset);
     }
   }
 

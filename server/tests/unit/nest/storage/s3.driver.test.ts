@@ -273,6 +273,27 @@ describe('S3Driver put — bounded peek routing', () => {
       ChunkSize: MULTIPART_THRESHOLD,
     });
   });
+  it('does not drop bytes buffered ahead of a deferred Upload consumer (Transform interposition, not body.on("data"))', async () => {
+    // Real aws-lite Upload awaits a full CreateMultipartUpload round trip
+    // before attaching its own consumer. A `body.on('data', ...)` listener
+    // added directly to the Body stream calls resume() immediately, so any
+    // bytes emitted during that window are delivered only to the listener
+    // and lost forever. Simulate the round trip with two deferred ticks
+    // before the mock ever reads Body.
+    let uploaded: Buffer | null = null;
+    const api = makeMockApi({
+      Upload: vi.fn().mockImplementation(async ({ Body }: { Body: Readable }) => {
+        await new Promise((resolve) => setImmediate(resolve));
+        await new Promise((resolve) => setImmediate(resolve));
+        uploaded = await drain(Body);
+      }),
+    });
+    const chunk = Buffer.alloc(6 * 1024 * 1024, 7);
+    const big = Buffer.concat([chunk, chunk, chunk]);
+    await makeDriver(api).put('a/deferred.bin', Readable.from([chunk, chunk, chunk]));
+    expect(uploaded!.length).toBe(big.length);
+    expect(uploaded!.equals(big)).toBe(true);
+  });
   it('routes a single-chunk oversized stream that ends at the peek boundary to PutObject (readableEnded guard)', async () => {
     // One huge chunk: 'end' can fire between the peek resolving and pipe()
     // attaching — the driver must detect readableEnded and PutObject the
@@ -305,7 +326,7 @@ describe('S3Driver put — bounded peek routing', () => {
     expect(api.PutObject).not.toHaveBeenCalled();
     expect(api.Upload).not.toHaveBeenCalled();
   });
-  it('expires a stalled Upload via the inactivity deadline (PassThrough destroyed)', async () => {
+  it('expires a stalled Upload via the inactivity deadline (monitoring Transform destroyed)', async () => {
     const api = makeMockApi({
       Upload: vi.fn().mockImplementation(
         ({ Body }: { Body: Readable }) =>
@@ -319,6 +340,18 @@ describe('S3Driver put — bounded peek routing', () => {
     await expect(makeDriver(api, { timeoutMs: 60 }).put('a/stall.bin', stalled)).rejects.toBeInstanceOf(
       StorageBackendError,
     );
+  });
+  it('destroys the original source when Upload rejects for a non-timeout reason (no fd/socket leak)', async () => {
+    const api = makeMockApi({
+      Upload: vi.fn().mockImplementation(async ({ Body }: { Body: Readable }) => {
+        await drain(Body); // full data transfer succeeds...
+        throw awsError(500); // ...but the finalize step (e.g. CompleteMultipartUpload) fails
+      }),
+    });
+    const chunk = Buffer.alloc(6 * 1024 * 1024, 7);
+    const source = Readable.from([chunk, chunk, chunk]);
+    await expect(makeDriver(api).put('a/fail-after-drain.bin', source)).rejects.toBeInstanceOf(StorageBackendError);
+    expect(source.destroyed).toBe(true);
   });
 });
 
@@ -344,6 +377,26 @@ describe('S3Driver put — LocalTempFile ownership', () => {
     await makeDriver(api).put('a/t.bin', { tmpPath: tmp });
     expect(api.Upload).toHaveBeenCalled();
     expect(fs.existsSync(tmp)).toBe(false);
+  });
+  it('rejects a stalled threshold-sized temp-file Upload with StorageBackendError rather than crashing', async () => {
+    // The Upload mock never reads/drains Body — only listens for its error,
+    // matching aws-lite's real Upload contract — so the fs.createReadStream
+    // source AND the interposed Transform must each have an 'error' handler
+    // attached before expire() destroys them; otherwise an unlistened
+    // 'error' anywhere in that chain crashes the process instead of
+    // rejecting this promise.
+    const api = makeMockApi({
+      Upload: vi.fn().mockImplementation(
+        ({ Body }: { Body: Readable }) =>
+          new Promise((_, reject) => {
+            Body.on('error', reject);
+          }),
+      ),
+    });
+    const tmp = await makeTmp(MULTIPART_THRESHOLD);
+    await expect(
+      makeDriver(api, { timeoutMs: 60 }).put('a/stall-tmp.bin', { tmpPath: tmp }),
+    ).rejects.toBeInstanceOf(StorageBackendError);
   });
   it('consumes the temp file on the failure path too (MirrorDriver precedent)', async () => {
     const api = makeMockApi({ PutObject: vi.fn().mockRejectedValue(awsError(500)) });
