@@ -1,13 +1,14 @@
 import fs from 'node:fs';
 import { Injectable, Logger, type OnModuleInit } from '@nestjs/common';
-import { STORAGE_BACKEND_TYPES } from '@trek/shared';
+import { STORAGE_BACKEND_TYPES, storageConfigSchema } from '@trek/shared';
 import { DatabaseService } from '../database/database.service';
 import { RuntimeEnvService } from '../app-config/runtime-env.service';
 import { decrypt_api_key } from '../common/crypto/apiKeyCrypto';
 import { LocalDriver } from './drivers/local.driver';
 import { MirrorDriver, type ReplicaFailure } from './drivers/mirror.driver';
 import { S3Driver } from './drivers/s3.driver';
-import { DEFAULT_BACKUPS_ROOT, DEFAULT_UPLOADS_ROOT, GLOBAL_TEMP_DIR } from './storage-paths';
+import { DEFAULT_BACKUPS_ROOT, DEFAULT_UPLOADS_ROOT, GLOBAL_TEMP_DIR, SEED_CONFIG_PATH } from './storage-paths';
+import { assertNoMaskSentinels, encryptStorageSecrets, encryptionGateError, listPlaintextSecrets } from './storage-secrets';
 import {
   STORAGE_CATEGORIES,
   StorageBackendError,
@@ -102,6 +103,7 @@ export class StorageRegistryService implements OnModuleInit {
   ) {}
 
   onModuleInit(): void {
+    this.seedFromFileOnce();
     this.load(true);
   }
 
@@ -148,6 +150,70 @@ export class StorageRegistryService implements OnModuleInit {
 
   replicaFailures(): readonly ReplicaFailure[] {
     return this.failures;
+  }
+
+  /**
+   * Seed-once boot provisioning (spec: 2026-08-19-storage-admin-config-design.md).
+   * Imported only when NO storage.* row exists; runs the same validation the
+   * PUT pipeline runs (encryption gate, then preview); secrets are encrypted
+   * on import; the file is ignored (loudly) afterward. Every failure aborts
+   * boot with the exact error — an actively-provisioning operator must see
+   * it, so this deliberately runs OUTSIDE load()'s last-good safety net.
+   * Recovery: stop the server, DELETE FROM app_settings WHERE key LIKE
+   * 'storage.%', restart (documented in the README with slice 3).
+   */
+  private seedFromFileOnce(): void {
+    const rowCount = this.db.get<{ n: number }>(
+      'SELECT COUNT(*) AS n FROM app_settings WHERE key IN (?, ?)',
+      BACKENDS_KEY,
+      CATEGORIES_KEY,
+    );
+    const filePresent = fs.existsSync(SEED_CONFIG_PATH);
+    if ((rowCount?.n ?? 0) > 0) {
+      if (filePresent) {
+        this.logger.log(`storage config rows exist — ignoring ${SEED_CONFIG_PATH}; manage storage in the admin UI`);
+      }
+      return;
+    }
+    if (!filePresent) return;
+
+    const fail = (detail: string): never => {
+      throw new Error(`invalid storage seed file ${SEED_CONFIG_PATH}: ${detail}`);
+    };
+    let json: unknown;
+    try {
+      json = JSON.parse(fs.readFileSync(SEED_CONFIG_PATH, 'utf8'));
+    } catch (err) {
+      return fail(err instanceof Error ? err.message : String(err));
+    }
+    const parsed = storageConfigSchema.safeParse(json);
+    if (!parsed.success) {
+      return fail(
+        parsed.error.issues.map((issue) => `${issue.path.join('.') || '(root)'}: ${issue.message}`).join('; '),
+      );
+    }
+    const config = parsed.data;
+    try {
+      assertNoMaskSentinels(config);
+      const plaintext = listPlaintextSecrets(config);
+      if (plaintext.length > 0 && !this.env.env().security.encryptionKeySet) {
+        throw new StorageBackendError(encryptionGateError(plaintext[0]!));
+      }
+      this.preview({ backends: config.backends, categories: config.categories });
+    } catch (err) {
+      return fail(err instanceof Error ? err.message : String(err));
+    }
+    const encrypted = encryptStorageSecrets(config);
+    this.db.transaction(() => {
+      const upsert = this.db.prepare(
+        'INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+      );
+      upsert.run(BACKENDS_KEY, JSON.stringify(encrypted.backends));
+      upsert.run(CATEGORIES_KEY, JSON.stringify(encrypted.categories));
+    });
+    this.logger.log(
+      `storage config seeded from ${SEED_CONFIG_PATH} — the file is now ignored; manage storage in the admin UI`,
+    );
   }
 
   /**

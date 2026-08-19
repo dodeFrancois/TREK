@@ -18,3 +18,5 @@ export const DATA_ROOT = path.resolve(__dirname, '..', '..', '..', 'data');
 export const DEFAULT_BACKUPS_ROOT = path.join(DATA_ROOT, 'backups');
 /** Driver-agnostic global scratch space (`data/tmp`) — see StorageService.tempDir(). */
 export const GLOBAL_TEMP_DIR = path.join(DATA_ROOT, 'tmp');
+/** Seed-once boot provisioning file — imported only when no storage.* row exists. */
+export const SEED_CONFIG_PATH = path.join(DATA_ROOT, 'storage-config.json');

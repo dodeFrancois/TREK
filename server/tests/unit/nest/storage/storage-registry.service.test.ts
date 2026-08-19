@@ -29,7 +29,12 @@ import { StorageRegistryService } from '../../../../src/nest/storage/storage-reg
 import { LocalDriver } from '../../../../src/nest/storage/drivers/local.driver';
 import { MirrorDriver, type ReplicaFailure } from '../../../../src/nest/storage/drivers/mirror.driver';
 import { S3Driver } from '../../../../src/nest/storage/drivers/s3.driver';
-import { GLOBAL_TEMP_DIR, DEFAULT_BACKUPS_ROOT, DEFAULT_UPLOADS_ROOT } from '../../../../src/nest/storage/storage-paths';
+import {
+  GLOBAL_TEMP_DIR,
+  DEFAULT_BACKUPS_ROOT,
+  DEFAULT_UPLOADS_ROOT,
+  SEED_CONFIG_PATH,
+} from '../../../../src/nest/storage/storage-paths';
 import { STORAGE_CATEGORIES } from '../../../../src/nest/storage/storage.types';
 
 const db = new DatabaseService(testDb);
@@ -52,13 +57,13 @@ interface EnvPaths {
   placePhotoDir?: string;
 }
 
-function makeEnvStub(initial: EnvPaths): { env: RuntimeEnvService; setPaths: (p: EnvPaths) => void } {
-  let paths = initial;
+function makeEnvStub(
+  initial: EnvPaths,
+  security: { encryptionKeySet: boolean } = { encryptionKeySet: true },
+): { env: RuntimeEnvService } {
+  const paths = initial;
   return {
-    env: { env: () => ({ paths }) } as unknown as RuntimeEnvService,
-    setPaths: (p) => {
-      paths = p;
-    },
+    env: { env: () => ({ paths, security }) } as unknown as RuntimeEnvService,
   };
 }
 
@@ -77,6 +82,7 @@ interface RegistryOpts {
   /** Extra storage.backends entries, appended after the uploads-local override. */
   backends?: unknown[];
   categories?: Record<string, string>;
+  encryptionKeySet?: boolean;
 }
 
 /**
@@ -89,10 +95,13 @@ function makeRegistry(opts: RegistryOpts = {}) {
   const uploadsRoot = opts.uploadsRoot ?? makeTmpDir();
   setSetting('storage.backends', JSON.stringify([uploadsOverride(uploadsRoot), ...(opts.backends ?? [])]));
   if (opts.categories) setSetting('storage.categories', JSON.stringify(opts.categories));
-  const stub = makeEnvStub({ placePhotoDir: opts.placePhotoDir });
+  const stub = makeEnvStub(
+    { placePhotoDir: opts.placePhotoDir },
+    { encryptionKeySet: opts.encryptionKeySet ?? true },
+  );
   const registry = new StorageRegistryService(db, stub.env);
   if (opts.boot !== false) registry.onModuleInit();
-  return { registry, uploadsRoot, setPaths: stub.setPaths, setUploadsRoot: (root: string) => rewriteUploadsOverride(root) };
+  return { registry, uploadsRoot, setUploadsRoot: (root: string) => rewriteUploadsOverride(root) };
 }
 
 /** For reload tests: swap the override row's root in place. */
@@ -423,5 +432,161 @@ describe('preview()', () => {
     });
     expect(registry.resolve('backups').driver).toBe(before);
     expect(registry.resolve('backups').backendName).toBe('backups-local');
+  });
+});
+
+// ── seed-once boot import ─────────────────────────────────────────────────────
+
+describe('seed-once storage-config.json import', () => {
+  const nasRoot = () => makeTmpDir();
+
+  function writeSeed(content: string): void {
+    fs.mkdirSync(path.dirname(SEED_CONFIG_PATH), { recursive: true });
+    fs.writeFileSync(SEED_CONFIG_PATH, content);
+  }
+
+  /** A registry with NO storage.* rows (makeRegistry seeds an override row, so build raw). */
+  function makeUnseededRegistry(opts: { encryptionKeySet?: boolean } = {}) {
+    const stub = makeEnvStub({}, { encryptionKeySet: opts.encryptionKeySet ?? true });
+    return new StorageRegistryService(db, stub.env);
+  }
+
+  function readRow(key: string): string | undefined {
+    const row = testDb.prepare('SELECT value FROM app_settings WHERE key = ?').get(key) as
+      | { value: string }
+      | undefined;
+    return row?.value;
+  }
+
+  afterEach(() => {
+    fs.rmSync(SEED_CONFIG_PATH, { force: true });
+  });
+
+  it('SEED-001 imports a valid file when no rows exist: encrypted rows, live drivers, pinned log', () => {
+    const logSpy = vi.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    const root = nasRoot();
+    writeSeed(
+      JSON.stringify({
+        backends: [
+          { name: 'nas-backups', type: 'local', options: { root } },
+          {
+            name: 'off-box',
+            type: 's3',
+            options: {
+              endpoint: 'http://127.0.0.1:9000',
+              bucket: 'trek',
+              accessKeyId: 'ak',
+              secretAccessKey: 'sk-seed',
+            },
+          },
+        ],
+        categories: { backups: 'off-box' },
+      }),
+    );
+    const registry = makeUnseededRegistry();
+    registry.onModuleInit();
+
+    expect(registry.resolve('backups').driver).toBeInstanceOf(S3Driver);
+    const storedBackends = JSON.parse(readRow('storage.backends')!) as Array<{
+      name: string;
+      options: Record<string, unknown>;
+    }>;
+    const offBox = storedBackends.find((b) => b.name === 'off-box')!;
+    expect(String(offBox.options.secretAccessKey).startsWith('enc:v1:')).toBe(true); // never plaintext at rest
+    expect(readRow('storage.categories')).toBe(JSON.stringify({ backups: 'off-box' }));
+    const logged = logSpy.mock.calls.map((c) => String(c[0])).join('\n');
+    expect(logged).toContain('storage config seeded from');
+    expect(logged).toContain('the file is now ignored; manage storage in the admin UI');
+  });
+
+  it('SEED-002 rows exist → file not read, pinned ignore log, rows unchanged', () => {
+    const logSpy = vi.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    writeSeed('{ this would explode if parsed');
+    const { registry } = makeRegistry(); // helper writes the uploads override row
+    expect(registry.resolve('files').backendName).toBe('uploads-local');
+    const logged = logSpy.mock.calls.map((c) => String(c[0])).join('\n');
+    expect(logged).toContain('storage config rows exist — ignoring');
+  });
+
+  it('SEED-003 no rows, no file → boots on built-in defaults (no seed side effects)', () => {
+    const registry = makeUnseededRegistry();
+    registry.onModuleInit();
+    expect(registry.resolve('backups').backendName).toBe('backups-local');
+    expect(readRow('storage.backends')).toBeUndefined();
+  });
+
+  it('SEED-004 unparseable JSON aborts boot with the exact error', () => {
+    writeSeed('not json at all');
+    const registry = makeUnseededRegistry();
+    expect(() => registry.onModuleInit()).toThrow(/invalid storage seed file .*storage-config\.json: /);
+  });
+
+  it('SEED-005 schema violation aborts boot — including the reserved readOnly key', () => {
+    writeSeed(JSON.stringify({ backends: [], categories: {}, readOnly: true }));
+    expect(() => makeUnseededRegistry().onModuleInit()).toThrow(/invalid storage seed file/);
+  });
+
+  it('SEED-006 semantic violation aborts boot with the registry error verbatim', () => {
+    writeSeed(JSON.stringify({ backends: [], categories: { backups: 'nope' } }));
+    expect(() => makeUnseededRegistry().onModuleInit()).toThrow(
+      /category 'backups' maps to unknown backend 'nope'/,
+    );
+  });
+
+  it('SEED-007 plaintext secrets without ENCRYPTION_KEY abort boot naming the variable', () => {
+    writeSeed(
+      JSON.stringify({
+        backends: [
+          {
+            name: 'off-box',
+            type: 's3',
+            options: {
+              endpoint: 'http://127.0.0.1:9000',
+              bucket: 'trek',
+              accessKeyId: 'ak',
+              secretAccessKey: 'sk-seed',
+            },
+          },
+        ],
+        categories: {},
+      }),
+    );
+    const registry = makeUnseededRegistry({ encryptionKeySet: false });
+    expect(() => registry.onModuleInit()).toThrow(/ENCRYPTION_KEY/);
+    expect(readRow('storage.backends')).toBeUndefined(); // nothing persisted on abort
+  });
+
+  it('SEED-008 a mask sentinel in the seed file aborts boot', () => {
+    writeSeed(
+      JSON.stringify({
+        backends: [
+          {
+            name: 'off-box',
+            type: 's3',
+            options: {
+              endpoint: 'http://127.0.0.1:9000',
+              bucket: 'trek',
+              accessKeyId: 'ak',
+              secretAccessKey: '••••••••',
+            },
+          },
+        ],
+        categories: {},
+      }),
+    );
+    expect(() => makeUnseededRegistry().onModuleInit()).toThrow(/mask/);
+  });
+
+  it('SEED-009 a second boot after a successful seed ignores the file (seed-once)', () => {
+    const root = nasRoot();
+    writeSeed(JSON.stringify({ backends: [{ name: 'nas', type: 'local', options: { root } }], categories: { backups: 'nas' } }));
+    makeUnseededRegistry().onModuleInit();
+    const firstRow = readRow('storage.backends');
+
+    writeSeed(JSON.stringify({ backends: [], categories: { backups: 'other' } })); // would fail preview if read
+    const second = makeUnseededRegistry();
+    second.onModuleInit(); // must not throw — rows exist, file ignored
+    expect(readRow('storage.backends')).toBe(firstRow);
+    expect(second.resolve('backups').backendName).toBe('nas');
   });
 });
