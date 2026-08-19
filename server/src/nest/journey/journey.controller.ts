@@ -25,6 +25,7 @@ import type { User } from '../../types';
 import { StorageService } from '../storage/storage.service';
 import { journeyThumbName } from '../memories/thumbnail.service';
 import { JourneyService } from './journey.service';
+import { JourneyBookService } from './journey-book.service';
 import { PhotoCaptureBackfillService } from '../memories/photo-capture-backfill.service';
 import { AddonGuard } from '../addons/addon.guard';
 import { RequireAddon } from '../addons/require-addon.decorator';
@@ -36,6 +37,7 @@ import {
   JourneyEntryCreateDto, JourneyEntryPhotoUploadDto, JourneyEntryUpdateDto, JourneyGalleryVideoDto,
   JourneyLinkPhotoDto, JourneyPhotoUpdateDto, JourneyPreferencesDto, JourneyProviderPhotosDto,
   JourneyReorderEntriesDto, JourneyShareLinkDto, JourneyUpdateDto,
+  BookSaveDto,
 } from './journey.dto';
 import { isVideoMime, isVideoExtension, MAX_VIDEO_SIZE } from '../files/files.constants';
 import { AllowedFileTypesService } from '../files/allowed-file-types.service';
@@ -127,6 +129,7 @@ export class JourneyController {
   constructor(
     private readonly journey: JourneyService,
     private readonly storage: StorageService,
+    private readonly books: JourneyBookService,
     private readonly captureBackfill: PhotoCaptureBackfillService,
   ) {}
 
@@ -518,6 +521,87 @@ export class JourneyController {
       throw new HttpException({ error: 'Journey not found' }, 404);
     }
     return { tracks };
+  }
+
+  /**
+   * The figures TREK Studio prints on a page — distance, days, steps, photos,
+   * countries and the route itself (#1973).
+   *
+   * Read-only and derived, like /tracks above it: nothing here is stored, it is
+   * what the trips added to this journey add up to. Studio freezes the answer
+   * into the book document when an element is placed, so this is called while
+   * designing and never while printing.
+   */
+  @Get(':id/stats')
+  stats(@CurrentUser() user: User, @Param('id') id: string) {
+    const stats = this.journey.journeyStats(Number(id), user.id);
+    if (!stats) {
+      throw new HttpException({ error: 'Journey not found' }, 404);
+    }
+    return stats;
+  }
+
+  /*
+   * ── The Studio book (#1973) ──────────────────────────────────────────
+   *
+   * A book belongs to its journey and inherits its access exactly: every
+   * contributor may open and edit it. No second permission model over the same
+   * object — that is how two rules end up disagreeing about who may do what.
+   */
+
+  @Get(':id/book')
+  getBook(@CurrentUser() user: User, @Param('id') id: string) {
+    const book = this.books.getBook(Number(id), user.id);
+    if (book === null && !this.books.canOpen(Number(id), user.id)) {
+      throw new HttpException({ error: 'Journey not found' }, 404);
+    }
+    // A journey with no book yet is not an error: Studio opens, lays one out
+    // and saves it. Answering 404 would make "no book" and "no journey"
+    // indistinguishable to the client.
+    return { book };
+  }
+
+  @Put(':id/book')
+  @HttpCode(200)
+  saveBook(
+    @CurrentUser() user: User,
+    @Param('id') id: string,
+    @Body() body: BookSaveDto,
+    @Headers('x-socket-id') socketId?: string,
+  ) {
+    const result = this.books.saveBook(Number(id), user.id, {
+      title: body.title ?? '',
+      document: body.document,
+      baseVersion: body.baseVersion,
+    });
+    if (result === null) {
+      throw new HttpException({ error: 'Journey not found' }, 404);
+    }
+    if ('conflict' in result) {
+      /*
+       * 409, with the current record in the body.
+       *
+       * Two people editing is the normal case here, not an exception — the
+       * client needs to be able to show what the other version is, and a bare
+       * status code would make that a second round trip at exactly the moment
+       * someone is worried about losing work.
+       */
+      throw new HttpException(
+        { error: 'Book was changed by someone else', current: result.conflict },
+        409,
+      );
+    }
+    this.books.broadcastSaved(Number(id), user.id, result.record, socketId);
+    return result.record;
+  }
+
+  @Delete(':id/book')
+  @HttpCode(204)
+  deleteBook(@CurrentUser() user: User, @Param('id') id: string) {
+    const removed = this.books.deleteBook(Number(id), user.id);
+    if (removed === null) {
+      throw new HttpException({ error: 'Journey not found' }, 404);
+    }
   }
 
   @Post(':id/entries')

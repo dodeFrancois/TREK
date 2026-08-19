@@ -12,6 +12,7 @@ import {
   type NotificationRespondRequest,
   type SettingUpsertRequest, type SettingsBulkRequest,
   type JourneyCreateRequest, type JourneyAddTripRequest, type JourneyTracksResponse,
+  type JourneyStats, type BookRecord, type BookSaveRequest,
   type JourneyReorderEntriesRequest, type JourneyProviderPhotosRequest,
   type JourneyShareLinkRequest,
   type RegisterRequest, type LoginRequest, type ForgotPasswordRequest,
@@ -889,6 +890,20 @@ export const journeyApi = {
   listEntries: (id: number) => apiClient.get(`/journeys/${id}/entries`).then(r => r.data),
   // GPX tracks of the trips this journey's entries came from (#1260).
   listTracks: (id: number): Promise<JourneyTracksResponse> => apiClient.get(`/journeys/${id}/tracks`).then(r => r.data),
+  // What the journey adds up to — distance, days, countries, the route (#1973).
+  // Read by TREK Studio, which freezes the answer into the book document.
+  stats: (id: number): Promise<JourneyStats> => apiClient.get(`/journeys/${id}/stats`).then(r => r.data),
+
+  // The Studio book (#1973). `book` is null for a journey that has none yet —
+  // Studio lays one out and the first save creates it.
+  getBook: (id: number): Promise<{ book: BookRecord | null }> =>
+    apiClient.get(`/journeys/${id}/book`).then(r => r.data),
+  // A 409 carries the current record in its body, so a conflict can be shown
+  // rather than only announced. See useBookStore.
+  saveBook: (id: number, body: BookSaveRequest): Promise<BookRecord> =>
+    apiClient.put(`/journeys/${id}/book`, body).then(r => r.data),
+  deleteBook: (id: number): Promise<void> =>
+    apiClient.delete(`/journeys/${id}/book`).then(r => r.data),
   createEntry: (id: number, data: Record<string, unknown>) => apiClient.post(`/journeys/${id}/entries`, data).then(r => r.data),
   updateEntry: (entryId: number, data: Record<string, unknown>) => apiClient.patch(`/journeys/entries/${entryId}`, data).then(r => r.data),
   deleteEntry: (entryId: number) => apiClient.delete(`/journeys/entries/${entryId}`).then(r => r.data),

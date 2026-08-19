@@ -3981,17 +3981,49 @@ function runMigrations(db: Database.Database): void {
         db.exec('ALTER TABLE journey_share_tokens ADD COLUMN newest_first INTEGER NOT NULL DEFAULT 0');
       }
     },
+    /*
+     * TREK Studio books (#1973).
+     *
+     * One row per book, the document itself stored as JSON. A book is a
+     * document rather than a graph of records: the editor loads it whole, the
+     * renderer prints it whole, and nothing ever queries "which books contain a
+     * heart-shaped frame". Normalising spreads and elements into tables would
+     * buy queries nobody makes and cost a join on every open plus a schema
+     * migration for every new element kind.
+     *
+     * `updated_at` and `version` are what make concurrent editing possible:
+     * the version increments on every write, and a client that saves against a
+     * version it did not read gets told rather than silently overwriting.
+     */
+    () => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS journey_books (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          journey_id INTEGER NOT NULL REFERENCES journeys(id) ON DELETE CASCADE,
+          title TEXT NOT NULL DEFAULT '',
+          document TEXT NOT NULL,
+          version INTEGER NOT NULL DEFAULT 1,
+          created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+          updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_journey_books_journey ON journey_books(journey_id);
+      `);
+    },
     // Storage slice 2 — collab note attachments historically stored 'files/<name>'
     // in trip_files.filename while the file manager stored bare names in the same
     // column; the storage layer addresses objects as category + bare name, so
     // normalize the legacy rows. substr is 1-indexed: 7 drops the six chars of
     // 'files/'. The LIKE guard makes it a no-op on already-bare rows.
-    // Appended LAST (again): this slot moved below the three dev slots above in
-    // the dev merge — the array is index-addressed against schema_version, and
-    // the dev slots keep the indices they shipped with. A database that already
-    // ran this migration at its pre-merge index replays it harmlessly (the LIKE
-    // guard) but SKIPS the #1939 key promotion — acceptable only because this
-    // branch was never published; do not repeat this with a released slot.
+    //
+    // Appended LAST again, and for the same reason as the note this replaces:
+    // the array is index-addressed against schema_version, so a slot that has
+    // shipped in dev keeps the index it shipped with and anything from this
+    // branch goes after it. A database that already ran this migration at its
+    // pre-merge index replays it harmlessly (the LIKE guard) but skips whatever
+    // now occupies that index. Acceptable only because this branch has never
+    // been published; never do this with a released slot.
     () => {
       db.exec("UPDATE trip_files SET filename = substr(filename, 7) WHERE filename LIKE 'files/%'");
     },

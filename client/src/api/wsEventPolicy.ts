@@ -57,6 +57,14 @@ export const HANDLED_OUTSIDE_TRIP_STORE = [
   'journey:entry:deleted',
   'journey:entries:reordered',
   'journey:contributor:changed',
+  // Studio book — components/Studio/useBookStore (its own listener: a client
+  // with nothing outstanding takes the new version, one with unsaved edits
+  // deliberately does not and conflicts on its next save instead)
+  'journey:book:saved',
+  // Studio presence — components/Studio/useBookPresence (its own listener:
+  // who has the book open, and where their pointers are)
+  'journey:book:peers',
+  'journey:book:cursor',
   // Booking import — BackgroundTasks/BackgroundTasksWidget ('import:' prefix listener)
   'import:progress',
   'import:done',

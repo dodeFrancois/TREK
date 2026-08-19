@@ -65,6 +65,9 @@ export class JourneyPublicController {
         throw new HttpException({ error: 'Not found' }, 404);
       }
       res.set('Cache-Control', 'public, max-age=86400');
+      // The storage layer serves it, whichever driver is configured. dev's fix
+      // for the absolute-path 404 under the Nest ExpressAdapter does not apply
+      // here any more: nothing on this path calls sendFile.
       await this.storage.sendToResponse('journey', name, res);
       return;
     }

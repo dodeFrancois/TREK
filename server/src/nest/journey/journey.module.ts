@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { JourneyController } from './journey.controller';
 import { JourneyPublicController } from './journey-public.controller';
 import { JourneyService } from './journey.service';
+import { JourneyBookService } from './journey-book.service';
 import { AddonsModule } from '../addons/addons.module';
 import { MemoriesModule } from '../memories/memories.module';
 import { JourneyDomainModule } from './journey-domain.module';
@@ -34,6 +35,6 @@ import { journeyImageFileFilter, journeyUploadFilename } from './journey.control
     StorageModule,
     AuthModule, AddonsModule, MemoriesModule, JourneyDomainModule],
   controllers: [JourneyController, JourneyPublicController],
-  providers: [JourneyService, JourneyMcp],
+  providers: [JourneyService, JourneyBookService, JourneyMcp],
 })
 export class JourneyModule {}
