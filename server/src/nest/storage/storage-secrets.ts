@@ -5,11 +5,7 @@ import {
   type StorageBackendTypeId,
   type StorageConfig,
 } from '@trek/shared';
-import {
-  decrypt_api_key,
-  is_encrypted_api_key,
-  maybe_encrypt_api_key,
-} from '../common/crypto/apiKeyCrypto';
+import { is_encrypted_api_key, maybe_encrypt_api_key } from '../common/crypto/apiKeyCrypto';
 import { StorageBackendError } from './storage.types';
 
 /**
