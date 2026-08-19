@@ -1,10 +1,12 @@
 /// <reference types="@aws-lite/s3-types" />
 import awsLite from '@aws-lite/client';
-import type { Readable } from 'node:stream';
+import { PassThrough, type Readable } from 'node:stream';
+import fs from 'node:fs';
 import { assertValidKey, assertValidPrefix, isValidKey } from '../storage-keys';
 import {
   StorageBackendError,
   StorageNotFoundError,
+  isLocalTempFile,
   type ByteRange,
   type LocalTempFile,
   type ObjectStat,
@@ -129,8 +131,92 @@ export class S3Driver implements StorageDriver {
     return null;
   }
 
-  async put(_key: string, _source: Readable | LocalTempFile, _opts?: PutOptions): Promise<void> {
-    throw new StorageBackendError('not implemented');
+  async put(key: string, source: Readable | LocalTempFile, opts?: PutOptions): Promise<void> {
+    assertValidKey(key);
+    const s3 = await this.client();
+    const base: Record<string, unknown> = { Bucket: this.bucket, Key: this.keyPrefix + key };
+    if (opts?.contentType) base.ContentType = opts.contentType;
+
+    if (isLocalTempFile(source)) {
+      // Ownership transfer: consume the tmp file on success AND failure.
+      try {
+        const { size } = await fs.promises.stat(source.tmpPath);
+        if (size < MULTIPART_THRESHOLD) {
+          await this.deadlined(s3.PutObject({ ...base, File: source.tmpPath }), `put '${key}'`);
+        } else {
+          await this.uploadMonitored(s3, base, fs.createReadStream(source.tmpPath), key);
+        }
+      } catch (err) {
+        throw this.wrap(err, `put failed for '${key}'`);
+      } finally {
+        await fs.promises.rm(source.tmpPath, { force: true });
+      }
+      return;
+    }
+
+    // Bounded peek (spec, Client): a stream ending within the threshold —
+    // including zero bytes — becomes one PutObject with the buffered Body (the
+    // same memory Upload would buffer for part 1, and one round trip instead
+    // of 3+; aws-lite's Upload also breaks on empty streams). A larger stream
+    // flows into Upload with the prefix re-attached. An unbounded stream never
+    // reaches PutObject, which would buffer it wholesale.
+    const peeked = await peekStream(source, MULTIPART_THRESHOLD); // source errors surface untouched
+    // `readableEnded` guards a race: a source whose 'end' fires between the
+    // peek resolving (size > threshold) and pipe() attaching would never end
+    // the PassThrough — but ended means the chunks already hold everything.
+    if (peeked.ended || source.readableEnded) {
+      try {
+        await this.deadlined(s3.PutObject({ ...base, Body: Buffer.concat(peeked.chunks) }), `put '${key}'`);
+      } catch (err) {
+        throw this.wrap(err, `put failed for '${key}'`);
+      }
+      return;
+    }
+    const combined = new PassThrough();
+    for (const chunk of peeked.chunks) combined.write(chunk);
+    source.pipe(combined);
+    source.on('error', (err) => combined.destroy(err));
+    try {
+      await this.uploadMonitored(s3, base, combined, key, source);
+    } catch (err) {
+      throw this.wrap(err, `put failed for '${key}'`);
+    }
+  }
+
+  /**
+   * Multipart Upload under an INACTIVITY deadline: a fixed whole-operation
+   * deadline would break large backups, so the timer resets on data movement.
+   * Expiry destroys the monitored stream, driving Upload's own error path —
+   * in-flight parts drain, then AbortMultipartUpload fires (verified upstream).
+   */
+  private async uploadMonitored(
+    s3: S3Api,
+    base: Record<string, unknown>,
+    body: Readable,
+    key: string,
+    sourceToDestroy?: Readable,
+  ): Promise<void> {
+    let timer: NodeJS.Timeout | undefined;
+    const expire = () => {
+      const err = new StorageBackendError(
+        `put '${key}' stalled for ${this.timeoutMs}ms on '${this.id}' — multipart upload aborted`,
+      );
+      body.destroy(err);
+      sourceToDestroy?.destroy(err);
+    };
+    const reset = () => {
+      clearTimeout(timer);
+      timer = setTimeout(expire, this.timeoutMs);
+      timer.unref?.();
+    };
+    body.on('data', reset); // body is consumed by Upload; extra listener observes only
+    reset();
+    try {
+      await s3.Upload({ ...base, Body: body, ChunkSize: MULTIPART_THRESHOLD });
+    } finally {
+      clearTimeout(timer);
+      body.off('data', reset);
+    }
   }
 
   async getStream(key: string, range?: ByteRange): Promise<{ stream: Readable; stat: ObjectStat }> {
@@ -264,4 +350,51 @@ function totalFromContentRange(contentRange: string | undefined, key: string, id
     throw new StorageBackendError(`ranged get for '${key}' on '${id}' returned no Content-Range total`);
   }
   return Number(total);
+}
+
+/**
+ * Reads up to `limit` bytes in paused mode. Resolves `ended: true` when the
+ * stream finished within the limit (chunks = the whole payload), else
+ * `ended: false` with the peeked prefix still unconsumed downstream. Rejects
+ * with the source's own error untouched (LocalDriver parity).
+ */
+function peekStream(source: Readable, limit: number): Promise<{ chunks: Buffer[]; size: number; ended: boolean }> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let size = 0;
+    const cleanup = () => {
+      source.off('readable', onReadable);
+      source.off('end', onEnd);
+      source.off('error', onError);
+    };
+    const onReadable = () => {
+      for (;;) {
+        const raw = source.read() as Buffer | string | null;
+        if (raw === null) return;
+        // A source not explicitly in binary mode (e.g. an object-mode
+        // Readable.from(string), as used by callers/tests) can yield string
+        // chunks; PutObject's Body and Buffer.concat both need real Buffers.
+        const chunk = Buffer.isBuffer(raw) ? raw : Buffer.from(raw);
+        chunks.push(chunk);
+        size += chunk.length;
+        if (size > limit) {
+          cleanup();
+          resolve({ chunks, size, ended: false });
+          return;
+        }
+      }
+    };
+    const onEnd = () => {
+      cleanup();
+      resolve({ chunks, size, ended: true });
+    };
+    const onError = (err: Error) => {
+      cleanup();
+      reject(err);
+    };
+    source.on('readable', onReadable);
+    source.on('end', onEnd);
+    source.on('error', onError);
+    onReadable();
+  });
 }

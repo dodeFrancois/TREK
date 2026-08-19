@@ -1,5 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { Readable } from 'node:stream';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import {
   S3Driver,
   MULTIPART_THRESHOLD,
@@ -231,5 +234,121 @@ describe('defaultClientFactory', () => {
     for (const method of ['PutObject', 'Upload', 'GetObject', 'HeadObject', 'DeleteObject', 'ListObjectsV2'] as const) {
       expect(typeof s3[method]).toBe('function');
     }
+  });
+});
+
+describe('S3Driver put — bounded peek routing', () => {
+  it('routes a small stream (ends within threshold) to a single PutObject with buffered Body', async () => {
+    const api = makeMockApi({ PutObject: vi.fn().mockResolvedValue({}) });
+    await makeDriver(api).put('a/x.bin', Readable.from('hello'), { contentType: 'text/plain' });
+    const input = (api.PutObject as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(Buffer.isBuffer(input.Body) && input.Body.toString()).toBe('hello');
+    expect(input).toMatchObject({ Key: 'a/x.bin', ContentType: 'text/plain' });
+    expect(api.Upload).not.toHaveBeenCalled();
+  });
+  it('routes a zero-byte stream to PutObject (Upload breaks on empty streams upstream)', async () => {
+    const api = makeMockApi({ PutObject: vi.fn().mockResolvedValue({}) });
+    await makeDriver(api).put('a/empty.bin', Readable.from([]));
+    const input = (api.PutObject as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(Buffer.isBuffer(input.Body) && input.Body.length).toBe(0);
+  });
+  it('routes a stream exceeding the threshold to Upload with the peeked prefix re-attached', async () => {
+    let uploaded: Buffer | null = null;
+    const api = makeMockApi({
+      Upload: vi.fn().mockImplementation(async ({ Body }: { Body: Readable }) => {
+        uploaded = await drain(Body);
+      }),
+    });
+    // Three chunks so the source cannot end during the peek (the peek stops
+    // after chunk 2 crosses the threshold; chunk 3 is still pending) — the
+    // Upload path is deterministic, not timing-dependent.
+    const chunk = Buffer.alloc(6 * 1024 * 1024, 7);
+    const big = Buffer.concat([chunk, chunk, chunk]);
+    await makeDriver(api).put('a/big.bin', Readable.from([chunk, chunk, chunk]));
+    expect(api.PutObject).not.toHaveBeenCalled();
+    expect(uploaded!.length).toBe(big.length);
+    expect(uploaded!.equals(big)).toBe(true);
+    expect((api.Upload as ReturnType<typeof vi.fn>).mock.calls[0][0]).toMatchObject({
+      Key: 'a/big.bin',
+      ChunkSize: MULTIPART_THRESHOLD,
+    });
+  });
+  it('routes a single-chunk oversized stream that ends at the peek boundary to PutObject (readableEnded guard)', async () => {
+    // One huge chunk: 'end' can fire between the peek resolving and pipe()
+    // attaching — the driver must detect readableEnded and PutObject the
+    // already-buffered payload rather than hang a never-ending PassThrough.
+    const api = makeMockApi({
+      PutObject: vi.fn().mockResolvedValue({}),
+      Upload: vi.fn().mockResolvedValue({}),
+    });
+    const big = Buffer.alloc(MULTIPART_THRESHOLD + 3, 7);
+    const oneChunk = new Readable({ read() {} });
+    oneChunk.push(big);
+    oneChunk.push(null);
+    await makeDriver(api).put('a/one-chunk.bin', oneChunk);
+    // Either path must complete with the full payload; no hang, no data loss.
+    const putCalls = (api.PutObject as ReturnType<typeof vi.fn>).mock.calls;
+    const uploadCalls = (api.Upload as ReturnType<typeof vi.fn>).mock.calls;
+    expect(putCalls.length + uploadCalls.length).toBe(1);
+    if (putCalls.length === 1) {
+      expect((putCalls[0][0].Body as Buffer).length).toBe(big.length);
+    }
+  });
+  it('surfaces a source-stream error before any client call', async () => {
+    const api = makeMockApi();
+    const boom = new Readable({
+      read() {
+        this.destroy(new Error('source exploded'));
+      },
+    });
+    await expect(makeDriver(api).put('a/broken.bin', boom)).rejects.toThrow('source exploded');
+    expect(api.PutObject).not.toHaveBeenCalled();
+    expect(api.Upload).not.toHaveBeenCalled();
+  });
+  it('expires a stalled Upload via the inactivity deadline (PassThrough destroyed)', async () => {
+    const api = makeMockApi({
+      Upload: vi.fn().mockImplementation(
+        ({ Body }: { Body: Readable }) =>
+          new Promise((_, reject) => {
+            Body.on('error', reject); // aws-lite Upload fails when its source errors
+          }),
+      ),
+    });
+    const stalled = new Readable({ read() {} });
+    stalled.push(Buffer.alloc(MULTIPART_THRESHOLD + 1)); // exceed the peek, then go silent
+    await expect(makeDriver(api, { timeoutMs: 60 }).put('a/stall.bin', stalled)).rejects.toBeInstanceOf(
+      StorageBackendError,
+    );
+  });
+});
+
+describe('S3Driver put — LocalTempFile ownership', () => {
+  async function makeTmp(bytes: number): Promise<string> {
+    const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'trek-s3-'));
+    const p = path.join(dir, 'src.bin');
+    await fs.promises.writeFile(p, Buffer.alloc(bytes, 1));
+    return p;
+  }
+  it('uploads a small temp file via PutObject File and consumes it', async () => {
+    const api = makeMockApi({ PutObject: vi.fn().mockResolvedValue({}) });
+    const tmp = await makeTmp(10);
+    await makeDriver(api).put('a/t.bin', { tmpPath: tmp }, { contentType: 'image/png' });
+    expect(api.PutObject).toHaveBeenCalledWith(
+      expect.objectContaining({ File: tmp, Key: 'a/t.bin', ContentType: 'image/png' }),
+    );
+    expect(fs.existsSync(tmp)).toBe(false);
+  });
+  it('routes a threshold-sized temp file to Upload', async () => {
+    const api = makeMockApi({ Upload: vi.fn().mockImplementation(async ({ Body }: { Body: Readable }) => drain(Body)) });
+    const tmp = await makeTmp(MULTIPART_THRESHOLD);
+    await makeDriver(api).put('a/t.bin', { tmpPath: tmp });
+    expect(api.Upload).toHaveBeenCalled();
+    expect(fs.existsSync(tmp)).toBe(false);
+  });
+  it('consumes the temp file on the failure path too (MirrorDriver precedent)', async () => {
+    const api = makeMockApi({ PutObject: vi.fn().mockRejectedValue(awsError(500)) });
+    const tmp = await makeTmp(10);
+    await expect(makeDriver(api).put('a/t.bin', { tmpPath: tmp })).rejects.toBeInstanceOf(StorageBackendError);
+    expect(fs.existsSync(tmp)).toBe(false);
   });
 });
