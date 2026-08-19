@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
+import { Readable } from 'node:stream';
 import {
   S3Driver,
   MULTIPART_THRESHOLD,
@@ -119,6 +120,105 @@ describe('S3Driver stat/delete', () => {
     await driver.stat('a/x.bin'); // second call retries the factory
     await driver.stat('a/x.bin');
     expect(factory).toHaveBeenCalledTimes(2);
+  });
+});
+
+async function drain(stream: Readable): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  for await (const c of stream) chunks.push(Buffer.from(c as Buffer));
+  return Buffer.concat(chunks);
+}
+
+describe('S3Driver getStream', () => {
+  it('streams the body with streamResponsePayload and returns the stat', async () => {
+    const api = makeMockApi({
+      GetObject: vi.fn().mockResolvedValue({
+        Body: Readable.from('hello'),
+        ContentLength: 5,
+        LastModified: new Date(7000),
+      }),
+    });
+    const { stream, stat } = await makeDriver(api).getStream('a/x.bin');
+    expect((await drain(stream)).toString()).toBe('hello');
+    expect(stat).toEqual({ key: 'a/x.bin', size: 5, mtimeMs: 7000 });
+    expect(api.GetObject).toHaveBeenCalledWith(
+      expect.objectContaining({ Key: 'a/x.bin', streamResponsePayload: true }),
+    );
+    expect((api.GetObject as ReturnType<typeof vi.fn>).mock.calls[0][0]).not.toHaveProperty('Range');
+  });
+  it('formats closed and open-ended ranges and returns the FULL-object stat from Content-Range', async () => {
+    const api = makeMockApi({
+      GetObject: vi.fn().mockResolvedValue({
+        Body: Readable.from('2345'),
+        ContentLength: 4, // the RANGE length — must not become stat.size
+        ContentRange: 'bytes 2-5/10',
+        LastModified: new Date(7000),
+      }),
+    });
+    const { stat } = await makeDriver(api).getStream('a/x.bin', { start: 2, end: 5 });
+    expect(stat.size).toBe(10);
+    expect(api.GetObject).toHaveBeenCalledWith(expect.objectContaining({ Range: 'bytes=2-5' }));
+
+    await makeDriver(api).getStream('a/x.bin', { start: 7 });
+    expect(api.GetObject).toHaveBeenLastCalledWith(expect.objectContaining({ Range: 'bytes=7-' }));
+  });
+  it('maps 404/NoSuchKey to StorageNotFoundError', async () => {
+    const api = makeMockApi({ GetObject: vi.fn().mockRejectedValue(awsError(404, 'NoSuchKey')) });
+    await expect(makeDriver(api).getStream('a/x.bin')).rejects.toBeInstanceOf(StorageNotFoundError);
+  });
+  it('rejects a missing Body as StorageBackendError (never a bare undefined stream)', async () => {
+    const api = makeMockApi({ GetObject: vi.fn().mockResolvedValue({ ContentLength: 5 }) });
+    await expect(makeDriver(api).getStream('a/x.bin')).rejects.toBeInstanceOf(StorageBackendError);
+  });
+});
+
+describe('S3Driver list', () => {
+  function pages(...pageContents: Array<Array<{ Key: string; Size: number; LastModified: Date }>>) {
+    return vi.fn().mockResolvedValue(
+      (async function* () {
+        for (const Contents of pageContents) yield { Contents };
+      })(),
+    );
+  }
+  it('paginates with the iterator, strips the keyPrefix, and requests the combined prefix', async () => {
+    const api = makeMockApi({
+      ListObjectsV2: pages(
+        [{ Key: 'trek/prod/a/one.bin', Size: 2, LastModified: new Date(1000) }],
+        [{ Key: 'trek/prod/a/sub/two.bin', Size: 3, LastModified: new Date(2000) }],
+      ),
+    });
+    const out = [];
+    for await (const stat of makeDriver(api, { keyPrefix: 'trek/prod' }).list('a/')) out.push(stat);
+    expect(out).toEqual([
+      { key: 'a/one.bin', size: 2, mtimeMs: 1000 },
+      { key: 'a/sub/two.bin', size: 3, mtimeMs: 2000 },
+    ]);
+    expect(api.ListObjectsV2).toHaveBeenCalledWith(
+      expect.objectContaining({ Prefix: 'trek/prod/a/', paginate: 'iterator' }),
+    );
+  });
+  it('skips keys with dot-segments and keys outside the keyPrefix (out-of-band writes)', async () => {
+    const api = makeMockApi({
+      ListObjectsV2: pages([
+        { Key: 'trek/prod/a/ok.bin', Size: 1, LastModified: new Date(0) },
+        { Key: 'trek/prod/.tmp/junk', Size: 1, LastModified: new Date(0) },
+        { Key: 'trek/prod/a/.hidden', Size: 1, LastModified: new Date(0) },
+        { Key: 'elsewhere/x.bin', Size: 1, LastModified: new Date(0) },
+      ]),
+    });
+    const out = [];
+    for await (const stat of makeDriver(api, { keyPrefix: 'trek/prod' }).list('')) out.push(stat);
+    expect(out.map((s) => s.key)).toEqual(['a/ok.bin']);
+  });
+  it('yields nothing for an empty result and validates the prefix first', async () => {
+    const api = makeMockApi({ ListObjectsV2: pages([]) });
+    const driver = makeDriver(api);
+    const out = [];
+    for await (const stat of driver.list('a/')) out.push(stat);
+    expect(out).toEqual([]);
+    await expect(async () => {
+      for await (const s of driver.list('../x')) void s;
+    }).rejects.toBeInstanceOf(StorageInvalidKeyError);
   });
 });
 

@@ -1,7 +1,7 @@
 /// <reference types="@aws-lite/s3-types" />
 import awsLite from '@aws-lite/client';
 import type { Readable } from 'node:stream';
-import { assertValidKey, assertValidPrefix } from '../storage-keys';
+import { assertValidKey, assertValidPrefix, isValidKey } from '../storage-keys';
 import {
   StorageBackendError,
   StorageNotFoundError,
@@ -133,8 +133,29 @@ export class S3Driver implements StorageDriver {
     throw new StorageBackendError('not implemented');
   }
 
-  async getStream(_key: string, _range?: ByteRange): Promise<{ stream: Readable; stat: ObjectStat }> {
-    throw new StorageBackendError('not implemented');
+  async getStream(key: string, range?: ByteRange): Promise<{ stream: Readable; stat: ObjectStat }> {
+    assertValidKey(key);
+    const s3 = await this.client();
+    const params: Record<string, unknown> = {
+      Bucket: this.bucket,
+      Key: this.keyPrefix + key,
+      // Mandatory: a bare GetObject content-sniffs and parses JSON/XML bodies.
+      streamResponsePayload: true,
+    };
+    if (range) params.Range = `bytes=${range.start}-${range.end ?? ''}`;
+    let res;
+    try {
+      // Deadline covers time-to-headers; body streaming is never deadlined.
+      res = await this.deadlined(s3.GetObject(params), `get '${key}'`);
+    } catch (err) {
+      if (isNotFound(err)) throw new StorageNotFoundError(key);
+      throw this.wrap(err, `get failed for '${key}'`);
+    }
+    if (!res.Body) throw new StorageBackendError(`get returned no body for '${key}' on '${this.id}'`);
+    // LocalDriver parity: on a ranged read the stat is the FULL object's —
+    // total from the 206 Content-Range, never the ranged ContentLength.
+    const size = range ? totalFromContentRange(res.ContentRange, key, this.id) : (res.ContentLength ?? 0);
+    return { stream: res.Body, stat: { key, size, mtimeMs: res.LastModified?.getTime() ?? 0 } };
   }
 
   async stat(key: string): Promise<ObjectStat | null> {
@@ -160,8 +181,38 @@ export class S3Driver implements StorageDriver {
     }
   }
 
-  list(_prefix: string): AsyncIterable<ObjectStat> {
-    throw new StorageBackendError('not implemented');
+  async *list(prefix: string): AsyncIterable<ObjectStat> {
+    assertValidPrefix(prefix);
+    const s3 = await this.client();
+    let pages: AsyncIterable<{ Contents?: Array<{ Key?: string; Size?: number; LastModified?: Date }> }>;
+    try {
+      pages = await this.deadlined(
+        s3.ListObjectsV2({ Bucket: this.bucket, Prefix: this.keyPrefix + prefix, paginate: 'iterator' }),
+        `list '${prefix}'`,
+      );
+    } catch (err) {
+      throw this.wrap(err, `list failed under '${prefix}'`);
+    }
+    const it = pages[Symbol.asyncIterator]();
+    for (;;) {
+      let next: IteratorResult<{ Contents?: Array<{ Key?: string; Size?: number; LastModified?: Date }> }>;
+      try {
+        // Per-page deadline (each iteration is one ListObjectsV2 request).
+        next = await this.deadlined(it.next(), `list '${prefix}'`);
+      } catch (err) {
+        throw this.wrap(err, `list failed under '${prefix}'`);
+      }
+      if (next.done) return;
+      for (const obj of next.value.Contents ?? []) {
+        const objectKey = obj.Key ?? '';
+        if (!objectKey.startsWith(this.keyPrefix)) continue; // out-of-band write outside our namespace
+        const key = objectKey.slice(this.keyPrefix.length);
+        // Defensive parity with LocalDriver's dotfile skip: such keys can only
+        // exist from out-of-band writes; serving/sweeps must never see them.
+        if (!isValidKey(key)) continue;
+        yield { key, size: obj.Size ?? 0, mtimeMs: obj.LastModified?.getTime() ?? 0 };
+      }
+    }
   }
 
   private client(): Promise<S3Api> {
@@ -204,4 +255,13 @@ function normalizeKeyPrefix(raw: string): string {
   if (trimmed === '') return '';
   assertValidPrefix(`${trimmed}/`);
   return `${trimmed}/`;
+}
+
+/** 'bytes 2-5/10' → 10. A 206 without a parseable total is a backend defect. */
+function totalFromContentRange(contentRange: string | undefined, key: string, id: string): number {
+  const total = contentRange?.match(/\/(\d+)$/)?.[1];
+  if (total === undefined) {
+    throw new StorageBackendError(`ranged get for '${key}' on '${id}' returned no Content-Range total`);
+  }
+  return Number(total);
 }
