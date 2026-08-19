@@ -15,6 +15,7 @@ uploads
 chart/
 docs/
 docker-compose.yml
+docker-compose.minio-test.yml
 unraid-template.xml
 *.sqlite
 *.sqlite-shm
