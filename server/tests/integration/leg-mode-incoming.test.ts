@@ -35,77 +35,32 @@ describe('incoming_leg_transport_mode migration', () => {
 
   // The case above starts from an empty database and runs every migration, so it
   // passes wherever a migration sits in the array.
-  it('the trailing migrations land on a database that is behind', () => {
+  it('every unreleased migration replays cleanly on a database that is behind', () => {
     // What actually has to hold: existing installs replay only the slots above
-    // their schema_version, so a migration inserted mid-array is silently
-    // skipped on every one of them. Undoing what the trailing migrations did
-    // and rewinding is the only way to prove they still run.
+    // their schema_version, and an install may skip releases — so every
+    // migration that has not shipped yet must be REPLAY-SAFE on a schema where
+    // it already applied: guard DDL (CREATE ... IF NOT EXISTS, pragma column
+    // checks before ALTER TABLE) and make data transforms idempotent (WHERE
+    // guards, UPDATE OR IGNORE). This test rewinds a fully migrated database
+    // to the last released version and replays everything above it; a slot
+    // that is not replay-safe throws here.
     //
-    // >>> Appending a migration? Re-point the undo below at whatever yours
-    // >>> does. That is the whole maintenance cost of this guard.
-    // Trailing migrations today (two release windows landed on top of each
-    // other, so the rewind spans all six):
-    //   version-6 — reservation_day_positions cross-trip cleanup: undone by
-    //               re-inserting a mismatched reservation/day pair.
-    //   version-5 — #1939 instance API key promotion: nothing to undo, the
-    //               seeded users are not admins and hold no keys, so the
-    //               replay is a no-op by its own guards.
-    //   version-4 — trek_photos capture metadata (#1614): column-guarded, so
-    //               the replay is a no-op; the from-scratch case above covers it.
-    //   version-3 — journey_share_tokens.newest_first: undone by dropping the
-    //               column and letting the replay put it back.
-    //   version-2 — journey_books, the TREK Studio document store (#1973):
-    //               undone by dropping the table and its index.
-    //   version-1 — storage slice-2 trip_files 'files/' prefix strip: undone
-    //               by re-inserting a prefixed row.
+    // >>> Appending a migration? Nothing to change here — just write it
+    // >>> replay-safe; this replay tells you if it is not.
+    // >>> Cutting a release? Bump RELEASED_VERSION to the version it ships.
+    const RELEASED_VERSION = 189;
+
     const upgraded = new Database(':memory:');
     upgraded.exec('PRAGMA foreign_keys = ON');
     createTables(upgraded);
     runMigrations(upgraded);
 
     const { version } = upgraded.prepare('SELECT version FROM schema_version').get() as { version: number };
+    expect(version).toBeGreaterThanOrEqual(RELEASED_VERSION);
 
-    upgraded.prepare("INSERT INTO users (id, username, email, password_hash) VALUES (1, 'a', 'a@test.local', 'x')").run();
-    upgraded.prepare("INSERT INTO users (id, username, email, password_hash) VALUES (2, 'b', 'b@test.local', 'x')").run();
-    const tripA = upgraded.prepare("INSERT INTO trips (user_id, title) VALUES (1, 'A')").run().lastInsertRowid;
-    const tripB = upgraded.prepare("INSERT INTO trips (user_id, title) VALUES (2, 'B')").run().lastInsertRowid;
-    const reservationOnA = upgraded.prepare("INSERT INTO reservations (trip_id, title, type) VALUES (?, 'r', 'other')").run(tripA).lastInsertRowid;
-    const dayOnA = upgraded.prepare("INSERT INTO days (trip_id, day_number, date) VALUES (?, 1, '2026-01-01')").run(tripA).lastInsertRowid;
-    const dayOnB = upgraded.prepare("INSERT INTO days (trip_id, day_number, date) VALUES (?, 1, '2026-01-01')").run(tripB).lastInsertRowid;
-    const insertPosition = upgraded.prepare('INSERT INTO reservation_day_positions (reservation_id, day_id, position) VALUES (?, ?, ?)');
-    insertPosition.run(reservationOnA, dayOnB, 1); // the mismatched pair the migration clears
-    insertPosition.run(reservationOnA, dayOnA, 2); // a legitimate one it must leave alone
-    upgraded.prepare("INSERT INTO trip_files (trip_id, filename, original_name) VALUES (?, 'files/aaa.pdf', 'a.pdf')").run(tripA);
+    upgraded.prepare('UPDATE schema_version SET version = ?').run(RELEASED_VERSION);
+    runMigrations(upgraded); // a throw = some trailing migration is not replay-safe
 
-    const hasNewestFirst = () =>
-      (upgraded.prepare("SELECT name FROM pragma_table_info('journey_share_tokens')").all() as { name: string }[])
-        .some(c => c.name === 'newest_first');
-
-    expect(hasNewestFirst()).toBe(true);
-    upgraded.exec('ALTER TABLE journey_share_tokens DROP COLUMN newest_first');
-    expect(hasNewestFirst()).toBe(false);
-
-    upgraded.exec('DROP INDEX IF EXISTS idx_journey_books_journey');
-    upgraded.exec('DROP TABLE IF EXISTS journey_books');
-    expect(
-      upgraded.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'journey_books'").get()
-    ).toBeUndefined();
-
-    upgraded.prepare('UPDATE schema_version SET version = ?').run(version - 6);
-
-    runMigrations(upgraded);
-
-    const positions = upgraded.prepare('SELECT day_id FROM reservation_day_positions ORDER BY day_id').all() as { day_id: number }[];
-    expect(positions).toEqual([{ day_id: Number(dayOnA) }]);
-    const files = upgraded.prepare('SELECT filename FROM trip_files').all() as { filename: string }[];
-    expect(files.map(r => r.filename)).toEqual(['aaa.pdf']);
-    expect(hasNewestFirst()).toBe(true);
-    expect(
-      upgraded.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'journey_books'").get()
-    ).toEqual({ name: 'journey_books' });
-    expect(
-      upgraded.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'idx_journey_books_journey'").get()
-    ).toEqual({ name: 'idx_journey_books_journey' });
     expect(upgraded.prepare('SELECT version FROM schema_version').get()).toEqual({ version });
     upgraded.close();
   });

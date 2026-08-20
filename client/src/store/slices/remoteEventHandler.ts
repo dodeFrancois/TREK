@@ -3,6 +3,7 @@ import type { TrekWsTripEventName } from '@trek/shared'
 import type { TripStoreState } from '../tripStore'
 import type { Assignment, Place, Day, DayNote, PackingItem, TodoItem, BudgetItem, BudgetItemMember, Reservation, Trip, TripFile, WebSocketEvent } from '../../types'
 import { offlineDb } from '../../db/offlineDb'
+import { useAuthStore } from '../authStore'
 
 type SetState = StoreApi<TripStoreState>['setState']
 type GetState = StoreApi<TripStoreState>['getState']
@@ -27,8 +28,30 @@ const writeDayById: DexieWriter = async (payload, state) => {
   const day = payload.day as Day
   await _writeDayToDb(day.id, state)
 }
+/**
+ * Cache a packing item — unless it is somebody else's private one (#1976).
+ *
+ * The server scopes these events to the people who may see the item, so in
+ * ordinary running this never has anything to refuse. It refuses anyway, for
+ * two reasons. A leak on the wire used to become permanent here: the write is a
+ * put, the offline read hands back every cached row for the trip, and nothing
+ * prunes, so one stray event put another member's item into this browser for
+ * good. And a member whose access to a shared item is withdrawn should lose the
+ * copy they already have, which is the same check.
+ *
+ * Deleting rather than skipping is the part that matters: skipping would leave
+ * a row that arrived before this existed sitting there forever.
+ */
 const putPackingItem: DexieWriter = async payload => {
-  await offlineDb.packingItems.put(payload.item as PackingItem)
+  const item = payload.item as PackingItem
+  const me = useAuthStore.getState().user?.id
+  const mine = !item?.is_private || item.owner_id == null || item.owner_id === me
+    || (item.recipients || []).some(r => r.user_id === me)
+  if (!mine) {
+    await offlineDb.packingItems.delete(item.id)
+    return
+  }
+  await offlineDb.packingItems.put(item)
 }
 const putTodoItem: DexieWriter = async payload => {
   await offlineDb.todoItems.put(payload.item as TodoItem)
@@ -42,6 +65,9 @@ const putCanonicalBudgetItem: DexieWriter = async (payload, state) => {
   if (item) await offlineDb.budgetItems.put(item)
 }
 const putReservation: DexieWriter = async payload => {
+  // The same empty ping the appliers above handle; without this the write
+  // throws and only the swallowed catch keeps it quiet.
+  if (!payload.reservation) return
   await offlineDb.reservations.put(payload.reservation as Reservation)
 }
 const putTripFile: DexieWriter = async payload => {
@@ -428,14 +454,31 @@ export const STATE_APPLIERS: Partial<Record<TrekWsTripEventName, StateApplier>> 
     return {}
   },
 
-  // Reservations
+  /*
+   * ── Reservations ────────────────────────────────────────────────────────
+   *
+   * These two events come in two shapes. Normally they carry the reservation.
+   * The accommodation cascade sends them empty, as a "something changed, go
+   * and look" ping, which the event contract allows for.
+   *
+   * Reading the id off the empty one is how a trip broke permanently (#1979):
+   * with no reservations loaded yet, `.some()` never ran the callback, so the
+   * cast slipped through and the applier returned `[undefined]`. From then on
+   * every render that walked the list threw "Cannot read properties of
+   * undefined (reading 'endpoints')" straight into the route error boundary,
+   * and the trip stayed unreachable in that browser.
+   */
   'reservation:created': (payload, state) => {
-    if (state.reservations.some(r => r.id === (payload.reservation as Reservation).id)) return {}
-    return { reservations: [payload.reservation as Reservation, ...state.reservations] }
+    const reservation = payload.reservation as Reservation | undefined
+    if (!reservation) return {}
+    if (state.reservations.some(r => r.id === reservation.id)) return {}
+    return { reservations: [reservation, ...state.reservations] }
   },
-  'reservation:updated': (payload, state) => ({
-    reservations: state.reservations.map(r => r.id === (payload.reservation as Reservation).id ? payload.reservation as Reservation : r),
-  }),
+  'reservation:updated': (payload, state) => {
+    const reservation = payload.reservation as Reservation | undefined
+    if (!reservation) return {}
+    return { reservations: state.reservations.map(r => r.id === reservation.id ? reservation : r) }
+  },
   'reservation:travelers-updated': (payload, state) => ({
     reservations: state.reservations.map(r => r.id === (payload.reservationId as number)
       ? { ...r, travelers: payload.travelers as Reservation['travelers'] } : r),
@@ -494,6 +537,18 @@ export function handleRemoteEvent(set: SetState, get: GetState, event: WebSocket
     if (nextImage !== prevPlaceImage) {
       window.dispatchEvent(new CustomEvent('accommodations:refresh'))
     }
+  }
+
+  /*
+   * The accommodation cascade announces its reservation without sending it,
+   * which the applier above correctly declines to invent an entity from. Left
+   * at that, a hotel booked by one member would not appear for the others
+   * until they reloaded, so honour the ping the way day:reordered does and
+   * fetch the authoritative list.
+   */
+  if ((type === 'reservation:created' || type === 'reservation:updated') && !payload.reservation) {
+    const tripId = get().trip?.id
+    if (tripId) get().loadReservations(tripId)
   }
 
   // A reorder/insert re-pins dates and re-stamps booking times server-side, so
