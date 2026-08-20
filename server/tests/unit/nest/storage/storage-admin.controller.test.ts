@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { HttpException } from '@nestjs/common';
 import type { Request } from 'express';
+import type { StorageUsage } from '@trek/shared';
 import type { User } from '../../../../src/types';
 import { StorageAdminController } from '../../../../src/nest/storage/storage-admin.controller';
 import type { StorageAdminService } from '../../../../src/nest/storage/storage-admin.service';
@@ -8,6 +9,8 @@ import type { AuditService } from '../../../../src/nest/audit/audit.service';
 import type { StorageConfigDto, StorageTestRequestDto } from '../../../../src/nest/storage/storage-admin.dto';
 import { StorageModule } from '../../../../src/nest/storage/storage.module';
 import { StorageBackendError } from '../../../../src/nest/storage/storage.types';
+import { BackfillBusyError, BackfillTargetError } from '../../../../src/nest/storage/storage-jobs.service';
+import { StatsBusyError } from '../../../../src/nest/storage/storage-stats.service';
 import { expectRegisteredController } from '../../../helpers/module-providers';
 
 const user = { id: 1 } as User;
@@ -110,5 +113,114 @@ describe('StorageAdminController', () => {
     await expect(
       controller.test(user, { backend: CONFIG.backends[0]! } as StorageTestRequestDto, req),
     ).rejects.toMatchObject({ status: 400 });
+  });
+
+  it('STORCTL-007 POST backfill starts the sync, audits the backend name, and answers { started: true }', () => {
+    const { controller, service, writeAudit } = makeController({ startBackfill: vi.fn() });
+    const result = controller.backfillStart(user, 'm', req);
+    expect(service.startBackfill).toHaveBeenCalledWith('m');
+    expect(result).toEqual({ started: true });
+    expect(writeAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 1, action: 'admin.storage_backfill', details: { backend: 'm' } }),
+    );
+  });
+
+  it('STORCTL-008 POST backfill maps BackfillTargetError to 404, no audit', () => {
+    const { controller, writeAudit } = makeController({
+      startBackfill: vi.fn(() => {
+        throw new BackfillTargetError("'ghost' is not a mirror routed by any category");
+      }),
+    });
+    try {
+      controller.backfillStart(user, 'ghost', req);
+      expect.unreachable('should have thrown');
+    } catch (err) {
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(404);
+      expect((err as HttpException).getResponse()).toEqual({ error: "'ghost' is not a mirror routed by any category" });
+    }
+    expect(writeAudit).not.toHaveBeenCalled();
+  });
+
+  it('STORCTL-009 POST backfill maps BackfillBusyError to 409, no audit', () => {
+    const { controller, writeAudit } = makeController({
+      startBackfill: vi.fn(() => {
+        throw new BackfillBusyError('a sync is already running — one backfill at a time');
+      }),
+    });
+    try {
+      controller.backfillStart(user, 'm', req);
+      expect.unreachable('should have thrown');
+    } catch (err) {
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(409);
+    }
+    expect(writeAudit).not.toHaveBeenCalled();
+  });
+
+  it('STORCTL-010 POST backfill rethrows an unrecognized error untouched', () => {
+    const boom = new Error('unexpected registry failure');
+    const { controller, writeAudit } = makeController({
+      startBackfill: vi.fn(() => {
+        throw boom;
+      }),
+    });
+    expect(() => controller.backfillStart(user, 'm', req)).toThrow(boom);
+    expect(writeAudit).not.toHaveBeenCalled();
+  });
+
+  it('STORCTL-011 DELETE backfill cancels, audits, and answers { cancelled: true } when a sync is active', () => {
+    const { controller, service, writeAudit } = makeController({ cancelBackfill: vi.fn(() => true) });
+    const result = controller.backfillCancel(user, 'm', req);
+    expect(service.cancelBackfill).toHaveBeenCalledWith('m');
+    expect(result).toEqual({ cancelled: true });
+    expect(writeAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 1, action: 'admin.storage_backfill_cancel', details: { backend: 'm' } }),
+    );
+  });
+
+  it('STORCTL-012 DELETE backfill answers 404 with no audit when there is no active sync', () => {
+    const { controller, writeAudit } = makeController({ cancelBackfill: vi.fn(() => false) });
+    try {
+      controller.backfillCancel(user, 'ghost', req);
+      expect.unreachable('should have thrown');
+    } catch (err) {
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(404);
+      expect((err as HttpException).getResponse()).toEqual({ error: "no active sync for 'ghost'" });
+    }
+    expect(writeAudit).not.toHaveBeenCalled();
+  });
+
+  it('STORCTL-013 POST stats/refresh runs the scan, audits (no details payload), and answers the usage', async () => {
+    const usage = { computedAt: 1, categories: {}, legacyPhotos: { objects: 0, bytes: 0 } } as unknown as StorageUsage;
+    const { controller, service, writeAudit } = makeController({ refreshStats: vi.fn(async () => usage) });
+    const result = await controller.statsRefresh(user, req);
+    expect(service.refreshStats).toHaveBeenCalledTimes(1);
+    expect(result).toBe(usage);
+    expect(writeAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 1, action: 'admin.storage_stats_refresh' }),
+    );
+  });
+
+  it('STORCTL-014 POST stats/refresh maps StatsBusyError to 409, no audit', async () => {
+    const { controller, writeAudit } = makeController({
+      refreshStats: vi.fn(async () => {
+        throw new StatsBusyError('a usage scan is already running');
+      }),
+    });
+    await expect(controller.statsRefresh(user, req)).rejects.toMatchObject({ status: 409 });
+    expect(writeAudit).not.toHaveBeenCalled();
+  });
+
+  it('STORCTL-015 POST stats/refresh rethrows an unrecognized error untouched', async () => {
+    const boom = new Error('disk full');
+    const { controller, writeAudit } = makeController({
+      refreshStats: vi.fn(async () => {
+        throw boom;
+      }),
+    });
+    await expect(controller.statsRefresh(user, req)).rejects.toBe(boom);
+    expect(writeAudit).not.toHaveBeenCalled();
   });
 });

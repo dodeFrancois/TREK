@@ -14,10 +14,12 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { Readable } from 'node:stream';
+import { Logger } from '@nestjs/common';
 import { createTables } from '../../../../src/db/schema';
 import { runMigrations } from '../../../../src/db/migrations';
 import { DatabaseService } from '../../../../src/nest/database/database.service';
 import type { RuntimeEnvService } from '../../../../src/nest/app-config/runtime-env.service';
+import { MirrorDriver } from '../../../../src/nest/storage/drivers/mirror.driver';
 import { StorageEventsService } from '../../../../src/nest/storage/storage-events.service';
 import { StorageRegistryService } from '../../../../src/nest/storage/storage-registry.service';
 import { StorageService } from '../../../../src/nest/storage/storage.service';
@@ -132,5 +134,37 @@ describe('StorageJobsService', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('JOBS-006 an Error rejection from driver.backfill lands the job on "error" with its message, and is logged', async () => {
+    const { jobs } = makeWorld();
+    const backfillSpy = vi.spyOn(MirrorDriver.prototype, 'backfill').mockRejectedValueOnce(new Error('replica offline'));
+    const errorSpy = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    jobs.startBackfill('m');
+    await waitFor(() => jobs.statuses().some((s) => s.backend === 'm' && s.status === 'error'));
+    const status = jobs.statuses().find((s) => s.backend === 'm')!;
+    expect(status.error).toBe('replica offline');
+    expect(errorSpy).toHaveBeenCalledWith("backfill 'm' aborted: replica offline");
+    backfillSpy.mockRestore();
+  });
+
+  it('JOBS-006b a non-Error rejection is stringified rather than crashing', async () => {
+    const { jobs } = makeWorld();
+    const backfillSpy = vi.spyOn(MirrorDriver.prototype, 'backfill').mockRejectedValueOnce('replica gone');
+    vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    jobs.startBackfill('m');
+    await waitFor(() => jobs.statuses().some((s) => s.backend === 'm' && s.status === 'error'));
+    expect(jobs.statuses().find((s) => s.backend === 'm')!.error).toBe('replica gone');
+    backfillSpy.mockRestore();
+  });
+
+  it('JOBS-007 withTtl builds a service whose finished jobs expire on the given (short) TTL, not the 10-minute default', async () => {
+    const { registry, storage } = makeWorld();
+    await storage.put('backups', 'q.zip', Readable.from('q'));
+    const jobs = StorageJobsService.withTtl(registry, 50);
+    jobs.startBackfill('m');
+    await waitFor(() => jobs.statuses().some((s) => s.status === 'done'));
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(jobs.statuses()).toEqual([]);
   });
 });
