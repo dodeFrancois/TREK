@@ -35,6 +35,10 @@
 #     TREK_TEST_S3_BUCKET=trek-test TREK_TEST_S3_ACCESS_KEY_ID=trekci \
 #     TREK_TEST_S3_SECRET_ACCESS_KEY=trekci-secret \
 #     npx vitest run tests/unit/nest/storage/s3.driver.contract.test.ts
+#   (optional) UI check: with the app running against this instance, open
+#   Admin → Storage, add an S3 backend (endpoint http://127.0.0.1:9000,
+#   bucket trek-test, access key trekci, secret trekci-secret), press Test
+#   on its row and confirm "Connection OK".
 #   docker compose -f docker-compose.minio-test.yml down -v
 services:
   minio:

@@ -162,8 +162,9 @@ Most of what follows is an addon an admin switches on or off. Lists, Costs, Docu
 - **2FA**: TOTP with ten single-use backup codes, and an admin can require it instance-wide
 - **Passkeys**: WebAuthn login by fingerprint, face, PIN or security key, off until an admin enables it. A passkey also satisfies the 2FA requirement
 - **Hardening**: per-IP limits on login, password reset and 2FA attempts, a password policy, secrets encrypted at rest and masked on read, and an SSRF guard on every URL you configure
-- **Admin panel**: users and invites, the permission matrix, packing templates, categories, addons, plugins, API keys, MCP tokens and OAuth sessions, backups, audit log, and GitHub releases
+- **Admin panel**: users and invites, the permission matrix, packing templates, categories, addons, plugins, API keys, MCP tokens and OAuth sessions, backups, storage, audit log, and GitHub releases
 - **Backups**: manual or scheduled hourly, daily, weekly or monthly, with retention in days. The zip carries the at-rest key, so a restore can decrypt its own secrets
+- **Storage**: pluggable storage backends per content category — keep everything on local disk, or add S3-compatible backends and replicate any category to them, configured entirely from the admin panel
 - **Notifications**: a per-user matrix of events against in-app, email (SMTP), webhook and ntfy, plus any channel a plugin registers
 - **Appearance**: light, dark or follow the OS, seven colour schemes plus a custom accent, transparency, compact density, reduce motion, and text size per tier
 - **23 languages**: en, de, es, fr, it, nl, hu, ru, zh, zh-TW, pl, cs, ar (right to left), br, id, tr, ja, ko, uk, gr, sv, vi, ca
@@ -343,6 +344,16 @@ Your data stays in the mounted `data` and `uploads` volumes — updates never to
 > [!IMPORTANT]
 > Mount **only** the data and uploads directories — `-v ./data:/app/data -v ./uploads:/app/uploads`. **Never mount a volume at `/app`.** Doing so hides the application code shipped in the image and the container fails to start with `Cannot find module 'tsconfig-paths/register'`. If you previously mounted `/app`, switch to the two mounts above; your data in `data/` and `uploads/` is preserved.
 
+> [!IMPORTANT]
+> **Upgrading to v4 with storage variables set:** if your run command or
+> compose file sets any `TREK_S3_*` variable or `TREK_UPLOADS_DIR`, the new
+> version refuses to start until you remove them (better than silently
+> ignoring your S3 settings and running local-only). Note the values down
+> first, remove the variables, start the server, then re-enter the S3
+> credentials in **Admin → Storage** — or mount them as a
+> [seed file](#storage). A relocated `TREK_UPLOADS_DIR` becomes an edit of the
+> `uploads-local` backend's root in the same panel.
+
 <h3>Rotating the Encryption Key</h3>
 
 If you need to rotate `ENCRYPTION_KEY` (e.g. upgrading from a version that derived encryption from `JWT_SECRET`):
@@ -438,6 +449,22 @@ Caddy handles TLS and WebSockets automatically.
 > with a report listing every offending variable. Boolean switches accept
 > `true`/`false`, `1`/`0`, `on`/`off` and `yes`/`no` (any casing).
 
+> [!WARNING]
+> **Removed in v4:** storage is no longer configured through environment
+> variables. `TREK_S3_ENDPOINT`, `TREK_S3_BUCKET`, `TREK_S3_ACCESS_KEY_ID`,
+> `TREK_S3_SECRET_ACCESS_KEY`, `TREK_S3_REGION`, `TREK_S3_KEY_PREFIX`,
+> `TREK_S3_RETRIES`, `TREK_S3_TIMEOUT_MS` and `TREK_UPLOADS_DIR` were removed,
+> and a server started with any of them set **refuses to boot** with:
+>
+> ```
+> Invalid environment configuration:
+>   - TREK_S3_ENDPOINT was removed — configure storage in the admin UI or data/storage-config.json.
+> ```
+>
+> Unset them and configure storage in **Admin → Storage** (or the seed file) —
+> see [Storage](#storage). `TREK_PLACE_PHOTO_DIR` is unaffected and keeps
+> working.
+
 <details>
 <summary><b>Full reference</b></summary>
 
@@ -452,7 +479,6 @@ Caddy handles TLS and WebSockets automatically.
 | `TZ` | Timezone for logs, reminders and cron jobs (e.g. `Europe/Berlin`) | `UTC` |
 | `LOG_LEVEL` | `info` = concise user actions, `debug` = verbose details | `info` |
 | `TREK_WIKI_DIR` | Where the in-app Help pages (`/help`) read their content from. TREK ships its wiki and serves it from disk, so Help always matches the version you are running — you should not need to set this. Point it at your own directory to serve custom docs. If the path does not exist, Help falls back to fetching the public GitHub wiki (needs outbound network, and tracks the latest release). | bundled `wiki/` |
-| `TREK_UPLOADS_DIR` | Root directory for uploaded files (trip files, journey media, covers, avatars, place images, photo caches). Leave unset to keep the default `uploads/` directory next to the server — in Docker that is the `/app/uploads` volume. Set it to relocate uploads to another disk or mount; the path must be writable by the server. | `./uploads` |
 | `DEFAULT_LANGUAGE` | Default language on the login page for users with no saved preference. Browser/OS language is auto-detected first; this is the fallback. Supported: `de`, `en`, `es`, `fr`, `hu`, `nl`, `br`, `cs`, `pl`, `ru`, `zh`, `zh-TW`, `it`, `ar`, `id`, `tr`, `ja`, `ko`, `uk`, `gr` | `en` |
 | `ALLOWED_ORIGINS` | Comma-separated origins for CORS and email links | same-origin |
 | `FORCE_HTTPS` | Optional. When `true`: 301-redirects HTTP to HTTPS, sends HSTS, adds CSP `upgrade-insecure-requests`, forces the session cookie `secure` flag. Useful behind a TLS-terminating reverse proxy. Requires `TRUST_PROXY`. | `false` |
@@ -463,15 +489,6 @@ Caddy handles TLS and WebSockets automatically.
 | `TRUST_PROXY` | Number of trusted reverse proxies. Tells the server to read client IP from `X-Forwarded-For` and protocol from `X-Forwarded-Proto`. Defaults to `1` in production; off in dev unless set. | `1` |
 | `ALLOW_INTERNAL_NETWORK` | Allow outbound requests to private/RFC-1918 IPs (e.g. Immich on your LAN). Loopback and link-local addresses remain blocked. | `false` |
 | `APP_URL` | Public base URL of this instance (e.g. `https://trek.example.com`). Required when OIDC is enabled; used as base for email notification links. | — |
-| **S3 storage** | | |
-| `TREK_S3_ENDPOINT` | Full URL of an S3-compatible endpoint (`https://s3.example.com:9000`). Setting any `TREK_S3_*` variable makes the four credentials/endpoint/bucket variables required — the server refuses to boot on a partial set. Declares the `s3-main` storage backend; nothing uses it until a `storage.categories` / `storage.backends` setting maps a category to it. Note for self-hosted endpoints (MinIO, Garage): use an IP address or `localhost` in the URL, or configure the server for virtual-hosted bucket addressing — the client addresses non-IP hostnames as `bucket.host`. | — |
-| `TREK_S3_BUCKET` | Bucket name (must exist; the server never creates it). | — |
-| `TREK_S3_ACCESS_KEY_ID` | Credential. Lives only in your env/compose file — never in the database. | — |
-| `TREK_S3_SECRET_ACCESS_KEY` | Credential. | — |
-| `TREK_S3_REGION` | Region; arbitrary values accepted for non-AWS endpoints (Cloudflare R2 wants `auto`). | `us-east-1` |
-| `TREK_S3_KEY_PREFIX` | Namespace inside a shared bucket, e.g. `trek/prod`. | — |
-| `TREK_S3_RETRIES` | Client retry count (`0` disables). | `1` |
-| `TREK_S3_TIMEOUT_MS` | Per-request deadline in ms (inactivity-based for large multipart uploads). | `30000` |
 | **OIDC / SSO** | | |
 | `OIDC_ISSUER` | OpenID Connect provider URL | — |
 | `OIDC_CLIENT_ID` | OIDC client ID | — |
@@ -498,25 +515,93 @@ Caddy handles TLS and WebSockets automatically.
 
 <br />
 
+<h2 id="storage">Storage</h2>
+
+TREK separates *what* it stores (eight content categories — trip documents,
+journey photos, cover images, profile pictures, place images, the two photo
+caches, and backups) from *where* it stores it (named backends). Out of the
+box everything lives on local disk (`uploads/` and `data/backups`). From
+**Admin → Storage** you can:
+
+- **Add S3-compatible backends** (AWS S3, Cloudflare R2, Backblaze B2, Garage,
+  MinIO/AIStor) and assign any category to them.
+- **Replicate a backend**: edit it and pick **Mirror targets** — every write is
+  then also copied to each target. The classic off-site backup setup is:
+  add an S3 backend, edit `backups-local`, tick the S3 backend as a mirror
+  target, save. Replica writes happen one after another during each upload, so
+  a slow or unreachable target slows every upload of every category on that
+  backend — fine for backups, worth weighing for hot categories.
+- **Watch the Health strip**: replica failures never fail the original
+  request; they are recorded and shown there instead. All-clear means every
+  replicated write landed.
+- **Test** any backend from its row (for a replicated backend it probes the
+  primary and each target individually). Targets must be saved before Test
+  can probe them.
+
+Storing credentialed backends requires `ENCRYPTION_KEY` to be set explicitly —
+secrets are encrypted at rest, and the panel refuses to save a plaintext
+secret without it.
+
+Notes and limits: reassigning a populated category does not move its existing
+objects (new writes go to the new backend, old objects stay); media categories
+on S3 work but every served byte proxies through the server (no HTTP Range on
+the proxy path); AWS buckets with Object-Lock or checksum-requiring policies
+reject the server's uploads; self-hosted endpoints (MinIO/Garage) should be
+addressed by IP or `localhost` unless configured for virtual-hosted buckets.
+The legacy `/uploads/photos` directory from older TREK versions is still
+served and included in backups, but it is not a configurable category.
+Running the storage contract suite against a live MinIO/AIStor stays a
+manual, license-gated procedure — see `docker-compose.minio-test.yml`'s
+header; it is not part of CI.
+
+### Provisioning at first boot (seed file)
+
+For infrastructure-as-code setups, mount a `storage-config.json` into the
+data directory — it is imported **once**, on the first boot that has no
+stored storage configuration, and loudly ignored afterwards:
+
+```jsonc
+// storage-config.json — secrets may be plaintext (encrypted on import;
+// requires ENCRYPTION_KEY) or already-encrypted enc:v1: values.
+{
+  "backends": [
+    { "name": "off-site", "type": "s3", "options": {
+      "endpoint": "https://s3.example.com", "bucket": "trek",
+      "accessKeyId": "…", "secretAccessKey": "…" } },
+    { "name": "backups-mirror", "type": "mirror", "options": {
+      "primary": "backups-local", "replicas": ["off-site"] } }
+  ],
+  "categories": { "backups": "backups-mirror" }
+}
+```
+
+```yaml
+# docker-compose: add under the trek service's volumes
+      - ./storage-config.json:/app/data/storage-config.json:ro
+```
+
+An invalid seed file aborts boot with the exact validation error — an
+actively-provisioning operator sees the problem instead of a silent default.
+
+### Recovery and restore
+
+To reset storage configuration to the built-in defaults (or to re-import a
+seed file): stop the server, run
+`sqlite3 data/travel.db "DELETE FROM app_settings WHERE key LIKE 'storage.%';"`,
+and start it again.
+
+Backups include the storage configuration (it lives in the database). If your
+only backup sits on S3 and the credentials for it sit inside that backup:
+start a fresh instance, enter the S3 credentials in **Admin → Storage** (or
+mount a seed file), then restore the backup from the Backup panel.
+
 ## Data & Backups
 
 - **Database** — SQLite, stored in `./data/travel.db`
-- **Uploads** — stored in `./uploads/`
+- **Uploads** — stored in `./uploads/` by default; every content category can be reassigned to another backend in **Admin → Storage**
 - **Logs** — `./data/logs/trek.log` (auto-rotated)
 - **Backups** — create and restore via Admin Panel
 - **Auto-Backups** — configurable schedule and retention in Admin Panel
-
-### Off-box backups (S3)
-
-You can mirror backups to any S3-compatible store (AWS S3, Cloudflare R2, Backblaze B2, Garage, MinIO — MinIO's community line is discontinued entirely (both the archived Docker Hub repo and quay.io get no further updates); the maintained successor, AIStor, requires a license key, so Garage is the maintained self-host alternative without that requirement). Replica failures are logged and surfaced, never fail the request. Media categories on S3 are functional but unoptimized (every served byte proxies through the server; no HTTP Range on the proxy path). Switching a populated category's backend does not move existing objects. AWS caveat: Object-Lock buckets or checksum-requiring bucket policies reject the server's checksum-less uploads. Running the contract suite against a live MinIO/AIStor is a manual, license-gated procedure — see `docker-compose.minio-test.yml`'s header for the full setup and run steps; it is not part of CI.
-
-To mirror backups, configure the mirror backend via SQL:
-
-```sql
-INSERT INTO app_settings (key, value) VALUES
- ('storage.backends',   '[{"name":"backup-mirror","type":"mirror","options":{"primary":"backups-local","replicas":["s3-main"]}}]'),
- ('storage.categories', '{"backups":"backup-mirror"}');
-```
 
 <br />
 
