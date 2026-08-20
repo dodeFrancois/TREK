@@ -193,6 +193,25 @@ describe('StorageRegistryService defaults', () => {
       path.join(fs.realpathSync(relocated), 'files/x.pdf'),
     );
   });
+
+  it('serves the legacy photos category from uploads-local without any config (ServedCategory seam)', () => {
+    const relocated = makeTmpDir();
+    const { registry } = makeRegistry({ uploadsRoot: relocated });
+    const photos = registry.resolve('photos');
+    expect(photos.backendName).toBe('uploads-local');
+    expect(photos.keyPrefix).toBe('photos/');
+    // Override-following: relocating uploads moves the legacy photos with it.
+    expect(photos.driver.getLocalPath!('photos/x.jpg')).toBe(
+      path.join(fs.realpathSync(relocated), 'photos/x.jpg'),
+    );
+  });
+
+  it('the admin snapshot exposes only the 8 configurable categories — photos is served, not configurable', () => {
+    const { registry } = makeRegistry();
+    const keys = Object.keys(registry.snapshot().categories);
+    expect(keys).toHaveLength(8);
+    expect(keys).not.toContain('photos');
+  });
 });
 
 // ── settings merge + validation ───────────────────────────────────────────────
@@ -251,6 +270,7 @@ describe('StorageRegistryService settings', () => {
       undefined,
     ],
     ['unknown category name', undefined, JSON.stringify({ 'not-a-category': 'uploads-local' })],
+    ['retired photos category in settings', undefined, JSON.stringify({ photos: 'uploads-local' })],
     ['malformed JSON', 'not json at all', undefined],
   ])('falls back to built-in defaults at boot on invalid settings: %s', (_label, backendsRow, categoriesRow) => {
     const { registry } = makeRegistry({ boot: false });

@@ -125,7 +125,7 @@ describe('Storage admin e2e (real auth + admin guard + managed guard + temp SQLi
     expect(res.status).toBe(200);
     const names = (res.body.backends as Array<{ name: string; source: string }>).map((b) => [b.name, b.source]);
     expect(names).toEqual(expect.arrayContaining([['uploads-local', 'built-in'], ['backups-local', 'built-in']]));
-    expect(Object.keys(res.body.categories)).toHaveLength(9);
+    expect(Object.keys(res.body.categories)).toHaveLength(8);
     expect(res.body.encryptionReady).toBe(true);
     expect(res.body.seedFilePresent).toBe(false);
     expect(res.body.health).toEqual({ replicaFailures: [] });

@@ -17,9 +17,11 @@ import { z } from 'zod';
  */
 
 /**
- * Canonical category list — relocated here from server storage.types.ts
- * (which re-exports it) because the wire schema needs it and a second copy
- * is forbidden.
+ * Canonical CONFIGURABLE category list — relocated here from server
+ * storage.types.ts (which re-exports it) because the wire schema needs it and
+ * a second copy is forbidden. The legacy `photos` directory is served and
+ * backed up but not configurable — the server's SERVED_CATEGORIES extension
+ * (storage.types.ts) carries it.
  */
 export const STORAGE_CATEGORIES = [
   'files',
@@ -27,7 +29,6 @@ export const STORAGE_CATEGORIES = [
   'covers',
   'avatars',
   'places',
-  'photos',
   'photos-google',
   'photos-trek',
   'backups',

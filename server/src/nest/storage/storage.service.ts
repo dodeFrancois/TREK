@@ -14,7 +14,7 @@ import {
   type LocalTempFile,
   type ObjectStat,
   type PutOptions,
-  type StorageCategory,
+  type ServedCategory,
   type StorageDriver,
 } from './storage.types';
 
@@ -51,7 +51,7 @@ export class StorageService {
   }
 
   /** The category backend's same-volume spool dir, else tempDir(). Resolved per call. */
-  spoolDirFor(category: StorageCategory): string {
+  spoolDirFor(category: ServedCategory): string {
     return this.registry.resolve(category).driver.getSpoolDir?.() ?? this.tempDir();
   }
 
@@ -59,7 +59,7 @@ export class StorageService {
   // rejections, never synchronous throws — callers treat storage uniformly.
 
   async put(
-    category: StorageCategory,
+    category: ServedCategory,
     name: string,
     source: Readable | LocalTempFile,
     opts?: PutOptions,
@@ -69,7 +69,7 @@ export class StorageService {
   }
 
   async getStream(
-    category: StorageCategory,
+    category: ServedCategory,
     name: string,
     range?: ByteRange,
   ): Promise<{ stream: Readable; stat: ObjectStat }> {
@@ -77,22 +77,22 @@ export class StorageService {
     return driver.getStream(key, range);
   }
 
-  async stat(category: StorageCategory, name: string): Promise<ObjectStat | null> {
+  async stat(category: ServedCategory, name: string): Promise<ObjectStat | null> {
     const { driver, key } = this.resolve(category, name);
     return driver.stat(key);
   }
 
-  async exists(category: StorageCategory, name: string): Promise<boolean> {
+  async exists(category: ServedCategory, name: string): Promise<boolean> {
     return (await this.stat(category, name)) !== null;
   }
 
-  async delete(category: StorageCategory, name: string): Promise<void> {
+  async delete(category: ServedCategory, name: string): Promise<void> {
     const { driver, key } = this.resolve(category, name);
     return driver.delete(key);
   }
 
   /** Names in and out are category-relative — the key prefix stays a registry detail. */
-  async *list(category: StorageCategory, subPrefix = ''): AsyncIterable<ObjectStat> {
+  async *list(category: ServedCategory, subPrefix = ''): AsyncIterable<ObjectStat> {
     const { driver, keyPrefix } = this.registry.resolve(category);
     for await (const stat of driver.list(keyPrefix + subPrefix)) {
       yield { ...stat, key: stat.key.slice(keyPrefix.length) };
@@ -108,7 +108,7 @@ export class StorageService {
    * StorageNotFoundError: the caller owns the route's miss contract
    * (404 envelope, 204-empty, or next()).
    */
-  async sendToResponse(category: StorageCategory, name: string, res: Response, opts?: SendOptions): Promise<void> {
+  async sendToResponse(category: ServedCategory, name: string, res: Response, opts?: SendOptions): Promise<void> {
     const { driver, key } = this.resolve(category, name);
 
     const localPath = driver.getLocalPath?.(key) ?? null;
@@ -140,7 +140,7 @@ export class StorageService {
    * tempDir() and clean up afterwards — exactly the branch a remote driver
    * will exercise.
    */
-  async withLocalFile<T>(category: StorageCategory, name: string, fn: (absPath: string) => Promise<T>): Promise<T> {
+  async withLocalFile<T>(category: ServedCategory, name: string, fn: (absPath: string) => Promise<T>): Promise<T> {
     const { driver, key } = this.resolve(category, name);
 
     const localPath = driver.getLocalPath?.(key) ?? null;
@@ -164,7 +164,7 @@ export class StorageService {
     return { replicaFailures: this.registry.replicaFailures() };
   }
 
-  private resolve(category: StorageCategory, name: string): Resolved {
+  private resolve(category: ServedCategory, name: string): Resolved {
     const { driver, keyPrefix } = this.registry.resolve(category);
     const key = keyPrefix + name;
     assertValidKey(key);

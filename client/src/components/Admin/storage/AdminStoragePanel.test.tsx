@@ -14,7 +14,7 @@ const S3_MASKED = {
 function baseState(overrides: Partial<StorageAdminState> = {}): StorageAdminState {
   return {
     backends: [
-      { name: 'uploads-local', type: 'local', source: 'built-in', options: { root: '/data/uploads' }, categories: ['files', 'journey', 'covers', 'avatars', 'photos', 'photos-google', 'photos-trek'] },
+      { name: 'uploads-local', type: 'local', source: 'built-in', options: { root: '/data/uploads' }, categories: ['files', 'journey', 'covers', 'avatars', 'photos-google', 'photos-trek'] },
       { name: 'backups-local', type: 'local', source: 'built-in', options: { root: '/data/backups' }, categories: ['backups'] },
       { name: 'place-photos-local', type: 'local', source: 'env', options: { root: '/photos' }, categories: ['places'] },
       { name: 'off-box', type: 's3', source: 'settings', options: S3_MASKED, categories: ['covers'] },
@@ -25,7 +25,6 @@ function baseState(overrides: Partial<StorageAdminState> = {}): StorageAdminStat
       covers: { backend: 'off-box', source: 'settings' },
       avatars: { backend: 'uploads-local', source: 'default' },
       places: { backend: 'place-photos-local', source: 'default' },
-      photos: { backend: 'uploads-local', source: 'default' },
       'photos-google': { backend: 'uploads-local', source: 'default' },
       'photos-trek': { backend: 'uploads-local', source: 'default' },
       backups: { backend: 'backups-local', source: 'default' },

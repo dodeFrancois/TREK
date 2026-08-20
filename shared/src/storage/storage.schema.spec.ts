@@ -127,17 +127,21 @@ describe('storageConfigSchema wire compatibility', () => {
     expect(storageConfigSchema.safeParse({ backends: [], categories: { backups: '' } }).success).toBe(false);
   });
 
-  it('exposes the canonical nine-category list (relocated from the server)', () => {
+  it('exposes the canonical eight-category list — photos is served-legacy, retired from config', () => {
     expect(STORAGE_CATEGORIES).toEqual([
       'files',
       'journey',
       'covers',
       'avatars',
       'places',
-      'photos',
       'photos-google',
       'photos-trek',
       'backups',
     ]);
+  });
+
+  it('rejects the retired photos category in a config document', () => {
+    const result = storageConfigSchema.safeParse({ backends: [], categories: { photos: 'uploads-local' } });
+    expect(result.success).toBe(false);
   });
 });

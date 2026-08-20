@@ -41,7 +41,6 @@ const STATE: StorageAdminState = {
     covers: { backend: 'off-box', source: 'settings' },
     avatars: { backend: 'uploads-local', source: 'default' },
     places: { backend: 'place-photos-local', source: 'default' },
-    photos: { backend: 'uploads-local', source: 'default' },
     'photos-google': { backend: 'place-photos-local', source: 'default' },
     'photos-trek': { backend: 'uploads-local', source: 'default' },
     backups: { backend: 'backups-local', source: 'default' },

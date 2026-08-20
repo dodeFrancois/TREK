@@ -9,7 +9,7 @@ import MAdminStoragePanel from '../../../../src/mobile/screens/admin/MAdminStora
 function baseState(overrides: Partial<StorageAdminState> = {}): StorageAdminState {
   return {
     backends: [
-      { name: 'uploads-local', type: 'local', source: 'built-in', options: { root: '/data/uploads' }, categories: ['files', 'journey', 'covers', 'avatars', 'photos', 'photos-google', 'photos-trek'] },
+      { name: 'uploads-local', type: 'local', source: 'built-in', options: { root: '/data/uploads' }, categories: ['files', 'journey', 'covers', 'avatars', 'photos-google', 'photos-trek'] },
       { name: 'backups-local', type: 'local', source: 'built-in', options: { root: '/data/backups' }, categories: ['backups'] },
       {
         name: 'off-box', type: 's3', source: 'settings',
@@ -23,7 +23,6 @@ function baseState(overrides: Partial<StorageAdminState> = {}): StorageAdminStat
       covers: { backend: 'uploads-local', source: 'default' },
       avatars: { backend: 'uploads-local', source: 'default' },
       places: { backend: 'uploads-local', source: 'default' },
-      photos: { backend: 'uploads-local', source: 'default' },
       'photos-google': { backend: 'uploads-local', source: 'default' },
       'photos-trek': { backend: 'uploads-local', source: 'default' },
       backups: { backend: 'backups-local', source: 'default' },

@@ -15,8 +15,10 @@ import {
   listPlaintextSecrets,
 } from './storage-secrets';
 import {
+  SERVED_CATEGORIES,
   STORAGE_CATEGORIES,
   StorageBackendError,
+  type ServedCategory,
   type StorageCategory,
   type StorageDriver,
 } from './storage.types';
@@ -68,7 +70,7 @@ type BackendConfig = LocalBackendConfig | MirrorBackendConfig | S3BackendConfig;
 
 interface RegistryState {
   drivers: Map<string, StorageDriver>;
-  categories: Map<StorageCategory, { backendName: string; keyPrefix: string }>;
+  categories: Map<ServedCategory, { backendName: string; keyPrefix: string }>;
   snapshot: RegistrySnapshot;
 }
 
@@ -86,7 +88,7 @@ const REPLICA_FAILURE_RING_SIZE = 50;
  * Exported for tests/unit/uploads-dirs.test.ts, which pins the Dockerfile's
  * `mkdir -p /app/uploads/...` list to these prefixes.
  */
-export const CATEGORY_PREFIXES: Record<StorageCategory, string> = {
+export const CATEGORY_PREFIXES: Record<ServedCategory, string> = {
   files: 'files/',
   journey: 'journey/',
   covers: 'covers/',
@@ -144,7 +146,7 @@ export class StorageRegistryService implements OnModuleInit {
     void this.build(candidate, false);
   }
 
-  resolve(category: StorageCategory): ResolvedCategory {
+  resolve(category: ServedCategory): ResolvedCategory {
     if (!this.state) throw new StorageBackendError('storage registry not initialized');
     const assignment = this.state.categories.get(category);
     if (!assignment) throw new StorageBackendError(`unknown storage category: ${category}`);
@@ -289,11 +291,11 @@ export class StorageRegistryService implements OnModuleInit {
       backendSources.set(config.name, 'settings');
     }
 
-    const categoryBackends = new Map<StorageCategory, string>();
-    for (const category of STORAGE_CATEGORIES) categoryBackends.set(category, 'uploads-local');
+    const categoryBackends = new Map<ServedCategory, string>();
+    for (const category of SERVED_CATEGORIES) categoryBackends.set(category, 'uploads-local');
     categoryBackends.set('backups', 'backups-local');
     if (placePhotoDir) categoryBackends.set('photos-google', 'place-photos-local');
-    const categorySources = new Map<StorageCategory, 'default' | 'settings'>();
+    const categorySources = new Map<ServedCategory, 'default' | 'settings'>();
     for (const [category, backendName] of parseCategoryMap(settings.categories)) {
       categoryBackends.set(category, backendName);
       categorySources.set(category, 'settings');
@@ -303,7 +305,7 @@ export class StorageRegistryService implements OnModuleInit {
     validateConfig(backends, categoryBackends);
 
     // 4. Category prefixes (photos-google mode decided from the final map).
-    const categories = new Map<StorageCategory, { backendName: string; keyPrefix: string }>();
+    const categories = new Map<ServedCategory, { backendName: string; keyPrefix: string }>();
     for (const [category, backendName] of categoryBackends) {
       const keyPrefix =
         category === 'photos-google' && backendName === 'place-photos-local' ? '' : CATEGORY_PREFIXES[category];
@@ -356,10 +358,14 @@ export class StorageRegistryService implements OnModuleInit {
         options: { ...config.options },
       })),
       categories: Object.fromEntries(
-        [...categoryBackends.entries()].map(([category, backendName]) => [
-          category,
-          { backend: backendName, source: categorySources.get(category) ?? 'default' },
-        ]),
+        [...categoryBackends.entries()]
+          // photos is served-legacy, never configurable — the admin world
+          // exposes only the 8 configurable categories.
+          .filter(([category]) => (STORAGE_CATEGORIES as readonly string[]).includes(category))
+          .map(([category, backendName]) => [
+            category,
+            { backend: backendName, source: categorySources.get(category) ?? 'default' },
+          ]),
       ) as RegistrySnapshot['categories'],
     };
 
@@ -441,7 +447,7 @@ function decryptedSecret(config: S3BackendConfig): string {
   return plain;
 }
 
-function validateConfig(backends: Map<string, BackendConfig>, categories: Map<StorageCategory, string>): void {
+function validateConfig(backends: Map<string, BackendConfig>, categories: Map<ServedCategory, string>): void {
   for (const config of backends.values()) {
     if (config.type !== 'mirror') continue;
     for (const target of [config.options.primary, ...config.options.replicas]) {
