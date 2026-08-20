@@ -83,6 +83,7 @@ in the admin UI / `data/storage-config.json` instead): `TREK_S3_ENDPOINT`,
 `TREK_S3_BUCKET`, `TREK_S3_ACCESS_KEY_ID`, `TREK_S3_SECRET_ACCESS_KEY`,
 `TREK_S3_REGION`, `TREK_S3_KEY_PREFIX`, `TREK_S3_RETRIES`, `TREK_S3_TIMEOUT_MS`,
 `TREK_UPLOADS_DIR` (see `storageTombstonePreconditions` in `env.ts`).
+`TREK_PLACE_PHOTO_DIR` intentionally survives (documented, prod-supported) — do not tombstone it by association.
 
 **Runtime-toggled** (read live on every access via `readEnv()` /
 `RuntimeEnvService`; tests mutate these mid-lifetime):

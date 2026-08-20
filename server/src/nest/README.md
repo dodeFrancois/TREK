@@ -125,6 +125,26 @@ tools, which never pass through an HTTP guard. In the five domains piloted for
   answer 404 to anonymous callers, so the addon check must beat the 401.
 - `common/demo-write.ts` — `isDemoWriteBlocked`, the demo-mode upload block. A
   function and not a guard on purpose; see the gotcha below.
+- `storage/` — the storage abstraction and its admin surface. `storage.types.ts`
+  defines the driver contract (opaque keys, no rename/append — S3 constraints
+  baked in) plus the `ServedCategory` seam: `STORAGE_CATEGORIES` (shared, 8,
+  configurable) + the legacy `photos` directory that is served and backed up
+  but not configurable. `drivers/` (local, s3, mirror) all pass one contract
+  suite (`tests/unit/nest/storage/storage-driver.contract.ts`).
+  `storage-registry.service.ts` merges built-ins ← env (`place-photos-local`)
+  ← `app_settings` rows, validates semantics (references, no mirror nesting),
+  falls back to last-good/defaults at boot but NEVER on admin writes
+  (`preview()` runs the real build first), seeds once from
+  `data/storage-config.json`, and hot-swaps on `reload()`.
+  `storage.service.ts` is the facade every byte-path uses.
+  `storage-admin.{controller,service}.ts` (+ `storage-secrets.ts`,
+  `storage-probe.ts`) carry `api/admin/storage`: masked GET of the effective
+  world, full-document PUT (unmask → encryption gate → preview → encrypt →
+  one transaction → reload → audit), and per-target test probes with
+  ephemeral drivers. Secrets live `enc:v1:`-encrypted inside the
+  `storage.backends` JSON; saving plaintext secrets requires an explicit
+  `ENCRYPTION_KEY` (`security.encryptionKeySet`). The client presents mirrors
+  as replicas-on-primary; the wire keeps explicit mirror backends.
 - `memories/photo-provider.ts` + `providers/` — the PhotoProvider seam (#584).
   Dispatch to a photo backend was a `switch (photo.provider)` in three places
   (`photo-resolver.service.ts` twice, `journey-public.controller.ts` once, where
