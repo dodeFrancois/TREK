@@ -112,7 +112,7 @@ export default defineConfig({
         'src/nest/reservations/**/*.ts': { statements: 92, branches: 83, functions: 96, lines: 96 },
         'src/nest/settings/**/*.ts': { statements: 87, branches: 71, functions: 99, lines: 88 },
         'src/nest/share/**/*.ts': { statements: 97, branches: 87, functions: 99, lines: 99 },
-        'src/nest/storage/**/*.ts': { statements: 93, branches: 84, functions: 96, lines: 94 },
+        'src/nest/storage/**/*.ts': { statements: 94, branches: 84, functions: 97, lines: 94 },
         'src/nest/system-notices/**/*.ts': { statements: 99, branches: 99, functions: 99, lines: 99 },
         'src/nest/tags/**/*.ts': { statements: 97, branches: 89, functions: 99, lines: 99 },
         'src/nest/todo/**/*.ts': { statements: 90, branches: 82, functions: 99, lines: 99 },
@@ -137,7 +137,7 @@ export default defineConfig({
         //
         // src/demo/** is deliberately absent: it measures 0%, and a floor of
         // zero asserts nothing. It needs tests before it needs a threshold.
-        'src/app-config/**/*.ts': { statements: 99, branches: 93, functions: 99, lines: 99 },
+        'src/app-config/**/*.ts': { statements: 99, branches: 95, functions: 99, lines: 99 },
         'src/db/**/*.ts': { statements: 73, branches: 38, functions: 59, lines: 80 },
         'src/mcp/**/*.ts': { statements: 58, branches: 43, functions: 63, lines: 60 },
         'src/middleware/**/*.ts': { statements: 91, branches: 89, functions: 87, lines: 94 },
