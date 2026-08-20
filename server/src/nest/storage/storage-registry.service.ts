@@ -8,7 +8,12 @@ import { LocalDriver } from './drivers/local.driver';
 import { MirrorDriver, type ReplicaFailure } from './drivers/mirror.driver';
 import { S3Driver } from './drivers/s3.driver';
 import { DEFAULT_BACKUPS_ROOT, DEFAULT_UPLOADS_ROOT, GLOBAL_TEMP_DIR, SEED_CONFIG_PATH } from './storage-paths';
-import { assertNoMaskSentinels, encryptStorageSecrets, encryptionGateError, listPlaintextSecrets } from './storage-secrets';
+import {
+  assertNoMaskSentinels,
+  encryptStorageSecrets,
+  encryptionGateError,
+  listPlaintextSecrets,
+} from './storage-secrets';
 import {
   STORAGE_CATEGORIES,
   StorageBackendError,
@@ -67,8 +72,8 @@ interface RegistryState {
   snapshot: RegistrySnapshot;
 }
 
-const BACKENDS_KEY = 'storage.backends';
-const CATEGORIES_KEY = 'storage.categories';
+export const BACKENDS_KEY = 'storage.backends';
+export const CATEGORIES_KEY = 'storage.categories';
 const REPLICA_FAILURE_RING_SIZE = 50;
 
 /**

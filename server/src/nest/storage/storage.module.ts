@@ -1,23 +1,28 @@
 import { Module } from '@nestjs/common';
 import { AppConfigModule } from '../app-config/app-config.module';
+import { AuditModule } from '../audit/audit.module';
 import { StorageRegistryService } from './storage-registry.service';
 import { StorageService } from './storage.service';
+import { StorageAdminService } from './storage-admin.service';
+import { StorageAdminController } from './storage-admin.controller';
 
 /**
- * The storage core (spec:
- * docs/superpowers/specs/2026-07-20-storage-backend-abstraction-design.md).
- * Consuming modules import this explicitly (repo convention — SchedulingModule
- * is deliberately not consumed via @Global either); AppConfigModule is listed
- * even though it is @Global so an e2e TestingModule built around one domain
- * still resolves RuntimeEnvService (the memories.module precedent).
- * DatabaseModule IS consumed via @Global, like every other domain.
- *
- * No controller: v1 has no HTTP surface — the registry's reload() is wired to
- * an admin route only when the admin UI lands (Deferred).
+ * Storage container: registry (config), facade (byte-paths), admin surface.
+ * AuditModule feeds the write audits. AuthModule is deliberately NOT imported
+ * here — AuthModule itself imports StorageModule (avatar uploads), so the
+ * reverse import is a real module cycle (Nest resolves it as `imports[1] is
+ * undefined`, not a clean forwardRef case). JwtAuthGuard/AdminGuard need no
+ * provider from AuthModule to begin with — they carry no constructor
+ * dependencies, so `@UseGuards(JwtAuthGuard, AdminGuard)` instantiates them
+ * directly, the same as BackupModule/BackupController (which also sits behind
+ * StorageModule) already does. StorageRegistryService stays UNEXPORTED — the
+ * admin controller reaches it as a same-module provider, and nothing outside
+ * may cache drivers or trigger reloads.
  */
 @Module({
-  imports: [AppConfigModule],
-  providers: [StorageRegistryService, StorageService],
+  imports: [AppConfigModule, AuditModule],
+  controllers: [StorageAdminController],
+  providers: [StorageRegistryService, StorageService, StorageAdminService],
   exports: [StorageService],
 })
 export class StorageModule {}

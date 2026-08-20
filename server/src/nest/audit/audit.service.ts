@@ -18,6 +18,7 @@ const ACTION_LABELS: Record<string, string> = {
   'admin.user_delete': 'deleted user',
   'admin.plugin_retrust': "re-trusted a plugin's author signing key",
   'admin.invite_create': 'created invite',
+  'admin.storage_update': 'updated storage configuration',
   'immich.private_ip_configured': 'configured Immich with private IP',
 };
 
