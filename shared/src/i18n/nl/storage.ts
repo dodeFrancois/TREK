@@ -45,7 +45,6 @@ const storage: TranslationStrings = {
   'storage.remove.body':
     '{name} verwijderen uit de configuratie? De server weigert het opslaan als er nog iets van afhankelijk is.',
   'storage.remove.stillAssigned': 'Nog toegewezen aan: {categories}',
-  'storage.remove.referencedBy': 'Verwezen door mirror: {backends}',
   'storage.form.addTitle': 'Backend toevoegen',
   'storage.form.editTitle': 'Backend bewerken',
   'storage.form.name': 'Naam',
@@ -59,15 +58,28 @@ const storage: TranslationStrings = {
   'storage.categories.default': 'standaard',
   'storage.categories.reassignWarning':
     'Bestaande objecten worden niet verplaatst: nieuwe objecten gaan naar de nieuw toegewezen backend, oude blijven waar ze zijn.',
-  'storage.category.files': 'Bestanden',
-  'storage.category.journey': 'Reisverslag',
-  'storage.category.covers': 'Reisomslagen',
-  'storage.category.avatars': 'Avatars',
+  'storage.category.files': 'Reisdocumenten',
+  'storage.category.journey': "Reisverslag-foto's",
+  'storage.category.covers': 'Omslagafbeeldingen',
+  'storage.category.avatars': "Profielfoto's",
   'storage.category.places': 'Locatieafbeeldingen',
-  'storage.category.photos': "Foto's",
   'storage.category.photos-google': 'Google-fotocache',
-  'storage.category.photos-trek': "TREK-foto's",
+  'storage.category.photos-trek': 'TREK-fotocache',
   'storage.category.backups': 'Back-ups',
+
+  // What each category stores — rendered under the label in the category map.
+  'storage.categoryDesc.files':
+    "Bestandsbijlagen die naar reizen zijn geüpload — tickets, PDF's, boekingsbevestigingen en bestanden gedeeld in de reischat.",
+  'storage.categoryDesc.journey': "Foto's en miniaturen die zijn gekoppeld aan reisverslag-items.",
+  'storage.categoryDesc.covers':
+    'Omslagafbeeldingen van reizen en collecties, inclusief omslagen opgehaald van Unsplash.',
+  'storage.categoryDesc.avatars': "Profielfoto's van gebruikersaccounts.",
+  'storage.categoryDesc.places': 'Afbeeldingen gekoppeld aan locaties en collectielocaties — geüpload of geïmporteerd.',
+  'storage.categoryDesc.photos-google':
+    "Gecachte kopieën van Google Places-foto's — opnieuw op te halen, veilig om te verliezen.",
+  'storage.categoryDesc.photos-trek':
+    "Gecachte foto's van de TREK-fotoservice die wordt gebruikt door Foto's (Memories) — opnieuw op te halen, veilig om te verliezen.",
+  'storage.categoryDesc.backups': 'Serverback-uparchieven aangemaakt door het back-uppaneel of de planning.',
   'storage.health.title': 'Status',
   'storage.health.allClear': 'Geen replicafouten geregistreerd.',
   'storage.health.seedFile':

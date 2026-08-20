@@ -45,7 +45,6 @@ const storage: TranslationStrings = {
   'storage.remove.body':
     'Rimuovere {name} dalla configurazione? Il server rifiuta il salvataggio se qualcosa dipende ancora da esso.',
   'storage.remove.stillAssigned': 'Ancora assegnato a: {categories}',
-  'storage.remove.referencedBy': 'Referenziato dal mirror: {backends}',
   'storage.form.addTitle': 'Aggiungi backend',
   'storage.form.editTitle': 'Modifica backend',
   'storage.form.name': 'Nome',
@@ -59,15 +58,27 @@ const storage: TranslationStrings = {
   'storage.categories.default': 'predefinita',
   'storage.categories.reassignWarning':
     'Gli oggetti esistenti non vengono spostati: i nuovi oggetti vanno al backend appena assegnato, quelli vecchi restano dove sono.',
-  'storage.category.files': 'File',
-  'storage.category.journey': 'Diario di viaggio',
-  'storage.category.covers': 'Copertine dei viaggi',
-  'storage.category.avatars': 'Avatar',
+  'storage.category.files': 'Documenti di viaggio',
+  'storage.category.journey': 'Foto del diario di viaggio',
+  'storage.category.covers': 'Immagini di copertina',
+  'storage.category.avatars': 'Foto profilo',
   'storage.category.places': 'Immagini dei luoghi',
-  'storage.category.photos': 'Foto',
   'storage.category.photos-google': 'Cache foto di Google',
-  'storage.category.photos-trek': 'Foto TREK',
+  'storage.category.photos-trek': 'Cache foto TREK',
   'storage.category.backups': 'Backup',
+
+  // What each category stores — rendered under the label in the category map.
+  'storage.categoryDesc.files':
+    'Allegati caricati nei viaggi — biglietti, PDF, conferme di prenotazione e file condivisi nella chat del viaggio.',
+  'storage.categoryDesc.journey': 'Foto e miniature allegate alle voci del diario di viaggio.',
+  'storage.categoryDesc.covers': 'Immagini di copertina di viaggi e raccolte, incluse quelle recuperate da Unsplash.',
+  'storage.categoryDesc.avatars': 'Foto profilo degli account utente.',
+  'storage.categoryDesc.places': 'Immagini allegate ai luoghi e ai luoghi delle raccolte — caricate o importate.',
+  'storage.categoryDesc.photos-google':
+    'Copie in cache delle foto di Google Places — recuperabili di nuovo, perderle è sicuro.',
+  'storage.categoryDesc.photos-trek':
+    'Foto in cache dal servizio foto TREK usato da Foto (Memories) — recuperabili di nuovo, perderle è sicuro.',
+  'storage.categoryDesc.backups': 'Archivi di backup del server creati dal pannello Backup o dalla pianificazione.',
   'storage.health.title': 'Stato',
   'storage.health.allClear': 'Nessun errore di replica registrato.',
   'storage.health.seedFile':

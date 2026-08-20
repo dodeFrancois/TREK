@@ -54,7 +54,6 @@ const storage: TranslationStrings = {
   'storage.remove.body':
     'Remove {name} from the configuration? The server rejects the save if anything still depends on it.',
   'storage.remove.stillAssigned': 'Still assigned to: {categories}',
-  'storage.remove.referencedBy': 'Referenced by mirror: {backends}',
 
   // Backend form
   'storage.form.addTitle': 'Add backend',
@@ -72,15 +71,26 @@ const storage: TranslationStrings = {
   'storage.categories.default': 'default',
   'storage.categories.reassignWarning':
     'Existing objects do not move: new objects go to the newly assigned backend, old ones stay where they are.',
-  'storage.category.files': 'Files',
-  'storage.category.journey': 'Journey',
-  'storage.category.covers': 'Trip covers',
-  'storage.category.avatars': 'Avatars',
+  'storage.category.files': 'Trip documents',
+  'storage.category.journey': 'Journey photos',
+  'storage.category.covers': 'Cover images',
+  'storage.category.avatars': 'Profile pictures',
   'storage.category.places': 'Place images',
-  'storage.category.photos': 'Photos',
   'storage.category.photos-google': 'Google photo cache',
-  'storage.category.photos-trek': 'TREK photos',
+  'storage.category.photos-trek': 'TREK photo cache',
   'storage.category.backups': 'Backups',
+
+  // What each category stores — rendered under the label in the category map.
+  'storage.categoryDesc.files':
+    'File attachments uploaded to trips — tickets, PDFs, booking confirmations, and files shared in trip chat.',
+  'storage.categoryDesc.journey': 'Photos and thumbnails attached to journey entries.',
+  'storage.categoryDesc.covers': 'Trip and collection cover images, including covers fetched from Unsplash.',
+  'storage.categoryDesc.avatars': 'User account profile pictures.',
+  'storage.categoryDesc.places': 'Images attached to places and collection places — uploaded or imported.',
+  'storage.categoryDesc.photos-google': 'Cached copies of Google Places photos — re-fetchable, safe to lose.',
+  'storage.categoryDesc.photos-trek':
+    'Cached photos from the TREK photo service used by Memories — re-fetchable, safe to lose.',
+  'storage.categoryDesc.backups': 'Server backup archives created by the Backup panel or schedule.',
 
   // Health strip
   'storage.health.title': 'Health',

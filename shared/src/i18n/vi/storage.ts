@@ -44,7 +44,6 @@ const storage: TranslationStrings = {
   'storage.remove.title': 'Xóa backend',
   'storage.remove.body': 'Xóa {name} khỏi cấu hình? Máy chủ sẽ từ chối lưu nếu vẫn còn thứ gì đó phụ thuộc vào nó.',
   'storage.remove.stillAssigned': 'Vẫn được gán cho: {categories}',
-  'storage.remove.referencedBy': 'Được tham chiếu bởi bản sao gương: {backends}',
   'storage.form.addTitle': 'Thêm backend',
   'storage.form.editTitle': 'Chỉnh sửa backend',
   'storage.form.name': 'Tên',
@@ -58,15 +57,28 @@ const storage: TranslationStrings = {
   'storage.categories.default': 'mặc định',
   'storage.categories.reassignWarning':
     'Các đối tượng hiện có không di chuyển: đối tượng mới sẽ vào backend vừa được gán, đối tượng cũ vẫn ở nguyên vị trí.',
-  'storage.category.files': 'Tệp',
-  'storage.category.journey': 'Hành trình',
-  'storage.category.covers': 'Ảnh bìa chuyến đi',
+  'storage.category.files': 'Tài liệu chuyến đi',
+  'storage.category.journey': 'Ảnh hành trình',
+  'storage.category.covers': 'Ảnh bìa',
   'storage.category.avatars': 'Ảnh đại diện',
   'storage.category.places': 'Hình ảnh địa điểm',
-  'storage.category.photos': 'Ảnh',
   'storage.category.photos-google': 'Bộ nhớ đệm ảnh Google',
-  'storage.category.photos-trek': 'Ảnh TREK',
+  'storage.category.photos-trek': 'Bộ nhớ đệm ảnh TREK',
   'storage.category.backups': 'Bản sao lưu',
+
+  // What each category stores — rendered under the label in the category map.
+  'storage.categoryDesc.files':
+    'Tệp đính kèm được tải lên các chuyến đi — vé, PDF, xác nhận đặt chỗ và tệp được chia sẻ trong trò chuyện của chuyến đi.',
+  'storage.categoryDesc.journey': 'Ảnh và hình thu nhỏ đính kèm với các mục hành trình.',
+  'storage.categoryDesc.covers': 'Ảnh bìa của chuyến đi và bộ sưu tập, bao gồm cả ảnh bìa lấy từ Unsplash.',
+  'storage.categoryDesc.avatars': 'Ảnh đại diện của tài khoản người dùng.',
+  'storage.categoryDesc.places':
+    'Hình ảnh đính kèm với địa điểm và địa điểm trong bộ sưu tập — được tải lên hoặc nhập vào.',
+  'storage.categoryDesc.photos-google':
+    'Bản sao được lưu trong bộ nhớ đệm của ảnh Google Places — có thể lấy lại được, mất đi vẫn an toàn.',
+  'storage.categoryDesc.photos-trek':
+    'Ảnh được lưu trong bộ nhớ đệm từ dịch vụ ảnh TREK được tính năng Ảnh (Memories) sử dụng — có thể lấy lại được, mất đi vẫn an toàn.',
+  'storage.categoryDesc.backups': 'Kho lưu trữ sao lưu máy chủ được tạo bởi bảng Sao lưu hoặc theo lịch trình.',
   'storage.health.title': 'Tình trạng',
   'storage.health.allClear': 'Không có lỗi bản sao nào được ghi nhận.',
   'storage.health.seedFile':

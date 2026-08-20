@@ -43,7 +43,6 @@ const storage: TranslationStrings = {
   'storage.remove.title': 'Odebrat backend',
   'storage.remove.body': 'Odebrat {name} z konfigurace? Server odmítne uložení, pokud na něm ještě něco závisí.',
   'storage.remove.stillAssigned': 'Stále přiřazeno k: {categories}',
-  'storage.remove.referencedBy': 'Odkazováno zrcadlem: {backends}',
   'storage.form.addTitle': 'Přidat backend',
   'storage.form.editTitle': 'Upravit backend',
   'storage.form.name': 'Název',
@@ -57,15 +56,27 @@ const storage: TranslationStrings = {
   'storage.categories.default': 'výchozí',
   'storage.categories.reassignWarning':
     'Existující objekty se nepřesouvají: nové objekty jdou do nově přiřazeného backendu, staré zůstávají tam, kde jsou.',
-  'storage.category.files': 'Soubory',
-  'storage.category.journey': 'Cestovní deník',
-  'storage.category.covers': 'Titulní obrázky cest',
-  'storage.category.avatars': 'Avatary',
+  'storage.category.files': 'Dokumenty cesty',
+  'storage.category.journey': 'Fotky z cestovního deníku',
+  'storage.category.covers': 'Titulní obrázky',
+  'storage.category.avatars': 'Profilové fotky',
   'storage.category.places': 'Obrázky míst',
-  'storage.category.photos': 'Fotky',
   'storage.category.photos-google': 'Mezipaměť fotek Google',
-  'storage.category.photos-trek': 'Fotky TREK',
+  'storage.category.photos-trek': 'Mezipaměť fotek TREK',
   'storage.category.backups': 'Zálohy',
+
+  // What each category stores — rendered under the label in the category map.
+  'storage.categoryDesc.files':
+    'Soubory nahrané k cestám — jízdenky, PDF, potvrzení rezervací a soubory sdílené v chatu cesty.',
+  'storage.categoryDesc.journey': 'Fotky a náhledy připojené k záznamům cestovního deníku.',
+  'storage.categoryDesc.covers': 'Titulní obrázky cest a sbírek, včetně obrázků načtených z Unsplash.',
+  'storage.categoryDesc.avatars': 'Profilové fotky uživatelských účtů.',
+  'storage.categoryDesc.places': 'Obrázky připojené k místům a místům ve sbírkách — nahrané nebo importované.',
+  'storage.categoryDesc.photos-google':
+    'Mezipaměťové kopie fotek z Google Places — lze znovu načíst, jejich ztráta je bezpečná.',
+  'storage.categoryDesc.photos-trek':
+    'Fotky uložené v mezipaměti ze služby fotek TREK používané funkcí Fotky (Memories) — lze znovu načíst, jejich ztráta je bezpečná.',
+  'storage.categoryDesc.backups': 'Archivy záloh serveru vytvořené panelem Záloha nebo plánovačem.',
   'storage.health.title': 'Stav',
   'storage.health.allClear': 'Nebyly zaznamenány žádné chyby replik.',
   'storage.health.seedFile':

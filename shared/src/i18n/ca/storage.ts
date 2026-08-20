@@ -44,7 +44,6 @@ const storage: TranslationStrings = {
   'storage.remove.body':
     'Voleu suprimir {name} de la configuració? El servidor rebutja el desament si encara hi ha alguna cosa que en depengui.',
   'storage.remove.stillAssigned': 'Encara assignat a: {categories}',
-  'storage.remove.referencedBy': 'Referenciat pel mirall: {backends}',
   'storage.form.addTitle': 'Afegir backend',
   'storage.form.editTitle': 'Editar backend',
   'storage.form.name': 'Nom',
@@ -58,15 +57,29 @@ const storage: TranslationStrings = {
   'storage.categories.default': 'predeterminada',
   'storage.categories.reassignWarning':
     "Els objectes existents no es mouen: els objectes nous van al backend acabat d'assignar, els antics es queden on són.",
-  'storage.category.files': 'Fitxers',
-  'storage.category.journey': 'Travesia',
-  'storage.category.covers': 'Portades de viatge',
-  'storage.category.avatars': 'Avatars',
+  'storage.category.files': 'Documents del viatge',
+  'storage.category.journey': 'Fotos de la travesia',
+  'storage.category.covers': 'Imatges de portada',
+  'storage.category.avatars': 'Fotos de perfil',
   'storage.category.places': 'Imatges de llocs',
-  'storage.category.photos': 'Fotos',
   'storage.category.photos-google': 'Memòria cau de fotos de Google',
-  'storage.category.photos-trek': 'Fotos de TREK',
+  'storage.category.photos-trek': 'Memòria cau de fotos de TREK',
   'storage.category.backups': 'Còpies de seguretat',
+
+  // What each category stores — rendered under the label in the category map.
+  'storage.categoryDesc.files':
+    'Fitxers adjunts pujats als viatges — bitllets, PDF, confirmacions de reserva i fitxers compartits al xat del viatge.',
+  'storage.categoryDesc.journey': 'Fotos i miniatures adjuntes a les entrades de la travesia.',
+  'storage.categoryDesc.covers':
+    "Imatges de portada de viatges i col·leccions, incloses les portades obtingudes d'Unsplash.",
+  'storage.categoryDesc.avatars': "Fotos de perfil dels comptes d'usuari.",
+  'storage.categoryDesc.places': 'Imatges adjuntes a llocs i llocs de col·leccions — pujades o importades.',
+  'storage.categoryDesc.photos-google':
+    'Còpies en memòria cau de fotos de Google Places — es poden tornar a obtenir, es poden perdre sense problemes.',
+  'storage.categoryDesc.photos-trek':
+    'Fotos en memòria cau del servei de fotos de TREK utilitzat per les Fotos (Memòries) — es poden tornar a obtenir, es poden perdre sense problemes.',
+  'storage.categoryDesc.backups':
+    'Arxius de còpia de seguretat del servidor creats pel panell de còpia de seguretat o la planificació.',
   'storage.health.title': 'Estat',
   'storage.health.allClear': "No s'ha registrat cap fallada de rèplica.",
   'storage.health.seedFile':

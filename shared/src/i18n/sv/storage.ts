@@ -44,7 +44,6 @@ const storage: TranslationStrings = {
   'storage.remove.body':
     'Ta bort {name} från konfigurationen? Servern avvisar sparningen om något fortfarande beror på den.',
   'storage.remove.stillAssigned': 'Fortfarande tilldelad: {categories}',
-  'storage.remove.referencedBy': 'Refereras av spegel: {backends}',
   'storage.form.addTitle': 'Lägg till backend',
   'storage.form.editTitle': 'Redigera backend',
   'storage.form.name': 'Namn',
@@ -58,15 +57,27 @@ const storage: TranslationStrings = {
   'storage.categories.default': 'standard',
   'storage.categories.reassignWarning':
     'Befintliga objekt flyttas inte: nya objekt går till den nyligen tilldelade backenden, gamla stannar där de är.',
-  'storage.category.files': 'Filer',
-  'storage.category.journey': 'Journey',
-  'storage.category.covers': 'Reseomslag',
-  'storage.category.avatars': 'Avatarer',
+  'storage.category.files': 'Resedokument',
+  'storage.category.journey': 'Journey-foton',
+  'storage.category.covers': 'Omslagsbilder',
+  'storage.category.avatars': 'Profilbilder',
   'storage.category.places': 'Platsbilder',
-  'storage.category.photos': 'Foton',
   'storage.category.photos-google': 'Google-fotocache',
-  'storage.category.photos-trek': 'TREK-foton',
+  'storage.category.photos-trek': 'TREK-fotocache',
   'storage.category.backups': 'Säkerhetskopior',
+
+  // What each category stores — rendered under the label in the category map.
+  'storage.categoryDesc.files':
+    'Filbilagor uppladdade till resor — biljetter, PDF:er, bokningsbekräftelser och filer delade i resechatten.',
+  'storage.categoryDesc.journey': 'Foton och miniatyrer kopplade till Journey-poster.',
+  'storage.categoryDesc.covers': 'Omslagsbilder för resor och samlingar, inklusive omslag hämtade från Unsplash.',
+  'storage.categoryDesc.avatars': 'Profilbilder för användarkonton.',
+  'storage.categoryDesc.places': 'Bilder kopplade till platser och samlingsplatser — uppladdade eller importerade.',
+  'storage.categoryDesc.photos-google':
+    'Cachade kopior av foton från Google Places — kan hämtas igen, säkert att förlora.',
+  'storage.categoryDesc.photos-trek':
+    'Cachade foton från TREK-fototjänsten som används av Foton (Memories) — kan hämtas igen, säkert att förlora.',
+  'storage.categoryDesc.backups': 'Serverbackuparkiv skapade av backuppanelen eller schemat.',
   'storage.health.title': 'Hälsa',
   'storage.health.allClear': 'Inga replikfel registrerade.',
   'storage.health.seedFile':

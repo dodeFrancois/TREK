@@ -44,7 +44,6 @@ const storage: TranslationStrings = {
   'storage.remove.body':
     '{name} yapılandırmadan kaldırılsın mı? Hâlâ ona bağımlı bir şey varsa sunucu kaydetmeyi reddeder.',
   'storage.remove.stillAssigned': 'Hâlâ şuna atanmış: {categories}',
-  'storage.remove.referencedBy': 'Ayna tarafından referans veriliyor: {backends}',
   'storage.form.addTitle': 'Arka uç ekle',
   'storage.form.editTitle': 'Arka ucu düzenle',
   'storage.form.name': 'Ad',
@@ -58,15 +57,28 @@ const storage: TranslationStrings = {
   'storage.categories.default': 'varsayılan',
   'storage.categories.reassignWarning':
     'Mevcut nesneler taşınmaz: yeni nesneler yeni atanan arka uca gider, eskiler oldukları yerde kalır.',
-  'storage.category.files': 'Dosyalar',
-  'storage.category.journey': 'Seyahat',
-  'storage.category.covers': 'Seyahat kapakları',
-  'storage.category.avatars': 'Avatarlar',
+  'storage.category.files': 'Seyahat belgeleri',
+  'storage.category.journey': 'Seyahat fotoğrafları',
+  'storage.category.covers': 'Kapak görselleri',
+  'storage.category.avatars': 'Profil fotoğrafları',
   'storage.category.places': 'Yer görselleri',
-  'storage.category.photos': 'Fotoğraflar',
   'storage.category.photos-google': 'Google fotoğraf önbelleği',
-  'storage.category.photos-trek': 'TREK fotoğrafları',
+  'storage.category.photos-trek': 'TREK fotoğraf önbelleği',
   'storage.category.backups': 'Yedekler',
+
+  // What each category stores — rendered under the label in the category map.
+  'storage.categoryDesc.files':
+    "Seyahatlere yüklenen dosya ekleri — biletler, PDF'ler, rezervasyon onayları ve seyahat sohbetinde paylaşılan dosyalar.",
+  'storage.categoryDesc.journey': 'Seyahat günlüğü kayıtlarına eklenen fotoğraflar ve küçük resimler.',
+  'storage.categoryDesc.covers':
+    "Unsplash'tan alınan kapaklar dahil olmak üzere seyahat ve koleksiyon kapak görselleri.",
+  'storage.categoryDesc.avatars': 'Kullanıcı hesabı profil fotoğrafları.',
+  'storage.categoryDesc.places': 'Yerlere ve koleksiyon yerlerine eklenen görseller — yüklenmiş veya içe aktarılmış.',
+  'storage.categoryDesc.photos-google':
+    'Google Places fotoğraflarının önbelleğe alınmış kopyaları — yeniden alınabilir, kaybı güvenlidir.',
+  'storage.categoryDesc.photos-trek':
+    'Fotoğraflar (Memories) özelliği tarafından kullanılan TREK fotoğraf hizmetinden önbelleğe alınmış fotoğraflar — yeniden alınabilir, kaybı güvenlidir.',
+  'storage.categoryDesc.backups': 'Yedekleme panelinin veya zamanlamanın oluşturduğu sunucu yedek arşivleri.',
   'storage.health.title': 'Sağlık',
   'storage.health.allClear': 'Kaydedilmiş kopya hatası yok.',
   'storage.health.seedFile':

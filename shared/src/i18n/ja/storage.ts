@@ -43,7 +43,6 @@ const storage: TranslationStrings = {
   'storage.remove.title': 'バックエンドを削除',
   'storage.remove.body': '{name}を設定から削除しますか？何かがまだ依存している場合、サーバーは保存を拒否します。',
   'storage.remove.stillAssigned': 'まだ割り当てられています: {categories}',
-  'storage.remove.referencedBy': 'ミラーから参照されています: {backends}',
   'storage.form.addTitle': 'バックエンドを追加',
   'storage.form.editTitle': 'バックエンドを編集',
   'storage.form.name': '名前',
@@ -57,15 +56,28 @@ const storage: TranslationStrings = {
   'storage.categories.default': 'デフォルト',
   'storage.categories.reassignWarning':
     '既存のオブジェクトは移動しません。新しいオブジェクトは新しく割り当てられたバックエンドに保存され、古いオブジェクトはそのまま残ります。',
-  'storage.category.files': 'ファイル',
-  'storage.category.journey': '日記',
-  'storage.category.covers': '旅行カバー画像',
-  'storage.category.avatars': 'アバター',
+  'storage.category.files': '旅行の書類',
+  'storage.category.journey': '日記の写真',
+  'storage.category.covers': 'カバー画像',
+  'storage.category.avatars': 'プロフィール写真',
   'storage.category.places': '場所の画像',
-  'storage.category.photos': '写真',
   'storage.category.photos-google': 'Googleフォトキャッシュ',
-  'storage.category.photos-trek': 'TREKの写真',
+  'storage.category.photos-trek': 'TREKフォトキャッシュ',
   'storage.category.backups': 'バックアップ',
+
+  // What each category stores — rendered under the label in the category map.
+  'storage.categoryDesc.files':
+    '旅行にアップロードされたファイル添付 — チケット、PDF、予約確認書、旅行チャットで共有されたファイル。',
+  'storage.categoryDesc.journey': '日記のエントリーに添付された写真とサムネイル。',
+  'storage.categoryDesc.covers': '旅行やコレクションのカバー画像。Unsplashから取得したカバーを含む。',
+  'storage.categoryDesc.avatars': 'ユーザーアカウントのプロフィール写真。',
+  'storage.categoryDesc.places': '場所やコレクションの場所に添付された画像 — アップロードまたはインポートされたもの。',
+  'storage.categoryDesc.photos-google':
+    'Google Placesの写真のキャッシュコピー — 再取得可能で、失っても問題ありません。',
+  'storage.categoryDesc.photos-trek':
+    '「写真」機能（Memories）が使用するTREKフォトサービスのキャッシュ写真 — 再取得可能で、失っても問題ありません。',
+  'storage.categoryDesc.backups':
+    'バックアップパネルまたはスケジュールによって作成されたサーバーのバックアップアーカイブ。',
   'storage.health.title': 'ヘルス',
   'storage.health.allClear': 'レプリカの失敗は記録されていません。',
   'storage.health.seedFile':

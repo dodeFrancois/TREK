@@ -45,7 +45,6 @@ const storage: TranslationStrings = {
   'storage.remove.body':
     'Αφαίρεση του {name} από τη ρύθμιση; Ο διακομιστής απορρίπτει την αποθήκευση αν κάτι εξακολουθεί να εξαρτάται από αυτό.',
   'storage.remove.stillAssigned': 'Εξακολουθεί να έχει ανατεθεί σε: {categories}',
-  'storage.remove.referencedBy': 'Αναφέρεται από τον καθρέφτη: {backends}',
   'storage.form.addTitle': 'Προσθήκη backend',
   'storage.form.editTitle': 'Επεξεργασία backend',
   'storage.form.name': 'Όνομα',
@@ -59,15 +58,30 @@ const storage: TranslationStrings = {
   'storage.categories.default': 'προεπιλογή',
   'storage.categories.reassignWarning':
     'Τα υπάρχοντα αντικείμενα δεν μετακινούνται: τα νέα αντικείμενα πηγαίνουν στο νεοανατεθέν backend, τα παλιά παραμένουν όπου είναι.',
-  'storage.category.files': 'Αρχεία',
-  'storage.category.journey': 'Ταξίδι',
-  'storage.category.covers': 'Εξώφυλλα ταξιδιού',
-  'storage.category.avatars': 'Άβαταρ',
+  'storage.category.files': 'Έγγραφα ταξιδιού',
+  'storage.category.journey': 'Φωτογραφίες ταξιδιού',
+  'storage.category.covers': 'Εικόνες εξωφύλλου',
+  'storage.category.avatars': 'Φωτογραφίες προφίλ',
   'storage.category.places': 'Εικόνες τοποθεσιών',
-  'storage.category.photos': 'Φωτογραφίες',
   'storage.category.photos-google': 'Κρυφή μνήμη φωτογραφιών Google',
-  'storage.category.photos-trek': 'Φωτογραφίες TREK',
+  'storage.category.photos-trek': 'Κρυφή μνήμη φωτογραφιών TREK',
   'storage.category.backups': 'Αντίγραφα ασφαλείας',
+
+  // What each category stores — rendered under the label in the category map.
+  'storage.categoryDesc.files':
+    'Συνημμένα αρχεία που ανεβαίνουν στα ταξίδια — εισιτήρια, PDF, επιβεβαιώσεις κράτησης και αρχεία που κοινοποιούνται στη συνομιλία του ταξιδιού.',
+  'storage.categoryDesc.journey': 'Φωτογραφίες και μικρογραφίες που επισυνάπτονται σε καταχωρίσεις ταξιδιού.',
+  'storage.categoryDesc.covers':
+    'Εικόνες εξωφύλλου ταξιδιών και συλλογών, συμπεριλαμβανομένων εξωφύλλων από το Unsplash.',
+  'storage.categoryDesc.avatars': 'Φωτογραφίες προφίλ λογαριασμών χρηστών.',
+  'storage.categoryDesc.places':
+    'Εικόνες που επισυνάπτονται σε τοποθεσίες και τοποθεσίες συλλογών — μεταφορτωμένες ή εισαγόμενες.',
+  'storage.categoryDesc.photos-google':
+    'Αποθηκευμένα αντίγραφα φωτογραφιών από το Google Places — ανακτήσιμα ξανά, η απώλειά τους είναι ασφαλής.',
+  'storage.categoryDesc.photos-trek':
+    'Φωτογραφίες σε κρυφή μνήμη από την υπηρεσία φωτογραφιών TREK που χρησιμοποιείται από τις Φωτογραφίες (Memories) — ανακτήσιμες ξανά, η απώλειά τους είναι ασφαλής.',
+  'storage.categoryDesc.backups':
+    'Αρχεία αντιγράφων ασφαλείας του διακομιστή που δημιουργούνται από τον πίνακα Αντιγράφων Ασφαλείας ή το πρόγραμμα.',
   'storage.health.title': 'Κατάσταση',
   'storage.health.allClear': 'Δεν έχουν καταγραφεί αποτυχίες αντιγράφων.',
   'storage.health.seedFile':

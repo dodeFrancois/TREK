@@ -45,7 +45,6 @@ const storage: TranslationStrings = {
   'storage.remove.body':
     'Eltávolítod a(z) {name} elemet a konfigurációból? A szerver elutasítja a mentést, ha még bármi függ tőle.',
   'storage.remove.stillAssigned': 'Még mindig hozzá van rendelve: {categories}',
-  'storage.remove.referencedBy': 'Hivatkozza a tükör: {backends}',
   'storage.form.addTitle': 'Backend hozzáadása',
   'storage.form.editTitle': 'Backend szerkesztése',
   'storage.form.name': 'Név',
@@ -59,15 +58,28 @@ const storage: TranslationStrings = {
   'storage.categories.default': 'alapértelmezett',
   'storage.categories.reassignWarning':
     'A meglévő objektumok nem mozdulnak: az új objektumok az újonnan hozzárendelt backendbe kerülnek, a régiek ott maradnak, ahol vannak.',
-  'storage.category.files': 'Fájlok',
-  'storage.category.journey': 'Útinaplók',
-  'storage.category.covers': 'Utazási borítók',
-  'storage.category.avatars': 'Avatarok',
+  'storage.category.files': 'Útidokumentumok',
+  'storage.category.journey': 'Útinapló-fotók',
+  'storage.category.covers': 'Borítóképek',
+  'storage.category.avatars': 'Profilképek',
   'storage.category.places': 'Helyképek',
-  'storage.category.photos': 'Fotók',
   'storage.category.photos-google': 'Google fotó gyorsítótár',
-  'storage.category.photos-trek': 'TREK fotók',
+  'storage.category.photos-trek': 'TREK fotó gyorsítótár',
   'storage.category.backups': 'Biztonsági mentések',
+
+  // What each category stores — rendered under the label in the category map.
+  'storage.categoryDesc.files':
+    'Az utazásokhoz feltöltött fájlmellékletek — jegyek, PDF-ek, foglalási visszaigazolások és az útcsevegésben megosztott fájlok.',
+  'storage.categoryDesc.journey': 'Az útinapló bejegyzésekhez csatolt fotók és bélyegképek.',
+  'storage.categoryDesc.covers': 'Utazások és gyűjtemények borítóképei, beleértve az Unsplashről lekért borítókat is.',
+  'storage.categoryDesc.avatars': 'Felhasználói fiókok profilképei.',
+  'storage.categoryDesc.places': 'Helyekhez és gyűjteményhelyekhez csatolt képek — feltöltve vagy importálva.',
+  'storage.categoryDesc.photos-google':
+    'A Google Places fotóinak gyorsítótárazott másolatai — újra lekérhetők, biztonságosan elveszíthetők.',
+  'storage.categoryDesc.photos-trek':
+    'A Fotók (Memories) funkció által használt TREK fotószolgáltatás gyorsítótárazott fotói — újra lekérhetők, biztonságosan elveszíthetők.',
+  'storage.categoryDesc.backups':
+    'A Biztonsági mentés panel vagy az ütemezés által létrehozott szerver-mentési archívumok.',
   'storage.health.title': 'Állapot',
   'storage.health.allClear': 'Nincs rögzített replikahiba.',
   'storage.health.seedFile':

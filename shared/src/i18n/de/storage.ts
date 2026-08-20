@@ -45,7 +45,6 @@ const storage: TranslationStrings = {
   'storage.remove.body':
     '{name} aus der Konfiguration entfernen? Der Server lehnt das Speichern ab, wenn noch etwas davon abhängt.',
   'storage.remove.stillAssigned': 'Noch zugewiesen zu: {categories}',
-  'storage.remove.referencedBy': 'Referenziert von Spiegel: {backends}',
   'storage.form.addTitle': 'Backend hinzufügen',
   'storage.form.editTitle': 'Backend bearbeiten',
   'storage.form.name': 'Name',
@@ -59,15 +58,27 @@ const storage: TranslationStrings = {
   'storage.categories.default': 'Standard',
   'storage.categories.reassignWarning':
     'Vorhandene Objekte werden nicht verschoben: Neue Objekte gehen an das neu zugewiesene Backend, alte bleiben, wo sie sind.',
-  'storage.category.files': 'Dateien',
-  'storage.category.journey': 'Journey',
-  'storage.category.covers': 'Reise-Titelbilder',
-  'storage.category.avatars': 'Avatare',
+  'storage.category.files': 'Reisedokumente',
+  'storage.category.journey': 'Journey-Fotos',
+  'storage.category.covers': 'Titelbilder',
+  'storage.category.avatars': 'Profilbilder',
   'storage.category.places': 'Ortsbilder',
-  'storage.category.photos': 'Fotos',
   'storage.category.photos-google': 'Google-Fotocache',
-  'storage.category.photos-trek': 'TREK-Fotos',
+  'storage.category.photos-trek': 'TREK-Fotocache',
   'storage.category.backups': 'Backups',
+
+  // What each category stores — rendered under the label in the category map.
+  'storage.categoryDesc.files':
+    'Dateianhänge, die zu Reisen hochgeladen wurden — Tickets, PDFs, Buchungsbestätigungen und im Reise-Chat geteilte Dateien.',
+  'storage.categoryDesc.journey': 'Fotos und Vorschaubilder, die an Journey-Einträge angehängt sind.',
+  'storage.categoryDesc.covers': 'Titelbilder von Reisen und Sammlungen, einschließlich Titelbildern von Unsplash.',
+  'storage.categoryDesc.avatars': 'Profilbilder von Benutzerkonten.',
+  'storage.categoryDesc.places': 'Bilder, die an Orte und Sammlungsorte angehängt sind — hochgeladen oder importiert.',
+  'storage.categoryDesc.photos-google':
+    'Zwischengespeicherte Kopien von Google-Places-Fotos — können erneut abgerufen werden, ein Verlust ist unbedenklich.',
+  'storage.categoryDesc.photos-trek':
+    'Zwischengespeicherte Fotos vom TREK-Fotodienst, der von Fotos (Memories) verwendet wird — können erneut abgerufen werden, ein Verlust ist unbedenklich.',
+  'storage.categoryDesc.backups': 'Server-Backup-Archive, erstellt vom Backup-Panel oder nach Zeitplan.',
   'storage.health.title': 'Zustand',
   'storage.health.allClear': 'Keine Replikatfehler aufgezeichnet.',
   'storage.health.seedFile':

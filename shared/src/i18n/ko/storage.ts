@@ -43,7 +43,6 @@ const storage: TranslationStrings = {
   'storage.remove.title': '백엔드 제거',
   'storage.remove.body': '구성에서 {name}을(를) 제거할까요? 아직 이것에 의존하는 것이 있으면 서버가 저장을 거부합니다.',
   'storage.remove.stillAssigned': '여전히 할당됨: {categories}',
-  'storage.remove.referencedBy': '미러에서 참조됨: {backends}',
   'storage.form.addTitle': '백엔드 추가',
   'storage.form.editTitle': '백엔드 편집',
   'storage.form.name': '이름',
@@ -57,15 +56,26 @@ const storage: TranslationStrings = {
   'storage.categories.default': '기본값',
   'storage.categories.reassignWarning':
     '기존 객체는 이동하지 않습니다. 새 객체는 새로 할당된 백엔드로 이동하고, 기존 객체는 있던 곳에 그대로 남습니다.',
-  'storage.category.files': '파일',
-  'storage.category.journey': 'Journey',
-  'storage.category.covers': '여행 커버',
-  'storage.category.avatars': '아바타',
+  'storage.category.files': '여행 문서',
+  'storage.category.journey': 'Journey 사진',
+  'storage.category.covers': '커버 이미지',
+  'storage.category.avatars': '프로필 사진',
   'storage.category.places': '장소 이미지',
-  'storage.category.photos': '사진',
   'storage.category.photos-google': 'Google 사진 캐시',
-  'storage.category.photos-trek': 'TREK 사진',
+  'storage.category.photos-trek': 'TREK 사진 캐시',
   'storage.category.backups': '백업',
+
+  // What each category stores — rendered under the label in the category map.
+  'storage.categoryDesc.files': '여행에 업로드된 파일 첨부 — 티켓, PDF, 예약 확인서, 여행 채팅에서 공유된 파일.',
+  'storage.categoryDesc.journey': 'Journey 항목에 첨부된 사진과 썸네일.',
+  'storage.categoryDesc.covers': 'Unsplash에서 가져온 커버를 포함한 여행 및 컬렉션 커버 이미지.',
+  'storage.categoryDesc.avatars': '사용자 계정 프로필 사진.',
+  'storage.categoryDesc.places': '장소 및 컬렉션 장소에 첨부된 이미지 — 업로드되었거나 가져온 것.',
+  'storage.categoryDesc.photos-google':
+    'Google Places 사진의 캐시된 사본 — 다시 가져올 수 있으므로 손실되어도 안전합니다.',
+  'storage.categoryDesc.photos-trek':
+    '사진(Memories) 기능이 사용하는 TREK 사진 서비스의 캐시된 사진 — 다시 가져올 수 있으므로 손실되어도 안전합니다.',
+  'storage.categoryDesc.backups': '백업 패널 또는 일정에 의해 생성된 서버 백업 아카이브.',
   'storage.health.title': '상태',
   'storage.health.allClear': '기록된 복제본 오류가 없습니다.',
   'storage.health.seedFile':

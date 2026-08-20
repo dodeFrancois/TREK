@@ -45,7 +45,6 @@ const storage: TranslationStrings = {
   'storage.remove.body':
     'Видалити {name} з конфігурації? Сервер відхилить збереження, якщо щось усе ще залежить від нього.',
   'storage.remove.stillAssigned': 'Досі призначено: {categories}',
-  'storage.remove.referencedBy': 'На нього посилається дзеркало: {backends}',
   'storage.form.addTitle': 'Додати бекенд',
   'storage.form.editTitle': 'Редагувати бекенд',
   'storage.form.name': 'Назва',
@@ -59,15 +58,28 @@ const storage: TranslationStrings = {
   'storage.categories.default': 'за замовчуванням',
   'storage.categories.reassignWarning':
     "Наявні об'єкти не переміщуються: нові об'єкти йдуть у щойно призначений бекенд, старі залишаються на місці.",
-  'storage.category.files': 'Файли',
-  'storage.category.journey': 'Journey',
-  'storage.category.covers': 'Обкладинки подорожей',
-  'storage.category.avatars': 'Аватари',
+  'storage.category.files': 'Документи подорожі',
+  'storage.category.journey': 'Фото Journey',
+  'storage.category.covers': 'Обкладинки',
+  'storage.category.avatars': 'Фото профілю',
   'storage.category.places': 'Зображення місць',
-  'storage.category.photos': 'Фото',
   'storage.category.photos-google': 'Кеш фото Google',
-  'storage.category.photos-trek': 'Фото TREK',
+  'storage.category.photos-trek': 'Кеш фото TREK',
   'storage.category.backups': 'Резервні копії',
+
+  // What each category stores — rendered under the label in the category map.
+  'storage.categoryDesc.files':
+    'Файлові вкладення, завантажені до подорожей — квитки, PDF, підтвердження бронювання та файли, якими поділилися в чаті подорожі.',
+  'storage.categoryDesc.journey': 'Фото та мініатюри, прикріплені до записів Journey.',
+  'storage.categoryDesc.covers': 'Обкладинки подорожей і колекцій, включно з обкладинками, отриманими з Unsplash.',
+  'storage.categoryDesc.avatars': 'Фото профілю облікових записів користувачів.',
+  'storage.categoryDesc.places': 'Зображення, прикріплені до місць і місць колекцій — завантажені або імпортовані.',
+  'storage.categoryDesc.photos-google':
+    'Кешовані копії фото Google Places — можуть бути отримані повторно, їх втрата безпечна.',
+  'storage.categoryDesc.photos-trek':
+    'Кешовані фото зі служби фото TREK, яку використовує функція Фото (Memories) — можуть бути отримані повторно, їх втрата безпечна.',
+  'storage.categoryDesc.backups':
+    'Архіви резервних копій сервера, створені панеллю резервного копіювання або за розкладом.',
   'storage.health.title': 'Стан',
   'storage.health.allClear': 'Збоїв реплік не зафіксовано.',
   'storage.health.seedFile':

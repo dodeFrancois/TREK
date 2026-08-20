@@ -45,7 +45,6 @@ const storage: TranslationStrings = {
   'storage.remove.body':
     'Hapus {name} dari konfigurasi? Server menolak penyimpanan jika masih ada yang bergantung padanya.',
   'storage.remove.stillAssigned': 'Masih ditetapkan ke: {categories}',
-  'storage.remove.referencedBy': 'Direferensikan oleh cermin: {backends}',
   'storage.form.addTitle': 'Tambah backend',
   'storage.form.editTitle': 'Sunting backend',
   'storage.form.name': 'Nama',
@@ -59,15 +58,27 @@ const storage: TranslationStrings = {
   'storage.categories.default': 'default',
   'storage.categories.reassignWarning':
     'Objek yang ada tidak dipindahkan: objek baru masuk ke backend yang baru ditetapkan, yang lama tetap di tempatnya.',
-  'storage.category.files': 'File',
-  'storage.category.journey': 'Journey',
-  'storage.category.covers': 'Sampul perjalanan',
-  'storage.category.avatars': 'Avatar',
+  'storage.category.files': 'Dokumen perjalanan',
+  'storage.category.journey': 'Foto Journey',
+  'storage.category.covers': 'Gambar sampul',
+  'storage.category.avatars': 'Foto profil',
   'storage.category.places': 'Gambar tempat',
-  'storage.category.photos': 'Foto',
   'storage.category.photos-google': 'Cache foto Google',
-  'storage.category.photos-trek': 'Foto TREK',
+  'storage.category.photos-trek': 'Cache foto TREK',
   'storage.category.backups': 'Cadangan',
+
+  // What each category stores — rendered under the label in the category map.
+  'storage.categoryDesc.files':
+    'Lampiran berkas yang diunggah ke perjalanan — tiket, PDF, konfirmasi pemesanan, dan berkas yang dibagikan di obrolan perjalanan.',
+  'storage.categoryDesc.journey': 'Foto dan thumbnail yang dilampirkan ke entri Journey.',
+  'storage.categoryDesc.covers': 'Gambar sampul perjalanan dan koleksi, termasuk sampul yang diambil dari Unsplash.',
+  'storage.categoryDesc.avatars': 'Foto profil akun pengguna.',
+  'storage.categoryDesc.places': 'Gambar yang dilampirkan ke tempat dan tempat koleksi — diunggah atau diimpor.',
+  'storage.categoryDesc.photos-google':
+    'Salinan foto Google Places yang di-cache — dapat diambil ulang, aman jika hilang.',
+  'storage.categoryDesc.photos-trek':
+    'Foto ter-cache dari layanan foto TREK yang digunakan oleh Foto (Memories) — dapat diambil ulang, aman jika hilang.',
+  'storage.categoryDesc.backups': 'Arsip cadangan server yang dibuat oleh panel Cadangan atau jadwal.',
   'storage.health.title': 'Kesehatan',
   'storage.health.allClear': 'Tidak ada kegagalan replika yang tercatat.',
   'storage.health.seedFile':

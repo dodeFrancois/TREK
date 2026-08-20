@@ -44,7 +44,6 @@ const storage: TranslationStrings = {
   'storage.remove.title': 'Usuń backend',
   'storage.remove.body': 'Usunąć {name} z konfiguracji? Serwer odrzuci zapis, jeśli coś nadal od niego zależy.',
   'storage.remove.stillAssigned': 'Nadal przypisany do: {categories}',
-  'storage.remove.referencedBy': 'Odwołanie z mirrora: {backends}',
   'storage.form.addTitle': 'Dodaj backend',
   'storage.form.editTitle': 'Edytuj backend',
   'storage.form.name': 'Nazwa',
@@ -58,15 +57,28 @@ const storage: TranslationStrings = {
   'storage.categories.default': 'domyślna',
   'storage.categories.reassignWarning':
     'Istniejące obiekty nie są przenoszone: nowe obiekty trafiają do nowo przypisanego backendu, stare pozostają tam, gdzie są.',
-  'storage.category.files': 'Pliki',
-  'storage.category.journey': 'Dziennik podróży',
-  'storage.category.covers': 'Okładki podróży',
-  'storage.category.avatars': 'Awatary',
+  'storage.category.files': 'Dokumenty podróży',
+  'storage.category.journey': 'Zdjęcia z dziennika podróży',
+  'storage.category.covers': 'Zdjęcia okładek',
+  'storage.category.avatars': 'Zdjęcia profilowe',
   'storage.category.places': 'Zdjęcia miejsc',
-  'storage.category.photos': 'Zdjęcia',
   'storage.category.photos-google': 'Pamięć podręczna zdjęć Google',
-  'storage.category.photos-trek': 'Zdjęcia TREK',
+  'storage.category.photos-trek': 'Pamięć podręczna zdjęć TREK',
   'storage.category.backups': 'Kopie zapasowe',
+
+  // What each category stores — rendered under the label in the category map.
+  'storage.categoryDesc.files':
+    'Załączniki plikowe przesłane do podróży — bilety, PDF-y, potwierdzenia rezerwacji i pliki udostępnione na czacie podróży.',
+  'storage.categoryDesc.journey': 'Zdjęcia i miniatury dołączone do wpisów dziennika podróży.',
+  'storage.categoryDesc.covers': 'Zdjęcia okładek podróży i kolekcji, w tym okładki pobrane z Unsplash.',
+  'storage.categoryDesc.avatars': 'Zdjęcia profilowe kont użytkowników.',
+  'storage.categoryDesc.places': 'Obrazy dołączone do miejsc i miejsc w kolekcjach — przesłane lub zaimportowane.',
+  'storage.categoryDesc.photos-google':
+    'Kopie zdjęć z Google Places przechowywane w pamięci podręcznej — można je pobrać ponownie, ich utrata jest bezpieczna.',
+  'storage.categoryDesc.photos-trek':
+    'Zdjęcia w pamięci podręcznej z usługi zdjęć TREK używanej przez funkcję Zdjęcia (Memories) — można je pobrać ponownie, ich utrata jest bezpieczna.',
+  'storage.categoryDesc.backups':
+    'Archiwa kopii zapasowych serwera tworzone przez panel Kopia zapasowa lub harmonogram.',
   'storage.health.title': 'Stan',
   'storage.health.allClear': 'Nie odnotowano żadnych błędów replik.',
   'storage.health.seedFile':

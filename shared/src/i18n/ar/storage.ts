@@ -43,7 +43,6 @@ const storage: TranslationStrings = {
   'storage.remove.title': 'إزالة الواجهة الخلفية',
   'storage.remove.body': 'هل تريد إزالة {name} من الإعدادات؟ يرفض الخادم الحفظ إذا كان لا يزال هناك ما يعتمد عليها.',
   'storage.remove.stillAssigned': 'لا تزال مخصّصة لـ: {categories}',
-  'storage.remove.referencedBy': 'مُشار إليها من المرآة: {backends}',
   'storage.form.addTitle': 'إضافة واجهة خلفية',
   'storage.form.editTitle': 'تعديل الواجهة الخلفية',
   'storage.form.name': 'الاسم',
@@ -57,15 +56,27 @@ const storage: TranslationStrings = {
   'storage.categories.default': 'الافتراضية',
   'storage.categories.reassignWarning':
     'لا يتم نقل الكائنات الحالية: تذهب الكائنات الجديدة إلى الواجهة الخلفية المخصّصة حديثًا، وتبقى القديمة في مكانها.',
-  'storage.category.files': 'الملفات',
-  'storage.category.journey': 'Journey',
-  'storage.category.covers': 'أغلفة الرحلات',
-  'storage.category.avatars': 'الصور الرمزية',
+  'storage.category.files': 'مستندات الرحلة',
+  'storage.category.journey': 'صور Journey',
+  'storage.category.covers': 'صور الغلاف',
+  'storage.category.avatars': 'الصور الشخصية',
   'storage.category.places': 'صور الأماكن',
-  'storage.category.photos': 'الصور',
   'storage.category.photos-google': 'ذاكرة تخزين مؤقت لصور Google',
-  'storage.category.photos-trek': 'صور TREK',
+  'storage.category.photos-trek': 'ذاكرة تخزين مؤقت لصور TREK',
   'storage.category.backups': 'النسخ الاحتياطية',
+
+  // What each category stores — rendered under the label in the category map.
+  'storage.categoryDesc.files':
+    'مرفقات الملفات التي تُرفع إلى الرحلات — التذاكر وملفات PDF وتأكيدات الحجز والملفات المُشارَكة في محادثة الرحلة.',
+  'storage.categoryDesc.journey': 'الصور والصور المصغّرة المرفقة بمدخلات Journey.',
+  'storage.categoryDesc.covers': 'صور غلاف الرحلات والمجموعات، بما في ذلك الأغلفة المجلوبة من Unsplash.',
+  'storage.categoryDesc.avatars': 'الصور الشخصية لحسابات المستخدمين.',
+  'storage.categoryDesc.places': 'الصور المرفقة بالأماكن وأماكن المجموعات — سواء تم رفعها أو استيرادها.',
+  'storage.categoryDesc.photos-google':
+    'نسخ مخزّنة مؤقتًا من صور Google Places — يمكن إعادة جلبها، ويُمكن فقدانها بأمان.',
+  'storage.categoryDesc.photos-trek':
+    'صور مخزّنة مؤقتًا من خدمة صور TREK التي تستخدمها ميزة الصور (Memories) — يمكن إعادة جلبها، ويُمكن فقدانها بأمان.',
+  'storage.categoryDesc.backups': 'أرشيفات النسخ الاحتياطي للخادم التي تُنشئها لوحة النسخ الاحتياطي أو الجدولة.',
   'storage.health.title': 'الحالة',
   'storage.health.allClear': 'لم يتم تسجيل أي أعطال في النسخ المتماثلة.',
   'storage.health.seedFile':
