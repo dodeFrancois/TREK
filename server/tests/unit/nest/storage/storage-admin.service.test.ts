@@ -215,3 +215,97 @@ describe('StorageAdminService.applyConfig', () => {
     expect(reloadSpy).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('StorageAdminService.testBackend', () => {
+  it('STORADM-020 probes a healthy local candidate: ok with one green target', async () => {
+    const { service } = makeService();
+    const result = await service.testBackend({ name: 'cand', type: 'local', options: { root: makeTmpDir() } });
+    expect(result).toEqual({ ok: true, targets: [{ name: 'cand', ok: true }] });
+  });
+
+  it('STORADM-021 an unreachable s3 candidate fails fast with a per-target error (no registry impact)', async () => {
+    const { service, registry } = makeService();
+    const result = await service.testBackend({
+      name: 'cand',
+      type: 's3',
+      options: {
+        endpoint: 'http://127.0.0.1:1',
+        bucket: 'trek',
+        accessKeyId: 'ak',
+        secretAccessKey: 'sk',
+        region: 'us-east-1',
+        keyPrefix: '',
+        retries: 0,
+        timeoutMs: 200,
+      },
+    });
+    expect(result.ok).toBe(false);
+    expect(result.targets[0]!.ok).toBe(false);
+    expect(result.targets[0]!.error).toBeTruthy();
+    expect(registry.resolve('backups').backendName).toBe('backups-local'); // state untouched
+  });
+
+  it('STORADM-022 a mirror is probed per target, replica failures reported individually', async () => {
+    const goodRoot = makeTmpDir();
+    // Not yet a file: registry.build() eagerly driver.init()s EVERY local
+    // backend (used or not) during applyConfig's preview, so a root that's
+    // already a file at that point would make applyConfig itself throw
+    // (unrelated to testBackend). Register it as a fresh, empty dir, then
+    // corrupt it afterward — testBackend's ephemeralDriverFor re-runs
+    // init() fresh at probe time and hits the same EEXIST there instead.
+    const badRoot = path.join(makeTmpDir(), 'a-file');
+    const { service, uploadsRoot } = makeService();
+    service.applyConfig(configWith(uploadsRoot, {
+      backends: [
+        { name: 'good-local', type: 'local', options: { root: goodRoot } },
+        { name: 'bad-local', type: 'local', options: { root: badRoot } },
+      ],
+      categories: {},
+    }));
+    fs.rmSync(badRoot, { recursive: true, force: true });
+    fs.writeFileSync(badRoot, 'not a dir');
+    const result = await service.testBackend({
+      name: 'cand-mirror',
+      type: 'mirror',
+      options: { primary: 'good-local', replicas: ['bad-local'] },
+    });
+    expect(result.ok).toBe(false);
+    expect(result.targets).toEqual([
+      { name: 'good-local', ok: true },
+      expect.objectContaining({ name: 'bad-local', ok: false }),
+    ]);
+  });
+
+  it('STORADM-023 a mirror referencing an unknown or mirror-typed backend throws (→ 400)', async () => {
+    const { service } = makeService();
+    await expect(
+      service.testBackend({ name: 'm', type: 'mirror', options: { primary: 'nope', replicas: [] } }),
+    ).rejects.toThrow("mirror 'm' references unknown backend 'nope'");
+  });
+
+  it('STORADM-024 unmasks a stored backend by name before probing (mask echo works on /test)', async () => {
+    const { service, uploadsRoot } = makeService();
+    const root = makeTmpDir();
+    service.applyConfig(configWith(uploadsRoot, {
+      backends: [{ name: 'nas', type: 'local', options: { root } }],
+      categories: {},
+    }));
+    // local has no secrets — the unmask contract is pinned via an s3 mask with no counterpart:
+    await expect(
+      service.testBackend({
+        name: 'ghost',
+        type: 's3',
+        options: {
+          endpoint: 'http://127.0.0.1:1',
+          bucket: 'trek',
+          accessKeyId: 'ak',
+          secretAccessKey: MASKED_SETTING_VALUE,
+          region: 'us-east-1',
+          keyPrefix: '',
+          retries: 0,
+          timeoutMs: 200,
+        },
+      }),
+    ).rejects.toThrow("re-enter the secret 'secretAccessKey' for 'ghost'");
+  });
+});

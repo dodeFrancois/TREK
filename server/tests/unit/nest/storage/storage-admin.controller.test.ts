@@ -5,7 +5,7 @@ import type { User } from '../../../../src/types';
 import { StorageAdminController } from '../../../../src/nest/storage/storage-admin.controller';
 import type { StorageAdminService } from '../../../../src/nest/storage/storage-admin.service';
 import type { AuditService } from '../../../../src/nest/audit/audit.service';
-import type { StorageConfigDto } from '../../../../src/nest/storage/storage-admin.dto';
+import type { StorageConfigDto, StorageTestRequestDto } from '../../../../src/nest/storage/storage-admin.dto';
 import { StorageModule } from '../../../../src/nest/storage/storage.module';
 import { StorageBackendError } from '../../../../src/nest/storage/storage.types';
 import { expectRegisteredController } from '../../../helpers/module-providers';
@@ -86,5 +86,29 @@ describe('StorageAdminController', () => {
 
   it('STORCTL-004 the controller is registered in StorageModule', () => {
     expectRegisteredController(StorageModule, StorageAdminController);
+  });
+
+  it('STORCTL-005 POST /test probes, audits names only, answers 200-shaped result', async () => {
+    const testResult = { ok: true, targets: [{ name: 'cand', ok: true }] };
+    const { controller, writeAudit } = makeController({ testBackend: vi.fn(async () => testResult) });
+    const result = await controller.test(user, { backend: CONFIG.backends[0]! } as StorageTestRequestDto, req);
+    expect(result).toBe(testResult);
+    expect(writeAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'admin.storage_test',
+        details: { backend: 'off-box', type: 's3', ok: true, targets: [{ name: 'cand', ok: true }] },
+      }),
+    );
+  });
+
+  it('STORCTL-006 POST /test maps thrown refusals to 400 verbatim', async () => {
+    const { controller } = makeController({
+      testBackend: vi.fn(async () => {
+        throw new StorageBackendError("mirror 'm' references unknown backend 'nope'");
+      }),
+    });
+    await expect(
+      controller.test(user, { backend: CONFIG.backends[0]! } as StorageTestRequestDto, req),
+    ).rejects.toMatchObject({ status: 400 });
   });
 });

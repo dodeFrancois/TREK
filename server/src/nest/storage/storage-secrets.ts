@@ -5,7 +5,7 @@ import {
   type StorageBackendTypeId,
   type StorageConfig,
 } from '@trek/shared';
-import { is_encrypted_api_key, maybe_encrypt_api_key } from '../common/crypto/apiKeyCrypto';
+import { decrypt_api_key, is_encrypted_api_key, maybe_encrypt_api_key } from '../common/crypto/apiKeyCrypto';
 import { StorageBackendError } from './storage.types';
 
 /**
@@ -130,4 +130,18 @@ export function redactStorageSecrets(config: StorageConfig): StorageConfig {
     ...config,
     backends: config.backends.map((backend) => mapSecrets(backend, () => '***')),
   };
+}
+
+/** Decrypt secret fields for ephemeral use (test probes). Never persisted. */
+export function decryptBackendSecrets(backend: StorageBackend): StorageBackend {
+  return mapSecrets(backend, (value, field) => {
+    if (typeof value !== 'string' || value === '') return value;
+    const plain = decrypt_api_key(value);
+    if (plain === null) {
+      throw new StorageBackendError(
+        `${backend.type} backend '${backend.name}': could not decrypt '${field}' — was ENCRYPTION_KEY changed or the row edited by hand?`,
+      );
+    }
+    return plain;
+  });
 }

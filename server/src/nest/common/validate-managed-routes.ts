@@ -80,6 +80,7 @@ export const MANAGED_ROUTE_ALLOW_LIST: string[] = [
   'PluginsController.reload',
   'PluginsController.upload',
   'StorageAdminController.get',
+  'StorageAdminController.test',
   'StorageAdminController.update',
 ];
 

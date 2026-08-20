@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import { Injectable } from '@nestjs/common';
-import type { StorageAdminState, StorageConfig } from '@trek/shared';
+import type { StorageAdminState, StorageBackend, StorageConfig, StorageTestResponse } from '@trek/shared';
 import { DatabaseService } from '../database/database.service';
 import { RuntimeEnvService } from '../app-config/runtime-env.service';
 import {
@@ -11,12 +11,14 @@ import {
 import { StorageService } from './storage.service';
 import { SEED_CONFIG_PATH } from './storage-paths';
 import {
+  decryptBackendSecrets,
   encryptionGateError,
   encryptStorageSecrets,
   listPlaintextSecrets,
   maskBackendOptions,
   unmaskStorageConfig,
 } from './storage-secrets';
+import { ephemeralDriverFor, probeDriver, type ProbeTargetResult } from './storage-probe';
 import { StorageBackendError } from './storage.types';
 
 /**
@@ -74,6 +76,54 @@ export class StorageAdminService {
       upsert.run(CATEGORIES_KEY, JSON.stringify(encrypted.categories));
     });
     this.registry.reload();
+  }
+
+  /**
+   * Probe an (unsaved or stored) candidate with ephemeral drivers. Mirrors are
+   * expanded and probed per target — the probe bypasses MirrorDriver, which
+   * hides replica failures by design. Registry state is never touched.
+   */
+  async testBackend(candidate: StorageBackend): Promise<StorageTestResponse> {
+    const { backends } = unmaskStorageConfig(
+      { backends: [candidate], categories: {} },
+      this.storedBackendsRow(),
+    );
+    const backend = backends[0]!;
+    const targets = this.probeTargetsFor(backend).map(decryptBackendSecrets) as Array<
+      Extract<StorageBackend, { type: 'local' | 's3' }>
+    >;
+    const results: ProbeTargetResult[] = [];
+    for (const target of targets) {
+      results.push(await this.probeTarget(target));
+    }
+    return { ok: results.every((r) => r.ok), targets: results };
+  }
+
+  /** Expand a mirror candidate into its concrete targets via the live snapshot. */
+  private probeTargetsFor(backend: StorageBackend): StorageBackend[] {
+    if (backend.type !== 'mirror') return [backend];
+    const byName = new Map(this.registry.snapshot().backends.map((b) => [b.name, b]));
+    const names = [backend.options.primary, ...backend.options.replicas];
+    return names.map((name) => {
+      const resolved = byName.get(name);
+      if (!resolved) {
+        throw new StorageBackendError(`mirror '${backend.name}' references unknown backend '${name}'`);
+      }
+      if (resolved.type === 'mirror') {
+        throw new StorageBackendError(`mirror '${backend.name}' nests mirror '${name}' — nesting is rejected`);
+      }
+      return { name: resolved.name, type: resolved.type, options: resolved.options } as StorageBackend;
+    });
+  }
+
+  private async probeTarget(target: Extract<StorageBackend, { type: 'local' | 's3' }>): Promise<ProbeTargetResult> {
+    let driver;
+    try {
+      driver = ephemeralDriverFor(target);
+    } catch (err) {
+      return { name: target.name, ok: false, error: err instanceof Error ? err.message : String(err) };
+    }
+    return probeDriver(target.name, driver);
   }
 
   /** The raw stored backends row — the unmask source (tolerates absent/garbage rows). */

@@ -9,6 +9,7 @@ import {
 } from '../../../../src/nest/common/crypto/apiKeyCrypto';
 import {
   assertNoMaskSentinels,
+  decryptBackendSecrets,
   encryptionGateError,
   encryptStorageSecrets,
   listPlaintextSecrets,
@@ -106,6 +107,18 @@ describe('assertNoMaskSentinels', () => {
   it('throws when a seed-style config carries the mask sentinel', () => {
     expect(() => assertNoMaskSentinels(s3Config(MASKED_SETTING_VALUE))).toThrow('mask');
     expect(() => assertNoMaskSentinels(s3Config('sk'))).not.toThrow();
+  });
+});
+
+describe('decryptBackendSecrets', () => {
+  it('decrypts enc:v1: secrets, passes plaintext through, throws on tampered ciphertext', () => {
+    const encrypted = s3Config(encrypt_api_key('sk-secret')).backends[0]!;
+    expect((decryptBackendSecrets(encrypted).options as Record<string, unknown>).secretAccessKey).toBe('sk-secret');
+    const plain = s3Config('sk-plain').backends[0]!;
+    expect((decryptBackendSecrets(plain).options as Record<string, unknown>).secretAccessKey).toBe('sk-plain');
+    expect(() => decryptBackendSecrets(s3Config('enc:v1:AAAA').backends[0]!)).toThrow(
+      "could not decrypt 'secretAccessKey'",
+    );
   });
 });
 

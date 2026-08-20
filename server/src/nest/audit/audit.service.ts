@@ -19,6 +19,7 @@ const ACTION_LABELS: Record<string, string> = {
   'admin.plugin_retrust': "re-trusted a plugin's author signing key",
   'admin.invite_create': 'created invite',
   'admin.storage_update': 'updated storage configuration',
+  'admin.storage_test': 'tested a storage backend',
   'immich.private_ip_configured': 'configured Immich with private IP',
 };
 
