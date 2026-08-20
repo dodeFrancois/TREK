@@ -151,9 +151,23 @@ describe('MAdminStoragePanel', () => {
     );
     fireEvent.click(within(screen.getByTestId('m-storage-category-places')).getByRole('button'));
     fireEvent.click(within(screen.getByRole('dialog', { name: 'Place images' })).getByRole('button', { name: 'backups-local' })); // picker option = primary name
-    expect(screen.getByText(/re-fetchable/)).toBeInTheDocument();
+    // getByText(/re-fetchable/) is now ambiguous — the photos-google/photos-trek category
+    // descriptions also say "re-fetchable". The cache warning is the only role="note" on
+    // screen here (the mirror-targets latency note only renders while a form is open).
+    expect(screen.getByRole('note')).toHaveTextContent(/re-fetchable/);
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
     await screen.findByText('Storage configuration saved');
     expect((putBody as { categories: Record<string, string> }).categories.places).toBe('mirror');
+  });
+
+  it('FE-MOB-MSTOR-009: category rows show display name, id badge and description; photos is gone', async () => {
+    await renderPanel();
+    const files = screen.getByTestId('m-storage-category-files');
+    // The testid wraps only the select row — assert name/badge/description through the field around it.
+    expect(screen.getByText('Trip documents')).toBeInTheDocument();
+    expect(screen.getByText('files')).toBeInTheDocument();
+    expect(screen.getByText(/tickets, PDFs, booking confirmations/)).toBeInTheDocument();
+    expect(within(files).getByRole('button')).toBeInTheDocument(); // row still tappable
+    expect(screen.queryByTestId('m-storage-category-photos')).not.toBeInTheDocument();
   });
 });

@@ -45,6 +45,10 @@ function valuesOf(backend: StorageBackend | null): FieldValues {
   return values
 }
 
+/** Display-name mapper for joined category lists — the raw id renders only in the badge. */
+const categoryNames = (t: (key: string) => string, ids: readonly string[]): string =>
+  ids.map((id) => t(`storage.category.${id}`)).join(', ')
+
 /** Same behavior contract as the desktop BackendForm, rendered on the M* primitives. */
 function MBackendForm({
   initial,
@@ -299,7 +303,7 @@ export default function MAdminStoragePanel(): React.ReactElement {
     const usedAsReplicaBy = isDegenerate ? [] : replicaOfPrimaries(draft, name)
     return [
       t('storage.remove.body', { name }),
-      assigned.length > 0 ? t('storage.remove.stillAssigned', { categories: assigned.join(', ') }) : '',
+      assigned.length > 0 ? t('storage.remove.stillAssigned', { categories: categoryNames(t, assigned) }) : '',
       usedAsReplicaBy.length > 0 ? t('storage.remove.usedAsReplicaBy', { primaries: usedAsReplicaBy.join(', ') }) : '',
     ]
       .filter(Boolean)
@@ -377,7 +381,7 @@ export default function MAdminStoragePanel(): React.ReactElement {
                 </div>
                 <p className="mt-1 font-geist text-[0.625rem] text-m-muted">
                   {row.categories.length > 0
-                    ? t('storage.backends.usedBy', { categories: row.categories.join(', ') })
+                    ? t('storage.backends.usedBy', { categories: categoryNames(t, row.categories) })
                     : t('storage.backends.unused')}
                 </p>
                 {row.mirrorTargets.length > 0 && (
@@ -514,7 +518,18 @@ export default function MAdminStoragePanel(): React.ReactElement {
             const changed = selectedPrimary !== primaryNameOf(state, draft, stateEntry.backend)
             const viaMirror = effective[category] !== selectedPrimary
             return (
-              <MAdminField key={category} label={t(`storage.category.${category}`)}>
+              <MAdminField
+                key={category}
+                label={
+                  <>
+                    {t(`storage.category.${category}`)}{' '}
+                    <span className="rounded border border-[color:var(--m-rowbr)] px-1 font-geist text-[0.625rem] font-normal text-m-faint">
+                      {category}
+                    </span>
+                  </>
+                }
+                hint={t(`storage.categoryDesc.${category}`)}
+              >
                 <div data-testid={`m-storage-category-${category}`} className="contents">
                   <MSetSelectRow
                     label={

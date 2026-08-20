@@ -74,7 +74,7 @@ describe('AdminStoragePanel', () => {
     const uploads = backendRow('uploads-local');
     expect(within(uploads).getByText('Local')).toBeInTheDocument();
     expect(within(uploads).getByText('Built-in')).toBeInTheDocument();
-    expect(within(uploads).getByText(/Used by: files/)).toBeInTheDocument();
+    expect(within(uploads).getByText(/Used by: Trip documents/)).toBeInTheDocument();
     const env = backendRow('place-photos-local');
     expect(within(env).getByText('Environment')).toBeInTheDocument();
     expect(within(env).getByText(/read-only/)).toBeInTheDocument();
@@ -155,7 +155,7 @@ describe('AdminStoragePanel', () => {
       }),
     );
     fireEvent.click(within(backendRow('off-box')).getByRole('button', { name: 'Remove' }));
-    expect(screen.getByText(/Still assigned to: covers/)).toBeInTheDocument();
+    expect(screen.getByText(/Still assigned to: Cover images/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Remove backend' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
     await screen.findByText('Storage configuration saved');
@@ -219,7 +219,7 @@ describe('AdminStoragePanel', () => {
     expect(screen.queryByTestId('storage-backend-mirror')).not.toBeInTheDocument();
     const primary = backendRow('backups-local');
     expect(within(primary).getByText('Mirrored to: off-box')).toBeInTheDocument();
-    expect(within(primary).getByText(/Used by: .*backups/)).toBeInTheDocument();
+    expect(within(primary).getByText(/Used by: .*Backups/)).toBeInTheDocument();
     const replica = backendRow('off-box');
     expect(within(replica).getByText('Replica of: backups-local')).toBeInTheDocument();
   });
@@ -322,5 +322,15 @@ describe('AdminStoragePanel', () => {
     expect(within(row).getByRole('button', { name: 'Test' })).toBeInTheDocument();
     expect(within(row).getByRole('button', { name: 'Remove' })).toBeInTheDocument();
     expect(within(row).queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+  });
+
+  it('FE-ADMIN-STOR-017: category rows show the display name, the raw id badge, and the description; photos is gone', async () => {
+    await renderPanel();
+    const files = categoryRow('files');
+    expect(within(files).getByText('Trip documents')).toBeInTheDocument();
+    expect(within(files).getByText('files')).toBeInTheDocument(); // the monospace id badge
+    expect(within(files).getByText(/tickets, PDFs, booking confirmations/)).toBeInTheDocument();
+    expect(within(categoryRow('photos-google')).getByText(/re-fetchable, safe to lose/)).toBeInTheDocument();
+    expect(screen.queryByTestId('storage-category-photos')).not.toBeInTheDocument();
   });
 });

@@ -24,6 +24,10 @@ import {
 } from './storageModel'
 import { useStorageAdmin } from './useStorageAdmin'
 
+/** Display-name mapper for joined category lists — the raw id renders only in the badge. */
+const categoryNames = (t: (key: string) => string, ids: readonly string[]): string =>
+  ids.map((id) => t(`storage.category.${id}`)).join(', ')
+
 function TestResult({ result, failedLabel, okLabel }: {
   result: StorageTestResponse | undefined
   failedLabel: string
@@ -106,7 +110,7 @@ export default function AdminStoragePanel(): React.ReactElement {
     const usedAsReplicaBy = isDegenerate ? [] : replicaOfPrimaries(draft, name)
     return [
       t('storage.remove.body', { name }),
-      assigned.length > 0 ? t('storage.remove.stillAssigned', { categories: assigned.join(', ') }) : '',
+      assigned.length > 0 ? t('storage.remove.stillAssigned', { categories: categoryNames(t, assigned) }) : '',
       usedAsReplicaBy.length > 0 ? t('storage.remove.usedAsReplicaBy', { primaries: usedAsReplicaBy.join(', ') }) : '',
     ]
       .filter(Boolean)
@@ -194,7 +198,7 @@ export default function AdminStoragePanel(): React.ReactElement {
                 </div>
                 <p className="text-xs mt-1 text-content-faint">
                   {row.categories.length > 0
-                    ? t('storage.backends.usedBy', { categories: row.categories.join(', ') })
+                    ? t('storage.backends.usedBy', { categories: categoryNames(t, row.categories) })
                     : t('storage.backends.unused')}
                 </p>
                 {row.mirrorTargets.length > 0 && (
@@ -293,9 +297,13 @@ export default function AdminStoragePanel(): React.ReactElement {
             const viaMirror = effective[category] !== selectedPrimary
             return (
               <div key={category} data-testid={`storage-category-${category}`}>
-                <label className="block text-sm font-medium mb-1.5 text-content-secondary">
+                <label className="block text-sm font-medium mb-1 text-content-secondary">
                   {t(`storage.category.${category}`)}
+                  <span className="ml-2 px-1.5 py-0.5 rounded border font-mono font-normal text-xs border-edge text-content-faint">
+                    {category}
+                  </span>
                 </label>
+                <p className="text-xs mb-1.5 text-content-faint">{t(`storage.categoryDesc.${category}`)}</p>
                 <CustomSelect
                   value={selectedPrimary}
                   onChange={(value) => setCategory(category, String(value))}
