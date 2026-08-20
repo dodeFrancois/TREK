@@ -54,7 +54,7 @@ describe('encryptionGateError', () => {
     expect(message).toContain('ENCRYPTION_KEY');
     expect(message).toContain("'off-box'");
     expect(message).toContain("'secretAccessKey'");
-    expect(message).toContain('fallback');
+    expect(message).toContain('not accepted');
   });
 });
 
@@ -104,9 +104,19 @@ describe('unmaskStorageConfig', () => {
 });
 
 describe('assertNoMaskSentinels', () => {
-  it('throws when a seed-style config carries the mask sentinel', () => {
+  it('throws when a seed-style config carries the mask sentinel in a secret field', () => {
     expect(() => assertNoMaskSentinels(s3Config(MASKED_SETTING_VALUE))).toThrow('mask');
     expect(() => assertNoMaskSentinels(s3Config('sk'))).not.toThrow();
+  });
+
+  it('throws for a mask sentinel in a NON-secret field too — the check is all-field, not secret-only', () => {
+    const config: StorageConfig = {
+      backends: [{ name: 'off-box', type: 's3', options: { ...S3_OPTIONS, accessKeyId: MASKED_SETTING_VALUE } }],
+      categories: {},
+    };
+    expect(() => assertNoMaskSentinels(config)).toThrow(
+      "backend 'off-box' field 'accessKeyId' is the mask sentinel — a mask can never become a stored value",
+    );
   });
 });
 

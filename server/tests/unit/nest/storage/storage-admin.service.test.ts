@@ -206,6 +206,18 @@ describe('StorageAdminService.applyConfig', () => {
     expect(registry.resolve('backups').backendName).toBe('backups-local'); // live state untouched
   });
 
+  it('STORADM-018 a mask sentinel in a NON-secret field throws and persists nothing', () => {
+    const { service, uploadsRoot } = makeService();
+    const before = readRow(BACKENDS_KEY);
+    expect(() =>
+      service.applyConfig(configWith(uploadsRoot, {
+        backends: [{ name: 'off-box', type: 's3', options: { ...S3_OPTIONS, accessKeyId: MASKED_SETTING_VALUE } }],
+        categories: {},
+      })),
+    ).toThrow("backend 'off-box' field 'accessKeyId' is the mask sentinel — a mask can never become a stored value");
+    expect(readRow(BACKENDS_KEY)).toBe(before);
+  });
+
   it('STORADM-017 persists both rows in ONE transaction and reloads once', () => {
     const { service, registry, uploadsRoot } = makeService();
     const txSpy = vi.spyOn(db, 'transaction');

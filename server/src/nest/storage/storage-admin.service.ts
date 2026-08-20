@@ -11,6 +11,7 @@ import {
 import { StorageService } from './storage.service';
 import { SEED_CONFIG_PATH } from './storage-paths';
 import {
+  assertNoMaskSentinels,
   decryptBackendSecrets,
   encryptionGateError,
   encryptStorageSecrets,
@@ -62,6 +63,10 @@ export class StorageAdminService {
   /** Full-document replace of the two settings rows. Throws StorageBackendError on any refusal. */
   applyConfig(config: StorageConfig): void {
     const unmasked = unmaskStorageConfig(config, this.storedBackendsRow());
+    // unmask only resolves the secret fields it knows about; a mask sentinel
+    // submitted in a non-secret field would otherwise pass through untouched
+    // and get persisted verbatim as garbage-in.
+    assertNoMaskSentinels(unmasked);
     const plaintext = listPlaintextSecrets(unmasked);
     if (plaintext.length > 0 && !this.env.env().security.encryptionKeySet) {
       throw new StorageBackendError(encryptionGateError(plaintext[0]!));

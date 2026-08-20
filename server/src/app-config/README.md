@@ -68,9 +68,15 @@ PORT, HOST, TRUST_PROXY, SESSION_DURATION(_REMEMBER), MCP_SESSION_TTL,
 MCP_MAX_SESSION_PER_USER, MCP_SSE_KEEPALIVE, TREK_PLUGIN_RPC_*/LOG_*/MAX_RSS_MB,
 TREK_PLUGIN_REGISTRY_URL, TREK_WIKI_DIR*, TREK_PLACE_PHOTO_DIR, BACKUP_*,
 TRANSIT_API_URL, LOG_LEVEL*, ALLOW_INTERNAL_NETWORK*, DEFAULT_LANGUAGE,
-TREK_DB_FILE, TREK_DB_JOURNAL_MODE, TREK_DB_SYNCHRONOUS, ENCRYPTION_KEY.
+TREK_DB_FILE, TREK_DB_JOURNAL_MODE, TREK_DB_SYNCHRONOUS, ENCRYPTION_KEY**.
 (* frozen today because the consuming module captures it at import; tests that
 override these set them at file top, before the SUT import.)
+(** ENCRYPTION_KEY is boot-stable only for the cipher key material itself —
+`src/config.ts` resolves and freezes it at process start, per the exemption
+below. `security.encryptionKeySet` (the storage admin-config encryption gate)
+is a *different* read of the same variable: `deriveSecurity()` reads it live
+via `readEnv()`/`RuntimeEnvService`, so a value set after boot is observed on
+the next call — it does not retroactively unlock the frozen cipher.)
 
 **Tombstoned** (boot-aborting since the admin-config slice — configure storage
 in the admin UI / `data/storage-config.json` instead): `TREK_S3_ENDPOINT`,

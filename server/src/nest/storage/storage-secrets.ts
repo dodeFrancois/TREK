@@ -49,10 +49,19 @@ export function listPlaintextSecrets(config: StorageConfig): PlaintextSecret[] {
   return found;
 }
 
-/** The seed file has no mask round-trip — a literal mask sentinel is always a mistake. */
+/**
+ * No literal mask sentinel may ever become a stored value, in ANY option
+ * field — not just the fields the type registry marks `secret`. Secret
+ * fields are already covered structurally (`unmaskStorageConfig` throws
+ * when a mask has no stored counterpart); this closes the same hole for a
+ * mask sentinel submitted in a non-secret field, which would otherwise be
+ * persisted verbatim as garbage-in. Also the seed-file guard: the seed file
+ * has no mask round-trip, so a literal mask sentinel there is always a
+ * mistake.
+ */
 export function assertNoMaskSentinels(config: StorageConfig): void {
   for (const backend of config.backends) {
-    for (const field of storageSecretFields(backend.type)) {
+    for (const field of Object.keys(backend.options as Record<string, unknown>)) {
       if ((backend.options as Record<string, unknown>)[field] === MASKED_SETTING_VALUE) {
         throw new StorageBackendError(
           `backend '${backend.name}' field '${field}' is the mask sentinel — a mask can never become a stored value`,
@@ -62,11 +71,11 @@ export function assertNoMaskSentinels(config: StorageConfig): void {
   }
 }
 
-/** Fail-closed refusal text: the silent JWT-derived fallback key is not accepted for credentials. */
+/** Fail-closed refusal text: the implicit key persisted in the data directory is not accepted for credentials — it rides inside backups. */
 export function encryptionGateError(secret: PlaintextSecret): string {
   return (
     `backend '${secret.backend}' has a plaintext secret '${secret.field}' but ENCRYPTION_KEY is not set — ` +
-    'set ENCRYPTION_KEY explicitly to save credentialed storage backends (the JWT-derived fallback key is not accepted)'
+    'set ENCRYPTION_KEY explicitly to save credentialed storage backends (the implicit key persisted in the data directory is not accepted: it rides inside backups)'
   );
 }
 

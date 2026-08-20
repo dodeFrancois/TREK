@@ -87,6 +87,12 @@ describe('Storage admin e2e (real auth + admin guard + managed guard + temp SQLi
     server = app.getHttpServer();
   });
 
+  // Clears the persisted rows only — NOT the registry's in-memory last-good
+  // snapshot (StorageRegistryService keeps state across requests within one
+  // `app`, and this suite builds `app` once in beforeAll). A test added after
+  // STORE2E-004 that expects to see fresh defaults must call GET (which
+  // renders the registry's live snapshot) rather than assume the deleted rows
+  // reset it — the registry only re-reads app_settings on `reload()`/init.
   beforeEach(() => {
     db.exec("DELETE FROM app_settings WHERE key LIKE 'storage.%'");
     db.exec('DELETE FROM audit_log');
@@ -99,6 +105,10 @@ describe('Storage admin e2e (real auth + admin guard + managed guard + temp SQLi
 
   it('STORE2E-001 401 without a session', async () => {
     expect((await request(server).get('/api/admin/storage')).status).toBe(401);
+    // PUT stays behind the same guard chain — pins that the guards are declared
+    // class-level (JwtAuthGuard + AdminGuard on the controller), not re-added
+    // per handler where a future handler could forget them.
+    expect((await request(server).put('/api/admin/storage').send({ backends: [], categories: {} })).status).toBe(401);
   });
 
   it('STORE2E-002 403 for a non-admin', async () => {
