@@ -37,6 +37,16 @@ function baseState(overrides: Partial<StorageAdminState> = {}): StorageAdminStat
   };
 }
 
+function mirroredState(): StorageAdminState {
+  const state = baseState();
+  state.backends.push({
+    name: 'mirror', type: 'mirror', source: 'settings',
+    options: { primary: 'backups-local', replicas: ['off-box'] }, categories: ['backups'],
+  });
+  state.categories.backups = { backend: 'mirror', source: 'settings' };
+  return state;
+}
+
 function stubGet(state: StorageAdminState) {
   server.use(http.get('/api/admin/storage', () => HttpResponse.json(state)));
 }
@@ -153,28 +163,25 @@ describe('AdminStoragePanel', () => {
     expect((putBody as StorageConfig).backends).toEqual([]);
   });
 
-  it('FE-ADMIN-STOR-007: Test shows per-target results for a mirror', async () => {
-    const state = baseState();
-    state.backends.push({
-      name: 'backup-mirror', type: 'mirror', source: 'settings',
-      options: { primary: 'backups-local', replicas: ['off-box'] }, categories: [],
-    });
-    await renderPanel(state);
+  it('FE-ADMIN-STOR-007: Test on a mirrored primary probes the composed mirror per target', async () => {
+    let postBody: unknown;
+    await renderPanel(mirroredState());
     server.use(
-      http.post('/api/admin/storage/test', () =>
-        HttpResponse.json({
+      http.post('/api/admin/storage/test', async ({ request }) => {
+        postBody = await request.json();
+        return HttpResponse.json({
           ok: false,
           targets: [
             { name: 'backups-local', ok: true },
             { name: 'off-box', ok: false, error: 'connect ECONNREFUSED' },
           ],
-        }),
-      ),
+        });
+      }),
     );
-    fireEvent.click(within(backendRow('backup-mirror')).getByRole('button', { name: 'Test' }));
-    await within(backendRow('backup-mirror')).findByText('Test failed');
-    expect(within(backendRow('backup-mirror')).getByText(/backups-local/)).toBeInTheDocument();
-    expect(within(backendRow('backup-mirror')).getByText(/connect ECONNREFUSED/)).toBeInTheDocument();
+    fireEvent.click(within(backendRow('backups-local')).getByRole('button', { name: 'Test' }));
+    await within(backendRow('backups-local')).findByText('Test failed');
+    expect(within(backendRow('backups-local')).getByText(/connect ECONNREFUSED/)).toBeInTheDocument();
+    expect((postBody as { backend: { name: string; type: string } }).backend).toMatchObject({ name: 'mirror', type: 'mirror' });
   });
 
   it('FE-ADMIN-STOR-008: the health strip lists replica failures with a relative age; all-clear otherwise', async () => {
@@ -206,5 +213,115 @@ describe('AdminStoragePanel', () => {
     );
     render(<AdminStoragePanel />);
     expect(await screen.findByText('This is configured by the operator of this instance.')).toBeInTheDocument();
+  });
+
+  it('FE-ADMIN-STOR-011: mirrors fold — no mirror row, primary and replica are decorated, categories union', async () => {
+    await renderPanel(mirroredState());
+    expect(screen.queryByTestId('storage-backend-mirror')).not.toBeInTheDocument();
+    const primary = backendRow('backups-local');
+    expect(within(primary).getByText('Mirrored to: off-box')).toBeInTheDocument();
+    expect(within(primary).getByText(/Used by: .*backups/)).toBeInTheDocument();
+    const replica = backendRow('off-box');
+    expect(within(replica).getByText('Replica of: backups-local')).toBeInTheDocument();
+  });
+
+  it('FE-ADMIN-STOR-012: checking a target on an unmirrored primary synthesizes the mirror and reroutes its categories', async () => {
+    let putBody: unknown;
+    await renderPanel();
+    server.use(
+      http.put('/api/admin/storage', async ({ request }) => {
+        putBody = await request.json();
+        return HttpResponse.json(baseState());
+      }),
+    );
+    fireEvent.click(within(backendRow('backups-local')).getByRole('button', { name: 'Edit' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'off-box' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    await screen.findByText('Storage configuration saved');
+    const body = putBody as StorageConfig;
+    expect(body.backends.map((b) => b.name)).toEqual(
+      expect.arrayContaining(['off-box', 'backups-local', 'backups-local-mirror']),
+    );
+    expect(body.backends.find((b) => b.name === 'backups-local-mirror')!.options).toEqual({
+      primary: 'backups-local', replicas: ['off-box'],
+    });
+    expect(body.categories.backups).toBe('backups-local-mirror'); // default-sourced category rewritten
+  });
+
+  it('FE-ADMIN-STOR-013: editing an already-mirrored primary adopts the foreign-named mirror in place', async () => {
+    let putBody: unknown;
+    await renderPanel(mirroredState());
+    server.use(
+      http.put('/api/admin/storage', async ({ request }) => {
+        putBody = await request.json();
+        return HttpResponse.json(mirroredState());
+      }),
+    );
+    fireEvent.click(within(backendRow('backups-local')).getByRole('button', { name: 'Edit' }));
+    expect(screen.getByRole('checkbox', { name: 'off-box' })).toBeChecked(); // initialTargets from the fold
+    fireEvent.click(screen.getByRole('checkbox', { name: 'uploads-local' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    await screen.findByText('Storage configuration saved');
+    const mirrors = (putBody as StorageConfig).backends.filter((b) => b.type === 'mirror');
+    expect(mirrors).toHaveLength(1);
+    expect(mirrors[0]!.name).toBe('mirror'); // adopted, not renamed
+    expect(mirrors[0]!.options).toEqual({ primary: 'backups-local', replicas: ['off-box', 'uploads-local'] });
+  });
+
+  it('FE-ADMIN-STOR-014: unchecking every target dissolves the mirror and re-points its categories', async () => {
+    let putBody: unknown;
+    await renderPanel(mirroredState());
+    server.use(
+      http.put('/api/admin/storage', async ({ request }) => {
+        putBody = await request.json();
+        return HttpResponse.json(baseState());
+      }),
+    );
+    fireEvent.click(within(backendRow('backups-local')).getByRole('button', { name: 'Edit' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'off-box' })); // uncheck the only target
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    await screen.findByText('Storage configuration saved');
+    const body = putBody as StorageConfig;
+    expect(body.backends.some((b) => b.type === 'mirror')).toBe(false);
+    // backups was settings-sourced at the mirror → re-pointed at the primary, not dropped.
+    expect(body.categories.backups).toBe('backups-local');
+  });
+
+  it('FE-ADMIN-STOR-015: category selects deal in primaries — picking a mirrored primary writes its mirror, caches get the advisory', async () => {
+    let putBody: unknown;
+    await renderPanel(mirroredState());
+    server.use(
+      http.put('/api/admin/storage', async ({ request }) => {
+        putBody = await request.json();
+        return HttpResponse.json(mirroredState());
+      }),
+    );
+    // The backups row displays the PRIMARY name, never 'mirror'.
+    expect(within(categoryRow('backups')).getByText('backups-local')).toBeInTheDocument();
+    // Route the places cache through the mirrored primary.
+    fireEvent.click(within(categoryRow('places')).getByText('place-photos-local (default)'));
+    const choices = screen.getAllByText('backups-local');
+    fireEvent.click(choices[choices.length - 1]!);
+    expect(within(categoryRow('places')).getByText(/re-fetchable/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    await screen.findByText('Storage configuration saved');
+    expect((putBody as StorageConfig).categories.places).toBe('mirror'); // the adopted mirror, under the hood
+  });
+
+  it('FE-ADMIN-STOR-016: a second mirror on the same primary renders unfolded with the degenerate note, Test+Remove only', async () => {
+    const state = mirroredState();
+    state.backends.push({
+      name: 'mirror2', type: 'mirror', source: 'settings',
+      options: { primary: 'backups-local', replicas: ['off-box'] }, categories: [],
+    });
+    await renderPanel(state);
+    const row = screen.getByTestId('storage-backend-mirror2');
+    expect(within(row).getByText(/A second mirror wraps backups-local/)).toBeInTheDocument();
+    expect(within(row).getByRole('button', { name: 'Test' })).toBeInTheDocument();
+    expect(within(row).getByRole('button', { name: 'Remove' })).toBeInTheDocument();
+    expect(within(row).queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
   });
 });
