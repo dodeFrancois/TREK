@@ -1,0 +1,210 @@
+import { http, HttpResponse } from 'msw';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { MASKED_SETTING_VALUE, type StorageAdminState, type StorageConfig } from '@trek/shared';
+import { server } from '../../../../tests/helpers/msw/server';
+import { fireEvent, render, screen, waitFor, within } from '../../../../tests/helpers/render';
+import { ToastContainer } from '../../shared/Toast';
+import AdminStoragePanel from './AdminStoragePanel';
+
+const S3_MASKED = {
+  endpoint: 'http://127.0.0.1:9000', bucket: 'trek', accessKeyId: 'ak',
+  secretAccessKey: MASKED_SETTING_VALUE, region: 'us-east-1', keyPrefix: '', retries: 1, timeoutMs: 30000,
+};
+
+function baseState(overrides: Partial<StorageAdminState> = {}): StorageAdminState {
+  return {
+    backends: [
+      { name: 'uploads-local', type: 'local', source: 'built-in', options: { root: '/data/uploads' }, categories: ['files', 'journey', 'covers', 'avatars', 'photos', 'photos-google', 'photos-trek'] },
+      { name: 'backups-local', type: 'local', source: 'built-in', options: { root: '/data/backups' }, categories: ['backups'] },
+      { name: 'place-photos-local', type: 'local', source: 'env', options: { root: '/photos' }, categories: ['places'] },
+      { name: 'off-box', type: 's3', source: 'settings', options: S3_MASKED, categories: ['covers'] },
+    ],
+    categories: {
+      files: { backend: 'uploads-local', source: 'default' },
+      journey: { backend: 'uploads-local', source: 'default' },
+      covers: { backend: 'off-box', source: 'settings' },
+      avatars: { backend: 'uploads-local', source: 'default' },
+      places: { backend: 'place-photos-local', source: 'default' },
+      photos: { backend: 'uploads-local', source: 'default' },
+      'photos-google': { backend: 'uploads-local', source: 'default' },
+      'photos-trek': { backend: 'uploads-local', source: 'default' },
+      backups: { backend: 'backups-local', source: 'default' },
+    },
+    health: { replicaFailures: [] },
+    encryptionReady: true,
+    seedFilePresent: false,
+    ...overrides,
+  };
+}
+
+function stubGet(state: StorageAdminState) {
+  server.use(http.get('/api/admin/storage', () => HttpResponse.json(state)));
+}
+
+async function renderPanel(state: StorageAdminState = baseState()) {
+  stubGet(state);
+  render(
+    <>
+      <ToastContainer />
+      <AdminStoragePanel />
+    </>,
+  );
+  await waitFor(() => expect(screen.getByText('Backends')).toBeInTheDocument());
+}
+
+const backendRow = (name: string) => screen.getByTestId(`storage-backend-${name}`);
+const categoryRow = (category: string) => screen.getByTestId(`storage-category-${category}`);
+
+describe('AdminStoragePanel', () => {
+  beforeEach(() => {
+    // Each test re-stubs GET; PUT/POST are stubbed where used.
+  });
+
+  it('FE-ADMIN-STOR-001: renders every backend with type badge, source tag and its categories', async () => {
+    await renderPanel();
+    const uploads = backendRow('uploads-local');
+    expect(within(uploads).getByText('Local')).toBeInTheDocument();
+    expect(within(uploads).getByText('Built-in')).toBeInTheDocument();
+    expect(within(uploads).getByText(/Used by: files/)).toBeInTheDocument();
+    const env = backendRow('place-photos-local');
+    expect(within(env).getByText('Environment')).toBeInTheDocument();
+    expect(within(env).getByText(/read-only/)).toBeInTheDocument();
+    expect(within(env).queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+    expect(within(env).queryByRole('button', { name: 'Remove' })).not.toBeInTheDocument();
+    const offBox = backendRow('off-box');
+    expect(within(offBox).getByText('S3')).toBeInTheDocument();
+    expect(within(offBox).getByText('Settings')).toBeInTheDocument();
+  });
+
+  it('FE-ADMIN-STOR-002: the mask echoes through edit → save untouched (no-op by contract)', async () => {
+    let putBody: unknown;
+    await renderPanel();
+    server.use(
+      http.put('/api/admin/storage', async ({ request }) => {
+        putBody = await request.json();
+        return HttpResponse.json(baseState());
+      }),
+    );
+    fireEvent.click(within(backendRow('off-box')).getByRole('button', { name: 'Edit' }));
+    expect(screen.getByLabelText(/Secret access key/)).toHaveValue(MASKED_SETTING_VALUE);
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    await screen.findByText('Storage configuration saved');
+    const body = putBody as StorageConfig;
+    const offBox = body.backends.find((b) => b.name === 'off-box')!;
+    expect((offBox.options as Record<string, unknown>).secretAccessKey).toBe(MASKED_SETTING_VALUE);
+  });
+
+  it('FE-ADMIN-STOR-003: the PUT carries only the settings-owned document', async () => {
+    let putBody: unknown;
+    await renderPanel();
+    server.use(
+      http.put('/api/admin/storage', async ({ request }) => {
+        putBody = await request.json();
+        return HttpResponse.json(baseState());
+      }),
+    );
+    // Touch something to enable Save: reassign the files category.
+    fireEvent.click(within(categoryRow('files')).getByText('uploads-local (default)'));
+    const choices = screen.getAllByText('off-box');
+    fireEvent.click(choices[choices.length - 1]!);
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    await screen.findByText('Storage configuration saved');
+    const body = putBody as StorageConfig;
+    expect(body.backends.map((b) => b.name)).toEqual(['off-box']); // built-ins/env never in the body
+    expect(body.categories).toEqual({ covers: 'off-box', files: 'off-box' });
+  });
+
+  it('FE-ADMIN-STOR-004: reassigning a category shows the objects-do-not-move warning inline', async () => {
+    await renderPanel();
+    expect(screen.queryByText(/Existing objects do not move/)).not.toBeInTheDocument();
+    fireEvent.click(within(categoryRow('files')).getByText('uploads-local (default)'));
+    const choices = screen.getAllByText('off-box');
+    fireEvent.click(choices[choices.length - 1]!);
+    expect(within(categoryRow('files')).getByText(/Existing objects do not move/)).toBeInTheDocument();
+  });
+
+  it('FE-ADMIN-STOR-005: a 400 renders the server message verbatim next to Save', async () => {
+    await renderPanel();
+    const registryError =
+      "backend 'off-box' has a plaintext secret 'secretAccessKey' but ENCRYPTION_KEY is not set — set ENCRYPTION_KEY explicitly to save credentialed storage backends (the implicit key persisted in the data directory is not accepted: it rides inside backups)";
+    server.use(http.put('/api/admin/storage', () => HttpResponse.json({ error: registryError }, { status: 400 })));
+    fireEvent.click(within(categoryRow('files')).getByText('uploads-local (default)'));
+    const choices = screen.getAllByText('off-box');
+    fireEvent.click(choices[choices.length - 1]!);
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(await screen.findByText(registryError)).toBeInTheDocument();
+  });
+
+  it('FE-ADMIN-STOR-006: Remove pre-checks assignments in the confirm dialog, then omits the backend from the PUT', async () => {
+    let putBody: unknown;
+    await renderPanel();
+    server.use(
+      http.put('/api/admin/storage', async ({ request }) => {
+        putBody = await request.json();
+        return HttpResponse.json(baseState());
+      }),
+    );
+    fireEvent.click(within(backendRow('off-box')).getByRole('button', { name: 'Remove' }));
+    expect(screen.getByText(/Still assigned to: covers/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Remove backend' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    await screen.findByText('Storage configuration saved');
+    expect((putBody as StorageConfig).backends).toEqual([]);
+  });
+
+  it('FE-ADMIN-STOR-007: Test shows per-target results for a mirror', async () => {
+    const state = baseState();
+    state.backends.push({
+      name: 'backup-mirror', type: 'mirror', source: 'settings',
+      options: { primary: 'backups-local', replicas: ['off-box'] }, categories: [],
+    });
+    await renderPanel(state);
+    server.use(
+      http.post('/api/admin/storage/test', () =>
+        HttpResponse.json({
+          ok: false,
+          targets: [
+            { name: 'backups-local', ok: true },
+            { name: 'off-box', ok: false, error: 'connect ECONNREFUSED' },
+          ],
+        }),
+      ),
+    );
+    fireEvent.click(within(backendRow('backup-mirror')).getByRole('button', { name: 'Test' }));
+    await within(backendRow('backup-mirror')).findByText('Test failed');
+    expect(within(backendRow('backup-mirror')).getByText(/backups-local/)).toBeInTheDocument();
+    expect(within(backendRow('backup-mirror')).getByText(/connect ECONNREFUSED/)).toBeInTheDocument();
+  });
+
+  it('FE-ADMIN-STOR-008: the health strip lists replica failures with a relative age; all-clear otherwise', async () => {
+    const now = Date.now();
+    await renderPanel(
+      baseState({
+        health: { replicaFailures: [{ backend: 'off-box', key: 'backups/db.sqlite3', op: 'put', error: 'timeout', at: now - 120_000 }] },
+      }),
+    );
+    expect(screen.getByText(/put of backups\/db\.sqlite3 on off-box failed: timeout/)).toBeInTheDocument();
+    expect(screen.getByText(/2 minutes ago/)).toBeInTheDocument();
+    expect(screen.queryByText('No replica failures recorded.')).not.toBeInTheDocument();
+  });
+
+  it('FE-ADMIN-STOR-009: all-clear health and the seed-file note', async () => {
+    await renderPanel(baseState({ seedFilePresent: true }));
+    expect(screen.getByText('No replica failures recorded.')).toBeInTheDocument();
+    expect(screen.getByText(/seed file is present but ignored/)).toBeInTheDocument();
+  });
+
+  it('FE-ADMIN-STOR-010: a managed-mode 403 on GET renders its body message gracefully', async () => {
+    server.use(
+      http.get('/api/admin/storage', () =>
+        HttpResponse.json(
+          { error: 'This is configured by the operator of this instance.', code: 'MANAGED_FORBIDDEN' },
+          { status: 403 },
+        ),
+      ),
+    );
+    render(<AdminStoragePanel />);
+    expect(await screen.findByText('This is configured by the operator of this instance.')).toBeInTheDocument();
+  });
+});
