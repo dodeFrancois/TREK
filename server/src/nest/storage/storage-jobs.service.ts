@@ -32,10 +32,9 @@ export class StorageJobsService {
   }
 
   startBackfill(mirrorName: string): void {
-    if ([...this.jobs.values()].some((job) => job.status.status === 'running')) {
-      throw new BackfillBusyError('a sync is already running — one backfill at a time');
-    }
-    // Scope rule: the categories whose EFFECTIVE backend is this mirror.
+    // Resolve/validate the target first so an unknown/non-mirror name 404s
+    // even while a sync is running — the busy check only applies once we
+    // know there's a real mirror to be busy about.
     const snapshot = this.registry.snapshot();
     const categories = STORAGE_CATEGORIES.filter(
       (category) => snapshot.categories[category]?.backend === mirrorName,
@@ -47,6 +46,9 @@ export class StorageJobsService {
     const driver = resolved[0]!.driver;
     if (!(driver instanceof MirrorDriver)) {
       throw new BackfillTargetError(`'${mirrorName}' is not a mirror backend`);
+    }
+    if ([...this.jobs.values()].some((job) => job.status.status === 'running')) {
+      throw new BackfillBusyError('a sync is already running — one backfill at a time');
     }
     const prefixes = resolved.map((r) => r.keyPrefix);
 

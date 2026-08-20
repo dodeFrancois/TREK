@@ -167,4 +167,13 @@ describe('StorageJobsService', () => {
     await new Promise((resolve) => setTimeout(resolve, 200));
     expect(jobs.statuses()).toEqual([]);
   });
+
+  it('JOBS-008 while a backfill is running, starting an unknown/non-mirror name throws BackfillTargetError, not BackfillBusyError', async () => {
+    const { storage, jobs } = makeWorld();
+    for (let i = 0; i < 20; i++) await storage.put('backups', `d${i}.zip`, Readable.from('x'.repeat(1000)));
+    jobs.startBackfill('m');
+    expect(() => jobs.startBackfill('ghost')).toThrow(BackfillTargetError);
+    expect(() => jobs.startBackfill('nas')).toThrow(BackfillTargetError);
+    await waitFor(() => jobs.statuses().some((s) => s.status !== 'running'));
+  });
 });
