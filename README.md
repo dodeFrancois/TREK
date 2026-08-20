@@ -344,16 +344,6 @@ Your data stays in the mounted `data` and `uploads` volumes — updates never to
 > [!IMPORTANT]
 > Mount **only** the data and uploads directories — `-v ./data:/app/data -v ./uploads:/app/uploads`. **Never mount a volume at `/app`.** Doing so hides the application code shipped in the image and the container fails to start with `Cannot find module 'tsconfig-paths/register'`. If you previously mounted `/app`, switch to the two mounts above; your data in `data/` and `uploads/` is preserved.
 
-> [!IMPORTANT]
-> **Upgrading to v4 with storage variables set:** if your run command or
-> compose file sets any `TREK_S3_*` variable or `TREK_UPLOADS_DIR`, the new
-> version refuses to start until you remove them (better than silently
-> ignoring your S3 settings and running local-only). Note the values down
-> first, remove the variables, start the server, then re-enter the S3
-> credentials in **Admin → Storage** — or mount them as a
-> [seed file](#storage). A relocated `TREK_UPLOADS_DIR` becomes an edit of the
-> `uploads-local` backend's root in the same panel.
-
 <h3>Rotating the Encryption Key</h3>
 
 If you need to rotate `ENCRYPTION_KEY` (e.g. upgrading from a version that derived encryption from `JWT_SECRET`):
@@ -449,22 +439,6 @@ Caddy handles TLS and WebSockets automatically.
 > with a report listing every offending variable. Boolean switches accept
 > `true`/`false`, `1`/`0`, `on`/`off` and `yes`/`no` (any casing).
 
-> [!WARNING]
-> **Removed in v4:** storage is no longer configured through environment
-> variables. `TREK_S3_ENDPOINT`, `TREK_S3_BUCKET`, `TREK_S3_ACCESS_KEY_ID`,
-> `TREK_S3_SECRET_ACCESS_KEY`, `TREK_S3_REGION`, `TREK_S3_KEY_PREFIX`,
-> `TREK_S3_RETRIES`, `TREK_S3_TIMEOUT_MS` and `TREK_UPLOADS_DIR` were removed,
-> and a server started with any of them set **refuses to boot** with:
->
-> ```
-> Invalid environment configuration:
->   - TREK_S3_ENDPOINT was removed — configure storage in the admin UI or data/storage-config.json.
-> ```
->
-> Unset them and configure storage in **Admin → Storage** (or the seed file) —
-> see [Storage](#storage). `TREK_PLACE_PHOTO_DIR` is unaffected and keeps
-> working.
-
 <details>
 <summary><b>Full reference</b></summary>
 
@@ -540,7 +514,10 @@ box everything lives on local disk (`uploads/` and `data/backups`). From
 
 Storing credentialed backends requires `ENCRYPTION_KEY` to be set explicitly —
 secrets are encrypted at rest, and the panel refuses to save a plaintext
-secret without it.
+secret without it. On an existing install that has been running without an
+explicit key, do not just set a new one — that would orphan already-stored
+secrets; use the key-rotation procedure (see *Rotating the Encryption Key*
+under Updating) to move to an explicit key first.
 
 Notes and limits: reassigning a populated category does not move its existing
 objects (new writes go to the new backend, old objects stay); media categories
@@ -574,6 +551,8 @@ stored storage configuration, and loudly ignored afterwards:
   "categories": { "backups": "backups-mirror" }
 }
 ```
+
+(The panel presents this exact setup as **Mirror targets** on `backups-local`.)
 
 ```yaml
 # docker-compose: add under the trek service's volumes

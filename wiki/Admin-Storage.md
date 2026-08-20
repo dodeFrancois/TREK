@@ -73,8 +73,9 @@ assigned to exactly one backend:
 
 Reassigning a category changes where **new** objects go — existing objects do
 not move and keep being served from wherever they already are. The panel
-shows this warning inline when you change an assignment. Replicating the two
-re-fetchable caches is possible but flagged as not recommended.
+shows this warning inline when you change an assignment. Replicating the
+Google photo cache or Place images is flagged as not recommended — both hold
+content that is re-fetchable or provider-derived.
 
 The legacy `/uploads/photos` directory written by older TREK versions is not
 a category: its files are still served and included in backups, but nothing
@@ -107,19 +108,6 @@ file if present.
 your only backup lives on S3 and the credentials are inside it: start a fresh
 instance, enter the S3 credentials here (or mount a seed file), then restore
 from the Backup panel.
-
-## Removed environment variables
-
-Storage used to be configured through `TREK_S3_*` and `TREK_UPLOADS_DIR`.
-These were **removed in v4** and a server started with any of them set
-refuses to boot, naming each offending variable:
-
-```
-  - TREK_S3_ENDPOINT was removed — configure storage in the admin UI or data/storage-config.json.
-```
-
-Remove the variables and configure the equivalent here. `TREK_PLACE_PHOTO_DIR`
-is unaffected.
 
 ## Related pages
 

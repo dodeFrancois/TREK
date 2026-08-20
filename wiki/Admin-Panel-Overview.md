@@ -22,10 +22,10 @@ The Admin Panel is divided into tabs. Most tabs are always visible; a few appear
 | **Storage** | Storage backends, category assignment, replication, health | Hidden on managed instances |
 | **Settings** | Authentication methods, MFA, allowed file types, API keys, OIDC/SSO configuration, and JWT secret rotation | No |
 | **Notifications** | SMTP, webhook, ntfy, and push notification channel configuration; trip reminder toggle; admin notification preferences | No |
-| **Backup** | Manual and scheduled database backups | No |
+| **Backup** | Manual and scheduled database backups | Hidden on managed instances |
 | **Audit** | Chronological activity log | No |
 | **MCP Access** | OAuth sessions and static API tokens | Only when the MCP addon is enabled |
-| **GitHub** | Release timeline and support links | No |
+| **GitHub** | Release timeline and support links | Hidden on managed instances |
 | **Dev: Notifications** | Test notification dispatch | Only in development mode (`NODE_ENV=development`) |
 
 ![Admin panel on the User Defaults tab, setting instance-wide defaults for colour mode, temperature unit, distance unit, time format, currency and blurred booking codes](assets/AdminUserDefaults.png)

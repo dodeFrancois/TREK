@@ -277,10 +277,7 @@ To get a key: create a free account at [unsplash.com/developers](https://unsplas
 
 Storage backends and category assignment are configured in
 [[Admin: Storage|Admin-Storage]] (or a seed-once `storage-config.json`), not
-through environment variables. The former `TREK_S3_*` and `TREK_UPLOADS_DIR`
-variables were removed in v4 — a server started with any of them set refuses
-to boot and names the offending variable. `TREK_PLACE_PHOTO_DIR` below is
-unaffected.
+through environment variables. `TREK_PLACE_PHOTO_DIR` below is unaffected.
 
 | Variable                 | Description                                                                                                                                                                                                                                            | Default                 |
 |--------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------|
