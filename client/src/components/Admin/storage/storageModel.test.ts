@@ -1,10 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { MASKED_SETTING_VALUE, type StorageAdminState, type StorageConfig } from '@trek/shared';
+import {
+  MASKED_SETTING_VALUE,
+  type StorageAdminState,
+  type StorageBackend,
+  type StorageConfig,
+} from '@trek/shared';
 import {
   categoriesPointingAt,
+  foldBackends,
   hasPlaintextSecret,
   mirrorsReferencing,
+  primaryNameOf,
   removeBackend,
+  removeBackendAndMirrors,
+  renameBackendRefs,
+  replicaOfPrimaries,
+  setMirrorTargets,
   settingsDocumentOf,
   upsertBackend,
 } from './storageModel';
@@ -100,5 +111,113 @@ describe('draft edits', () => {
   it('FE-ADMIN-STORM-006: removeBackend filters by name', () => {
     expect(removeBackend(draft, 'nas').backends).toEqual([]);
     expect(removeBackend(draft, 'ghost').backends).toHaveLength(1);
+  });
+});
+
+describe('mirror fold/synthesize (replicas-on-primary)', () => {
+  const MIRRORED_STATE: StorageAdminState = {
+    ...STATE,
+    backends: [
+      ...STATE.backends,
+      {
+        name: 'mirror', type: 'mirror', source: 'settings',
+        options: { primary: 'backups-local', replicas: ['off-box'] }, categories: ['backups'],
+      },
+      { name: 'backups-local', type: 'local', source: 'built-in', options: { root: '/data/backups' }, categories: [] },
+    ],
+    categories: { ...STATE.categories, backups: { backend: 'mirror', source: 'settings' } },
+  };
+  const mirroredDraft = (): StorageConfig => settingsDocumentOf(MIRRORED_STATE);
+
+  it('FE-ADMIN-STORM-007: foldBackends hides the mirror, decorates primary and replica, unions categories', () => {
+    const { rows, degenerate } = foldBackends(MIRRORED_STATE, mirroredDraft());
+    expect(degenerate).toEqual([]);
+    expect(rows.map((r) => r.name)).not.toContain('mirror');
+    const primary = rows.find((r) => r.name === 'backups-local')!;
+    expect(primary.mirrorTargets).toEqual(['off-box']);
+    expect(primary.mirrorName).toBe('mirror');
+    expect(primary.categories).toContain('backups'); // via the mirror
+    const replica = rows.find((r) => r.name === 'off-box')!;
+    expect(replica.replicaOf).toEqual(['backups-local']);
+    expect(replica.categories).toContain('covers'); // its own direct assignment survives
+  });
+
+  it('FE-ADMIN-STORM-008: setMirrorTargets synthesizes a mirror and reroutes ALL effective categories of the primary, defaults included', () => {
+    const draft = settingsDocumentOf(STATE); // no mirror yet; backups is default → backups-local
+    const next = setMirrorTargets(STATE, draft, 'backups-local', ['off-box']);
+    const mirror = next.backends.find((b) => b.type === 'mirror')!;
+    expect(mirror.name).toBe('backups-local-mirror');
+    expect(mirror.options).toEqual({ primary: 'backups-local', replicas: ['off-box'] });
+    expect(next.categories.backups).toBe('backups-local-mirror'); // default-sourced category rewritten
+    expect(next.categories.covers).toBe('off-box'); // categories of OTHER backends untouched
+  });
+
+  it('FE-ADMIN-STORM-009: setMirrorTargets adopts a foreign-named mirror in place', () => {
+    const next = setMirrorTargets(MIRRORED_STATE, mirroredDraft(), 'backups-local', ['off-box', 'uploads-local']);
+    const mirrors = next.backends.filter((b) => b.type === 'mirror');
+    expect(mirrors).toHaveLength(1);
+    expect(mirrors[0]!.name).toBe('mirror'); // adopted, not renamed
+    expect(mirrors[0]!.options).toEqual({ primary: 'backups-local', replicas: ['off-box', 'uploads-local'] });
+  });
+
+  it('FE-ADMIN-STORM-010: empty targets dissolve the mirror and revert default-sourced categories', () => {
+    // Build the synthesized state locally: default backups routed via a fresh mirror…
+    const withMirror = setMirrorTargets(STATE, settingsDocumentOf(STATE), 'backups-local', ['off-box']);
+    // …then dissolve it: the backups entry must DROP (state says its default is backups-local).
+    const dissolved = setMirrorTargets(STATE, withMirror, 'backups-local', []);
+    expect(dissolved.backends.some((b) => b.type === 'mirror')).toBe(false);
+    expect(dissolved.categories).not.toHaveProperty('backups');
+    // Against MIRRORED_STATE (backups already settings-sourced at the mirror), dissolve re-points instead of dropping.
+    const repointed = setMirrorTargets(MIRRORED_STATE, mirroredDraft(), 'backups-local', []);
+    expect(repointed.categories.backups).toBe('backups-local');
+  });
+
+  it('FE-ADMIN-STORM-011: degenerate mirrors are classified, never hidden', () => {
+    const draft: StorageConfig = {
+      backends: [
+        { name: 'off-box', type: 's3', options: STATE.backends[2]!.options } as StorageBackend,
+        { name: 'm1', type: 'mirror', options: { primary: 'uploads-local', replicas: ['off-box'] } },
+        { name: 'm2', type: 'mirror', options: { primary: 'uploads-local', replicas: ['off-box'] } },
+        { name: 'm-env', type: 'mirror', options: { primary: 'place-photos-local', replicas: ['off-box'] } },
+        { name: 'm-ghost', type: 'mirror', options: { primary: 'nope', replicas: [] } },
+      ],
+      categories: {},
+    };
+    const { rows, degenerate } = foldBackends(STATE, draft);
+    expect(rows.find((r) => r.name === 'uploads-local')!.mirrorName).toBe('m1'); // first wins
+    expect(degenerate.map((d) => [d.backend.name, d.reason])).toEqual([
+      ['m2', 'duplicate-mirror'],
+      ['m-env', 'env-primary'],
+      ['m-ghost', 'missing-primary'],
+    ]);
+  });
+
+  it('FE-ADMIN-STORM-012: renameBackendRefs rewrites mirror primaries, replicas, and category entries', () => {
+    const draft: StorageConfig = {
+      backends: [
+        { name: 'nas', type: 'local', options: { root: '/mnt/nas' } },
+        { name: 'm', type: 'mirror', options: { primary: 'nas', replicas: ['nas'] } },
+      ],
+      categories: { covers: 'nas' },
+    };
+    const renamed = renameBackendRefs(draft, 'nas', 'nas2');
+    const mirror = renamed.backends.find((b) => b.type === 'mirror')!;
+    expect(mirror.options).toEqual({ primary: 'nas2', replicas: ['nas2'] });
+    expect(renamed.categories.covers).toBe('nas2');
+    expect(renamed.backends[0]!.name).toBe('nas'); // the backend row itself is the caller's job
+  });
+
+  it('FE-ADMIN-STORM-013: removeBackendAndMirrors cascades; replicaOfPrimaries phrases in primary names', () => {
+    const draft = mirroredDraft();
+    expect(replicaOfPrimaries(draft, 'off-box')).toEqual(['backups-local']);
+    const removed = removeBackendAndMirrors(draft, 'backups-local');
+    expect(removed.backends.some((b) => b.name === 'mirror')).toBe(false);
+    expect(removed.backends.some((b) => b.name === 'backups-local')).toBe(false);
+  });
+
+  it('FE-ADMIN-STORM-014: primaryNameOf maps mirror names (draft or state) to their primary; others pass through', () => {
+    expect(primaryNameOf(MIRRORED_STATE, mirroredDraft(), 'mirror')).toBe('backups-local');
+    expect(primaryNameOf(MIRRORED_STATE, { backends: [], categories: {} }, 'mirror')).toBe('backups-local'); // state fallback
+    expect(primaryNameOf(STATE, settingsDocumentOf(STATE), 'uploads-local')).toBe('uploads-local');
   });
 });

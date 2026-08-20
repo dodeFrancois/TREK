@@ -1,5 +1,6 @@
 import {
   MASKED_SETTING_VALUE,
+  STORAGE_CATEGORIES,
   storageSecretFields,
   type StorageAdminState,
   type StorageBackend,
@@ -71,4 +72,201 @@ export function upsertBackend(draft: StorageConfig, backend: StorageBackend): St
 
 export function removeBackend(draft: StorageConfig, name: string): StorageConfig {
   return { ...draft, backends: draft.backends.filter((b) => b.name !== name) }
+}
+
+// ── Mirror fold/synthesize (replicas-on-primary spec) ─────────────────────────
+// The draft stays the wire document; folding is a view rule, synthesis a set
+// of pure draft operations. Mirror NAMES never reach the UI — every helper
+// that renders phrases mirrors as their primary.
+
+type MirrorBackend = Extract<StorageBackend, { type: 'mirror' }>
+const isMirror = (b: StorageBackend): b is MirrorBackend => b.type === 'mirror'
+
+export interface FoldedBackendRow {
+  name: string
+  type: 'local' | 's3'
+  source: 'built-in' | 'env' | 'settings'
+  backend: StorageBackend
+  /** Direct assignments ∪ assignments routed via the adopted mirror. */
+  categories: StorageCategory[]
+  /** Adopted mirror's replicas — [] when unmirrored. */
+  mirrorTargets: string[]
+  /** Adopted mirror's wire name — needed by draft ops, hidden from the UI. */
+  mirrorName: string | null
+  /** Primaries whose adopted mirror lists this backend as a replica. */
+  replicaOf: string[]
+}
+
+export interface DegenerateMirror {
+  backend: StorageBackend
+  reason: 'duplicate-mirror' | 'env-primary' | 'missing-primary'
+  categories: StorageCategory[]
+}
+
+/**
+ * Re-fetchable content — replicating it is usually wasteful. photos-google is
+ * the Google photo cache (place-photo-cache.service.ts); places is mostly
+ * provider-derived imagery.
+ */
+export const CACHE_CATEGORIES: readonly StorageCategory[] = ['photos-google', 'places']
+
+/** The nine categories resolved draft-over-state (draft entries win; defaults fill the rest). */
+export function effectiveCategoryMap(state: StorageAdminState, draft: StorageConfig): Record<StorageCategory, string> {
+  const map = {} as Record<StorageCategory, string>
+  for (const category of STORAGE_CATEGORIES) {
+    // The admin state's category record is exhaustive by schema contract.
+    map[category] = draft.categories[category] ?? state.categories[category]!.backend
+  }
+  return map
+}
+
+/** First draft mirror wrapping the named primary — the one the UI manages. */
+export function adoptedMirrorFor(draft: StorageConfig, primaryName: string): MirrorBackend | undefined {
+  return draft.backends.filter(isMirror).find((m) => m.options.primary === primaryName)
+}
+
+export function foldBackends(
+  state: StorageAdminState,
+  draft: StorageConfig,
+): { rows: FoldedBackendRow[]; degenerate: DegenerateMirror[] } {
+  const draftNames = draft.backends.map((b) => b.name)
+  const effective = effectiveCategoryMap(state, draft)
+  const categoriesOf = (name: string): StorageCategory[] =>
+    STORAGE_CATEGORIES.filter((category) => effective[category] === name)
+
+  // Base (non-mirror) rows, slice-2 precedence: built-ins/env from the state
+  // unless a draft row overrides the name; settings rows from the draft.
+  const base: Array<Pick<FoldedBackendRow, 'name' | 'type' | 'source' | 'backend'>> = []
+  for (const b of state.backends) {
+    if (b.type === 'mirror') continue // mirrors fold below; the draft owns them
+    if (draftNames.includes(b.name)) continue
+    if (b.source === 'settings') continue // removed from the draft, pending save
+    base.push({ name: b.name, type: b.type, source: b.source, backend: asWireBackend(b) })
+  }
+  for (const b of draft.backends) {
+    if (isMirror(b)) continue
+    base.push({ name: b.name, type: b.type, source: 'settings', backend: b })
+  }
+
+  // Adoption: the first mirror per editable primary; the rest are degenerate —
+  // rendered unfolded with a reason, never silently dropped.
+  const adopted = new Map<string, MirrorBackend>()
+  const degenerate: DegenerateMirror[] = []
+  for (const mirror of draft.backends.filter(isMirror)) {
+    const primary = base.find((row) => row.name === mirror.options.primary)
+    if (!primary) degenerate.push({ backend: mirror, reason: 'missing-primary', categories: categoriesOf(mirror.name) })
+    else if (primary.source === 'env') degenerate.push({ backend: mirror, reason: 'env-primary', categories: categoriesOf(mirror.name) })
+    else if (adopted.has(primary.name)) degenerate.push({ backend: mirror, reason: 'duplicate-mirror', categories: categoriesOf(mirror.name) })
+    else adopted.set(primary.name, mirror)
+  }
+
+  const rows = base.map((row): FoldedBackendRow => {
+    const mirror = adopted.get(row.name)
+    return {
+      ...row,
+      categories: [...categoriesOf(row.name), ...(mirror ? categoriesOf(mirror.name) : [])],
+      mirrorTargets: mirror ? [...mirror.options.replicas] : [],
+      mirrorName: mirror?.name ?? null,
+      replicaOf: [...adopted.values()]
+        .filter((m) => m.options.replicas.includes(row.name))
+        .map((m) => m.options.primary),
+    }
+  })
+  return { rows, degenerate }
+}
+
+function uniqueMirrorName(state: StorageAdminState, draft: StorageConfig, primaryName: string): string {
+  const taken = new Set([...draft.backends.map((b) => b.name), ...state.backends.map((b) => b.name)])
+  const base = `${primaryName}-mirror`
+  if (!taken.has(base)) return base
+  for (let n = 2; ; n++) {
+    if (!taken.has(`${base}-${n}`)) return `${base}-${n}`
+  }
+}
+
+/**
+ * targets non-empty: update the adopted mirror in place (or synthesize one)
+ * and route every category that effectively resolves to the primary —
+ * default-sourced included — through it. targets empty: dissolve, re-pointing
+ * the mirror's categories at the primary and dropping entries that revert to
+ * their built-in default.
+ */
+export function setMirrorTargets(
+  state: StorageAdminState,
+  draft: StorageConfig,
+  primaryName: string,
+  targets: string[],
+): StorageConfig {
+  const adopted = adoptedMirrorFor(draft, primaryName)
+
+  if (targets.length === 0) {
+    if (!adopted) return draft
+    const categories = { ...draft.categories }
+    for (const category of STORAGE_CATEGORIES) {
+      if (categories[category] !== adopted.name) continue
+      const stateEntry = state.categories[category]! // exhaustive by schema contract
+      if (stateEntry.source === 'default' && stateEntry.backend === primaryName) delete categories[category]
+      else categories[category] = primaryName
+    }
+    return { backends: draft.backends.filter((b) => b.name !== adopted.name), categories }
+  }
+
+  const effective = effectiveCategoryMap(state, draft)
+  const mirror: StorageBackend = {
+    name: adopted?.name ?? uniqueMirrorName(state, draft, primaryName),
+    type: 'mirror',
+    options: { primary: primaryName, replicas: [...targets] },
+  }
+  const backends = adopted
+    ? draft.backends.map((b) => (b.name === adopted.name ? mirror : b))
+    : [...draft.backends, mirror]
+  const categories = { ...draft.categories }
+  for (const category of STORAGE_CATEGORIES) {
+    if (effective[category] === primaryName) categories[category] = mirror.name
+  }
+  return { backends, categories }
+}
+
+/** Rewrite every reference to a renamed backend: mirror primaries, replicas, category entries. */
+export function renameBackendRefs(draft: StorageConfig, oldName: string, newName: string): StorageConfig {
+  return {
+    backends: draft.backends.map((b) => {
+      if (!isMirror(b)) return b
+      return {
+        ...b,
+        options: {
+          primary: b.options.primary === oldName ? newName : b.options.primary,
+          replicas: b.options.replicas.map((r) => (r === oldName ? newName : r)),
+        },
+      }
+    }),
+    categories: Object.fromEntries(
+      Object.entries(draft.categories).map(([category, backend]) => [category, backend === oldName ? newName : backend]),
+    ) as StorageConfig['categories'],
+  }
+}
+
+/** Remove a backend AND every mirror wrapping it as primary (they would dangle). */
+export function removeBackendAndMirrors(draft: StorageConfig, name: string): StorageConfig {
+  return {
+    ...draft,
+    backends: draft.backends.filter((b) => b.name !== name && !(isMirror(b) && b.options.primary === name)),
+  }
+}
+
+/** Primaries whose mirrors use the named backend as a replica — pre-check copy stays in primary names. */
+export function replicaOfPrimaries(draft: StorageConfig, name: string): string[] {
+  return draft.backends
+    .filter(isMirror)
+    .filter((m) => m.options.replicas.includes(name))
+    .map((m) => m.options.primary)
+}
+
+/** Map a mirror name (draft first, then state) to its primary; anything else passes through. */
+export function primaryNameOf(state: StorageAdminState, draft: StorageConfig, backendName: string): string {
+  const draftMirror = draft.backends.filter(isMirror).find((m) => m.name === backendName)
+  if (draftMirror) return draftMirror.options.primary
+  const stateMirror = state.backends.find((b) => b.name === backendName && b.type === 'mirror')
+  if (stateMirror) return String((stateMirror.options as Record<string, unknown>).primary)
+  return backendName
 }
