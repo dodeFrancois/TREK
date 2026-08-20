@@ -53,10 +53,10 @@ const ru: NotificationLocale = {
       body: `TREK ${p.version} теперь доступен. Перейдите в панель администратора для обновления.`,
     }),
     replica_failure: (p) => ({
-      title: 'Storage replica failure',
+      title: 'Сбой реплики хранилища',
       body:
-        `Replica write failed on '${p.backend}': ${p.op} of ${p.key} — ${p.error}.` +
-        (p.suppressed !== '0' ? ` ${p.suppressed} more failures were suppressed since the last notification.` : ''),
+        `Ошибка записи в реплику '${p.backend}': ${p.op} для ${p.key} — ${p.error}.` +
+        (p.suppressed !== '0' ? ` С момента последнего уведомления подавлено ещё ${p.suppressed} ошибок.` : ''),
     }),
     synology_session_cleared: () => ({
       title: 'Сессия Synology сброшена',

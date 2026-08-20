@@ -53,10 +53,10 @@ const id: NotificationLocale = {
       body: `TREK ${p.version} sekarang tersedia. Kunjungi panel admin untuk memperbarui.`,
     }),
     replica_failure: (p) => ({
-      title: 'Storage replica failure',
+      title: 'Kegagalan replika penyimpanan',
       body:
-        `Replica write failed on '${p.backend}': ${p.op} of ${p.key} — ${p.error}.` +
-        (p.suppressed !== '0' ? ` ${p.suppressed} more failures were suppressed since the last notification.` : ''),
+        `Penulisan replika gagal pada '${p.backend}': ${p.op} dari ${p.key} — ${p.error}.` +
+        (p.suppressed !== '0' ? ` ${p.suppressed} kegagalan lainnya diabaikan sejak notifikasi terakhir.` : ''),
     }),
     synology_session_cleared: () => ({
       title: 'Sesi Synology dihapus',

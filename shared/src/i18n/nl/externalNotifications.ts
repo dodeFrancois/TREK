@@ -53,10 +53,10 @@ const nl: NotificationLocale = {
       body: `TREK ${p.version} is nu beschikbaar. Bezoek het beheerderspaneel om bij te werken.`,
     }),
     replica_failure: (p) => ({
-      title: 'Storage replica failure',
+      title: 'Opslagreplica mislukt',
       body:
-        `Replica write failed on '${p.backend}': ${p.op} of ${p.key} — ${p.error}.` +
-        (p.suppressed !== '0' ? ` ${p.suppressed} more failures were suppressed since the last notification.` : ''),
+        `Schrijven naar replica '${p.backend}' is mislukt: ${p.op} van ${p.key} — ${p.error}.` +
+        (p.suppressed !== '0' ? ` ${p.suppressed} extra fout(en) zijn onderdrukt sinds de laatste melding.` : ''),
     }),
     synology_session_cleared: () => ({
       title: 'Synology-sessie gewist',

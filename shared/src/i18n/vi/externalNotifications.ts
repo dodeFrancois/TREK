@@ -53,10 +53,10 @@ const en: NotificationLocale = {
       body: `TREK ${p.version} có bản mới. Vui lòng truy cập bảng điều khiển quản trị để cập nhật.`,
     }),
     replica_failure: (p) => ({
-      title: 'Storage replica failure',
+      title: 'Lỗi bản sao lưu trữ',
       body:
-        `Replica write failed on '${p.backend}': ${p.op} of ${p.key} — ${p.error}.` +
-        (p.suppressed !== '0' ? ` ${p.suppressed} more failures were suppressed since the last notification.` : ''),
+        `Ghi vào bản sao '${p.backend}' thất bại: ${p.op} của ${p.key} — ${p.error}.` +
+        (p.suppressed !== '0' ? ` ${p.suppressed} lỗi khác đã bị bỏ qua kể từ thông báo trước đó.` : ''),
     }),
     synology_session_cleared: () => ({
       title: 'Đã xóa phiên Synology',

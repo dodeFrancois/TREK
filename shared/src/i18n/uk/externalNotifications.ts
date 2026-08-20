@@ -53,10 +53,10 @@ const uk: NotificationLocale = {
       body: `TREK ${p.version} тепер доступний. Перейдіть до панелі адміністратора для оновлення.`,
     }),
     replica_failure: (p) => ({
-      title: 'Storage replica failure',
+      title: 'Збій репліки сховища',
       body:
-        `Replica write failed on '${p.backend}': ${p.op} of ${p.key} — ${p.error}.` +
-        (p.suppressed !== '0' ? ` ${p.suppressed} more failures were suppressed since the last notification.` : ''),
+        `Помилка запису в репліку '${p.backend}': ${p.op} для ${p.key} — ${p.error}.` +
+        (p.suppressed !== '0' ? ` Із моменту останнього сповіщення приховано ще ${p.suppressed} помилок.` : ''),
     }),
     synology_session_cleared: () => ({
       title: 'Сеанс Synology скинуто',

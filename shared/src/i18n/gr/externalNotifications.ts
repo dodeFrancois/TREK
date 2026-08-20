@@ -53,10 +53,10 @@ const gr: NotificationLocale = {
       body: `Η έκδοση TREK ${p.version} είναι τώρα διαθέσιμη. Επισκεφθείτε τον πίνακα διαχείρισης για να ενημερώσετε.`,
     }),
     replica_failure: (p) => ({
-      title: 'Storage replica failure',
+      title: 'Αποτυχία αντιγράφου αποθήκευσης',
       body:
-        `Replica write failed on '${p.backend}': ${p.op} of ${p.key} — ${p.error}.` +
-        (p.suppressed !== '0' ? ` ${p.suppressed} more failures were suppressed since the last notification.` : ''),
+        `Η εγγραφή στο αντίγραφο '${p.backend}' απέτυχε: ${p.op} του ${p.key} — ${p.error}.` +
+        (p.suppressed !== '0' ? ` ${p.suppressed} επιπλέον αποτυχίες αποκρύφθηκαν από την τελευταία ειδοποίηση.` : ''),
     }),
     synology_session_cleared: () => ({
       title: 'Η σύνδεση Synology τερματίστηκε',

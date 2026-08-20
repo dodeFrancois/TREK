@@ -53,10 +53,10 @@ const tr: NotificationLocale = {
       body: `TREK ${p.version} artık mevcut. Güncellemek için yönetici panelini ziyaret edin.`,
     }),
     replica_failure: (p) => ({
-      title: 'Storage replica failure',
+      title: 'Depolama kopyası hatası',
       body:
-        `Replica write failed on '${p.backend}': ${p.op} of ${p.key} — ${p.error}.` +
-        (p.suppressed !== '0' ? ` ${p.suppressed} more failures were suppressed since the last notification.` : ''),
+        `'${p.backend}' kopyasına yazma başarısız oldu: ${p.op} (${p.key}) — ${p.error}.` +
+        (p.suppressed !== '0' ? ` Son bildirimden bu yana ${p.suppressed} hata daha bastırıldı.` : ''),
     }),
     synology_session_cleared: () => ({
       title: 'Synology oturumu temizlendi',

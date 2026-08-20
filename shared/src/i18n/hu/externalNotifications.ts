@@ -53,10 +53,10 @@ const hu: NotificationLocale = {
       body: `A TREK ${p.version} elérhető. Látogasson el az adminisztrációs panelre a frissítéshez.`,
     }),
     replica_failure: (p) => ({
-      title: 'Storage replica failure',
+      title: 'Tárhely-replika hiba',
       body:
-        `Replica write failed on '${p.backend}': ${p.op} of ${p.key} — ${p.error}.` +
-        (p.suppressed !== '0' ? ` ${p.suppressed} more failures were suppressed since the last notification.` : ''),
+        `Sikertelen írás a(z) '${p.backend}' replikán: ${p.op} / ${p.key} — ${p.error}.` +
+        (p.suppressed !== '0' ? ` Az utolsó értesítés óta ${p.suppressed} további hiba lett elnyomva.` : ''),
     }),
     synology_session_cleared: () => ({
       title: 'Synology munkamenet törölve',

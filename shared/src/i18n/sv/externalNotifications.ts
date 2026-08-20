@@ -53,10 +53,10 @@ const en: NotificationLocale = {
       body: `TREK ${p.version} är nu tillgänglig. Gå till adminpanelen för att uppdatera.`,
     }),
     replica_failure: (p) => ({
-      title: 'Storage replica failure',
+      title: 'Fel i lagringsreplik',
       body:
-        `Replica write failed on '${p.backend}': ${p.op} of ${p.key} — ${p.error}.` +
-        (p.suppressed !== '0' ? ` ${p.suppressed} more failures were suppressed since the last notification.` : ''),
+        `Skrivning till replik '${p.backend}' misslyckades: ${p.op} för ${p.key} — ${p.error}.` +
+        (p.suppressed !== '0' ? ` ${p.suppressed} ytterligare fel har undertryckts sedan senaste aviseringen.` : ''),
     }),
     synology_session_cleared: () => ({
       title: 'Synology session rensad',

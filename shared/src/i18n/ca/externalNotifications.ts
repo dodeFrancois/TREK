@@ -49,10 +49,10 @@ const ca: NotificationLocale = {
       body: `TREK ${p.version} ja està disponible. Visita el panell d'administració per actualitzar.`,
     }),
     replica_failure: (p) => ({
-      title: 'Storage replica failure',
+      title: "Error de rèplica d'emmagatzematge",
       body:
-        `Replica write failed on '${p.backend}': ${p.op} of ${p.key} — ${p.error}.` +
-        (p.suppressed !== '0' ? ` ${p.suppressed} more failures were suppressed since the last notification.` : ''),
+        `L'escriptura a la rèplica '${p.backend}' ha fallat: ${p.op} de ${p.key} — ${p.error}.` +
+        (p.suppressed !== '0' ? ` S'han suprimit ${p.suppressed} errors més des de l'última notificació.` : ''),
     }),
     synology_session_cleared: () => ({
       title: 'Sessió de Synology tancada',

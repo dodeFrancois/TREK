@@ -53,10 +53,10 @@ const zhTW: NotificationLocale = {
       body: `TREK ${p.version} 現已可用。請前往管理面板進行更新。`,
     }),
     replica_failure: (p) => ({
-      title: 'Storage replica failure',
+      title: '儲存複本故障',
       body:
-        `Replica write failed on '${p.backend}': ${p.op} of ${p.key} — ${p.error}.` +
-        (p.suppressed !== '0' ? ` ${p.suppressed} more failures were suppressed since the last notification.` : ''),
+        `寫入複本 '${p.backend}' 失敗：${p.op} / ${p.key} — ${p.error}。` +
+        (p.suppressed !== '0' ? `自上次通知以來，還有 ${p.suppressed} 個失敗已被抑制。` : ''),
     }),
     synology_session_cleared: () => ({
       title: 'Synology 工作階段已清除',

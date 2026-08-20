@@ -53,10 +53,10 @@ const br: NotificationLocale = {
       body: `O TREK ${p.version} está disponível. Acesse o painel de administração para atualizar.`,
     }),
     replica_failure: (p) => ({
-      title: 'Storage replica failure',
+      title: 'Falha na réplica de armazenamento',
       body:
-        `Replica write failed on '${p.backend}': ${p.op} of ${p.key} — ${p.error}.` +
-        (p.suppressed !== '0' ? ` ${p.suppressed} more failures were suppressed since the last notification.` : ''),
+        `Falha ao gravar na réplica '${p.backend}': ${p.op} de ${p.key} — ${p.error}.` +
+        (p.suppressed !== '0' ? ` Mais ${p.suppressed} falha(s) foram suprimidas desde a última notificação.` : ''),
     }),
     synology_session_cleared: () => ({
       title: 'Sessão Synology encerrada',

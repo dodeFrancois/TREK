@@ -53,10 +53,10 @@ const pl: NotificationLocale = {
       body: `TREK ${p.version} jest teraz dostępny. Odwiedź panel administracyjny, aby zaktualizować.`,
     }),
     replica_failure: (p) => ({
-      title: 'Storage replica failure',
+      title: 'Awaria repliki magazynu',
       body:
-        `Replica write failed on '${p.backend}': ${p.op} of ${p.key} — ${p.error}.` +
-        (p.suppressed !== '0' ? ` ${p.suppressed} more failures were suppressed since the last notification.` : ''),
+        `Zapis do repliki '${p.backend}' nie powiódł się: ${p.op} dla ${p.key} — ${p.error}.` +
+        (p.suppressed !== '0' ? ` Od ostatniego powiadomienia ukryto ${p.suppressed} kolejnych błędów.` : ''),
     }),
     synology_session_cleared: () => ({
       title: 'Sesja Synology wyczyszczona',

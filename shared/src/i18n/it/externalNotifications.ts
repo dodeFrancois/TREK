@@ -53,10 +53,10 @@ const it: NotificationLocale = {
       body: `TREK ${p.version} è ora disponibile. Visita il pannello di amministrazione per aggiornare.`,
     }),
     replica_failure: (p) => ({
-      title: 'Storage replica failure',
+      title: "Errore di replica dell'archiviazione",
       body:
-        `Replica write failed on '${p.backend}': ${p.op} of ${p.key} — ${p.error}.` +
-        (p.suppressed !== '0' ? ` ${p.suppressed} more failures were suppressed since the last notification.` : ''),
+        `Scrittura sulla replica non riuscita su '${p.backend}': ${p.op} di ${p.key} — ${p.error}.` +
+        (p.suppressed !== '0' ? ` Altri ${p.suppressed} errori sono stati soppressi dall'ultima notifica.` : ''),
     }),
     synology_session_cleared: () => ({
       title: 'Sessione Synology rimossa',

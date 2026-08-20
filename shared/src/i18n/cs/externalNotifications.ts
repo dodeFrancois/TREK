@@ -53,10 +53,10 @@ const cs: NotificationLocale = {
       body: `TREK ${p.version} je nyní dostupný. Navštivte administrátorský panel pro aktualizaci.`,
     }),
     replica_failure: (p) => ({
-      title: 'Storage replica failure',
+      title: 'Selhání repliky úložiště',
       body:
-        `Replica write failed on '${p.backend}': ${p.op} of ${p.key} — ${p.error}.` +
-        (p.suppressed !== '0' ? ` ${p.suppressed} more failures were suppressed since the last notification.` : ''),
+        `Zápis do repliky '${p.backend}' selhal: ${p.op} u ${p.key} — ${p.error}.` +
+        (p.suppressed !== '0' ? ` Od poslední notifikace bylo potlačeno ${p.suppressed} dalších selhání.` : ''),
     }),
     synology_session_cleared: () => ({
       title: 'Relace Synology byla zrušena',

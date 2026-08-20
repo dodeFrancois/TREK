@@ -53,10 +53,10 @@ const ar: NotificationLocale = {
       body: `TREK ${p.version} متاح الآن. تفضل بزيارة لوحة الإدارة للتحديث.`,
     }),
     replica_failure: (p) => ({
-      title: 'Storage replica failure',
+      title: 'فشل النسخة المتماثلة للتخزين',
       body:
-        `Replica write failed on '${p.backend}': ${p.op} of ${p.key} — ${p.error}.` +
-        (p.suppressed !== '0' ? ` ${p.suppressed} more failures were suppressed since the last notification.` : ''),
+        `فشلت الكتابة على النسخة المتماثلة '${p.backend}': ${p.op} لـ ${p.key} — ${p.error}.` +
+        (p.suppressed !== '0' ? ` تم تجاهل ${p.suppressed} فشل إضافي منذ آخر إشعار.` : ''),
     }),
     synology_session_cleared: () => ({
       title: 'تمت إعادة تعيين جلسة Synology',
