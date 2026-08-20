@@ -210,9 +210,24 @@ describe('mirror fold/synthesize (replicas-on-primary)', () => {
   it('FE-ADMIN-STORM-013: removeBackendAndMirrors cascades; replicaOfPrimaries phrases in primary names', () => {
     const draft = mirroredDraft();
     expect(replicaOfPrimaries(draft, 'off-box')).toEqual(['backups-local']);
-    const removed = removeBackendAndMirrors(draft, 'backups-local');
+    const removed = removeBackendAndMirrors(MIRRORED_STATE, draft, 'backups-local');
     expect(removed.backends.some((b) => b.name === 'mirror')).toBe(false);
     expect(removed.backends.some((b) => b.name === 'backups-local')).toBe(false);
+  });
+
+  it('FE-ADMIN-STORM-015: removing a replica strips it from remaining mirrors; a mirror stripped empty dissolves', () => {
+    // Single-replica mirror: stripping off-box empties it → dissolve + re-point
+    // (backups is settings-sourced at the mirror in MIRRORED_STATE, so it re-points, not drops).
+    const dissolved = removeBackendAndMirrors(MIRRORED_STATE, mirroredDraft(), 'off-box');
+    expect(dissolved.backends.some((b) => b.name === 'off-box')).toBe(false);
+    expect(dissolved.backends.some((b) => b.type === 'mirror')).toBe(false);
+    expect(dissolved.categories.backups).toBe('backups-local');
+    // Multi-replica mirror: stripping one target keeps the mirror alive with the rest.
+    const twoTargets = setMirrorTargets(MIRRORED_STATE, mirroredDraft(), 'backups-local', ['off-box', 'uploads-local']);
+    const survived = removeBackendAndMirrors(MIRRORED_STATE, twoTargets, 'off-box');
+    const mirror = survived.backends.find((b) => b.type === 'mirror')!;
+    expect(mirror.options).toEqual({ primary: 'backups-local', replicas: ['uploads-local'] });
+    expect(survived.categories.backups).toBe('mirror'); // still routed via the surviving mirror
   });
 
   it('FE-ADMIN-STORM-014: primaryNameOf maps mirror names (draft or state) to their primary; others pass through', () => {

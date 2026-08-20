@@ -246,12 +246,40 @@ export function renameBackendRefs(draft: StorageConfig, oldName: string, newName
   }
 }
 
-/** Remove a backend AND every mirror wrapping it as primary (they would dangle). */
-export function removeBackendAndMirrors(draft: StorageConfig, name: string): StorageConfig {
-  return {
-    ...draft,
-    backends: draft.backends.filter((b) => b.name !== name && !(isMirror(b) && b.options.primary === name)),
+/**
+ * Remove a backend, every mirror wrapping it as primary, and every replica
+ * reference to it in the remaining mirrors — a mirror stripped of its last
+ * replica dissolves (with the same category re-pointing as an explicit
+ * dissolve), so the draft never carries a phantom reference the composer
+ * cannot render or repair.
+ */
+export function removeBackendAndMirrors(
+  state: StorageAdminState,
+  draft: StorageConfig,
+  name: string,
+): StorageConfig {
+  const stripped = draft.backends
+    .filter((b) => b.name !== name && !(isMirror(b) && b.options.primary === name))
+    .map((b) =>
+      isMirror(b) && b.options.replicas.includes(name)
+        ? { ...b, options: { ...b.options, replicas: b.options.replicas.filter((r) => r !== name) } }
+        : b,
+    )
+  let next: StorageConfig = { ...draft, backends: stripped }
+  for (const mirror of stripped.filter(isMirror)) {
+    if (mirror.options.replicas.length > 0) continue
+    if (adoptedMirrorFor(next, mirror.options.primary)?.name === mirror.name) {
+      next = setMirrorTargets(state, next, mirror.options.primary, [])
+    } else {
+      // A degenerate duplicate stripped empty: drop it and re-point its categories.
+      const categories = { ...next.categories }
+      for (const category of STORAGE_CATEGORIES) {
+        if (categories[category] === mirror.name) categories[category] = mirror.options.primary
+      }
+      next = { backends: next.backends.filter((b) => b.name !== mirror.name), categories }
+    }
   }
+  return next
 }
 
 /** Primaries whose mirrors use the named backend as a replica — pre-check copy stays in primary names. */

@@ -354,7 +354,7 @@ export default function AdminStoragePanel(): React.ReactElement {
             admin.setDraft(
               confirmRemove.degenerate
                 ? removeBackend(draft, confirmRemove.name)
-                : removeBackendAndMirrors(draft, confirmRemove.name),
+                : removeBackendAndMirrors(state, draft, confirmRemove.name),
             )
           }
           setConfirmRemove(null)

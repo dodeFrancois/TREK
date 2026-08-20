@@ -355,6 +355,8 @@ export default function MAdminStoragePanel(): React.ReactElement {
           {rows.map((row) => {
             const resultKey = row.mirrorName ?? row.name
             const result = admin.testResults[resultKey]
+            // row.mirrorName only exists when foldBackends adopted a draft mirror
+            // for this row, so the draft lookup below cannot miss.
             const testCandidate = row.mirrorName
               ? draft.backends.find((b) => b.name === row.mirrorName)!
               : row.backend
@@ -575,7 +577,7 @@ export default function MAdminStoragePanel(): React.ReactElement {
             admin.setDraft(
               confirmRemove.degenerate
                 ? removeBackend(draft, confirmRemove.name)
-                : removeBackendAndMirrors(draft, confirmRemove.name),
+                : removeBackendAndMirrors(state, draft, confirmRemove.name),
             )
           }
           setConfirmRemove(null)
