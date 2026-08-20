@@ -1,12 +1,15 @@
 import { Module } from '@nestjs/common';
 import { AppConfigModule } from '../app-config/app-config.module';
 import { AuditModule } from '../audit/audit.module';
+import { SchedulingModule } from '../scheduling/scheduling.module';
 import { StorageEventsService } from './storage-events.service';
 import { StorageJobsService } from './storage-jobs.service';
 import { StorageRegistryService } from './storage-registry.service';
 import { StorageService } from './storage.service';
 import { StorageAdminService } from './storage-admin.service';
 import { StorageAdminController } from './storage-admin.controller';
+import { StorageStatsService } from './storage-stats.service';
+import { StorageUsageScanJob } from './storage-usage-scan.job';
 
 /**
  * Storage container: registry (config), facade (byte-paths), admin surface.
@@ -22,9 +25,17 @@ import { StorageAdminController } from './storage-admin.controller';
  * may cache drivers or trigger reloads.
  */
 @Module({
-  imports: [AppConfigModule, AuditModule],
+  imports: [AppConfigModule, AuditModule, SchedulingModule],
   controllers: [StorageAdminController],
-  providers: [StorageRegistryService, StorageService, StorageAdminService, StorageEventsService, StorageJobsService],
+  providers: [
+    StorageRegistryService,
+    StorageService,
+    StorageAdminService,
+    StorageEventsService,
+    StorageJobsService,
+    StorageStatsService,
+    StorageUsageScanJob,
+  ],
   exports: [StorageService, StorageEventsService],
 })
 export class StorageModule {}
