@@ -14,7 +14,11 @@ vi.mock('../../../src/plugin-event-sink', () => ({
 
 import { RealtimeGateway } from '../../../src/nest/realtime/realtime.gateway';
 import {
+  bookPeers,
   broadcast,
+  broadcastToBook,
+  joinBook,
+  leaveBook,
   broadcastToUser,
   getOnlineUserIds,
   joinRoom,
@@ -26,6 +30,7 @@ import {
 import { emitPluginEvent } from '../../../src/plugin-event-sink';
 import type { DatabaseService } from '../../../src/nest/database/database.service';
 import type { EphemeralTokenService } from '../../../src/nest/auth/ephemeral-token.service';
+import type { JourneyDomainService } from '../../../src/nest/journey/journey-domain.service';
 import type { User } from '../../../src/types';
 
 interface FakeSocket extends TrekWebSocket {
@@ -58,8 +63,12 @@ const db = {
 const consumeWithMeta = vi.fn();
 const tokens = { consumeWithMeta } as unknown as EphemeralTokenService;
 
+/** Everything is reachable except journey 4, which stands in for no access. */
+const canAccessJourney = vi.fn((journeyId: number) => (journeyId === 4 ? null : { id: journeyId }));
+const journeys = { canAccessJourney } as unknown as JourneyDomainService;
+
 function connect(url: string) {
-  const gw = new RealtimeGateway(db, tokens);
+  const gw = new RealtimeGateway(db, tokens, journeys);
   const ws = socket();
   gw.handleConnection(ws, { url } as never);
   return { gw, ws };
@@ -120,7 +129,7 @@ describe('RealtimeGateway handshake', () => {
   });
 
   it('WSGW-007b: survives an upgrade request with no url, rather than throwing at it', () => {
-    const gw = new RealtimeGateway(db, tokens);
+    const gw = new RealtimeGateway(db, tokens, journeys);
     const ws = socket();
     expect(() => gw.handleConnection(ws, {} as never)).not.toThrow();
     expect(ws.closedWith).toEqual([4001, 'Authentication required']);
@@ -175,7 +184,7 @@ describe('RealtimeGateway heartbeat', () => {
       alive.isAlive = true;
       const stale = socket();
       stale.isAlive = false;
-      const gw = new RealtimeGateway(db, tokens);
+      const gw = new RealtimeGateway(db, tokens, journeys);
       gw.afterInit({ clients: new Set([alive, stale]) } as never);
 
       vi.advanceTimersByTime(30_000);
@@ -196,7 +205,7 @@ describe('RealtimeGateway heartbeat', () => {
     try {
       const ws = socket();
       ws.isAlive = true;
-      const gw = new RealtimeGateway(db, tokens);
+      const gw = new RealtimeGateway(db, tokens, journeys);
       gw.afterInit({ clients: new Set([ws]) } as never);
       gw.onModuleDestroy();
 
@@ -291,5 +300,303 @@ describe('ws-state fan-out', () => {
     setServer(null);
     expect(() => broadcastToUser(1, { type: 'x' })).not.toThrow();
     expect(getOnlineUserIds()).toEqual(new Set());
+  });
+});
+
+/**
+ * ── Studio books (#1973) ────────────────────────────────────────────────
+ *
+ * Presence and pointers for people editing the same photo book. Nothing here
+ * is written down: the room IS the state, and a socket that goes takes its
+ * pointer with it.
+ */
+describe('book rooms', () => {
+  let nextJourney = 100;
+
+  function joined(journeyId: number) {
+    const gw = new RealtimeGateway(db, tokens, journeys);
+    const ws = socket();
+    registerSocket(ws, { id: 3, username: 'm' } as User);
+    const reply = gw.handleBookJoin({ journeyId }, ws);
+    return { gw, ws, reply };
+  }
+
+  it('WSGW-BOOK-001: admits a socket to a journey it may see', () => {
+    const j = nextJourney++;
+    const { reply } = joined(j);
+    expect(reply).toEqual({ type: 'book:joined', journeyId: j });
+    expect(bookPeers(j).map(p => p.userId)).toEqual([3]);
+  });
+
+  /* Same shape as the trip room's refusal, and for the same reason. */
+  it('WSGW-BOOK-002: refuses a journey the user cannot see, and adds nobody', () => {
+    const gw = new RealtimeGateway(db, tokens, journeys);
+    const ws = socket();
+    registerSocket(ws, { id: 3, username: 'm' } as User);
+
+    expect(gw.handleBookJoin({ journeyId: 4 }, ws)).toEqual({ type: 'error', message: 'Access denied' });
+    expect(bookPeers(4)).toEqual([]);
+  });
+
+  it('WSGW-BOOK-003: tells everyone in the book who is in it', () => {
+    const j = nextJourney++;
+    const { ws: first } = joined(j);
+    first.sent.length = 0;
+    joined(j);
+
+    const peers = first.sent.map(raw => JSON.parse(raw)).filter(m => m.type === 'journey:book:peers');
+    expect(peers).toHaveLength(1);
+    expect(peers[0].peers).toHaveLength(2);
+    expect(peers[0].journeyId).toBe(j);
+  });
+
+  it('WSGW-BOOK-004: leaving empties the room and says so', () => {
+    const j = nextJourney++;
+    const { gw, ws } = joined(j);
+    expect(gw.handleBookLeave({ journeyId: j }, ws)).toEqual({ type: 'book:left', journeyId: j });
+    expect(bookPeers(j)).toEqual([]);
+  });
+
+  /*
+   * The one that leaves a ghost if it is missed: a closed tab whose arrow stays
+   * on everyone else's page, belonging to nobody.
+   */
+  it('WSGW-BOOK-005: a dropped connection leaves the book too', () => {
+    const j = nextJourney++;
+    const { gw, ws } = joined(j);
+    const other = joined(j);
+    other.ws.sent.length = 0;
+    expect(bookPeers(j)).toHaveLength(2);
+
+    gw.handleDisconnect(ws);
+
+    expect(bookPeers(j)).toHaveLength(1);
+    const peers = other.ws.sent.map(raw => JSON.parse(raw)).filter(m => m.type === 'journey:book:peers');
+    expect(peers[peers.length - 1].peers).toHaveLength(1);
+  });
+});
+
+describe('book pointers', () => {
+  let nextJourney = 200;
+
+  function pair() {
+    const journeyId = nextJourney++;
+    const gw = new RealtimeGateway(db, tokens, journeys);
+    const mine = socket();
+    const theirs = socket();
+    registerSocket(mine, { id: 3, username: 'm' } as User);
+    registerSocket(theirs, { id: 4, username: 'other' } as User);
+    gw.handleBookJoin({ journeyId }, mine);
+    gw.handleBookJoin({ journeyId }, theirs);
+    mine.sent.length = 0;
+    theirs.sent.length = 0;
+    return { gw, mine, theirs, journeyId };
+  }
+
+  const cursorsIn = (ws: FakeSocket) =>
+    ws.sent.map(raw => JSON.parse(raw)).filter(m => m.type === 'journey:book:cursor');
+
+  it('WSGW-CUR-001: forwards a pointer to the others, not back to the sender', () => {
+    const { gw, mine, theirs, journeyId } = pair();
+    gw.handleBookCursor({ journeyId, spreadIndex: 2, x: 105.5, y: 60 }, mine);
+
+    expect(cursorsIn(mine)).toEqual([]);
+    expect(cursorsIn(theirs)).toHaveLength(1);
+    expect(cursorsIn(theirs)[0]).toMatchObject({ journeyId, userId: 3, spreadIndex: 2, x: 105.5, y: 60 });
+  });
+
+  /*
+   * The room is the authorisation. Nothing is checked against the database on
+   * this path — it runs ten times a second — so a socket that never joined has
+   * to reach nobody.
+   */
+  it('WSGW-CUR-002: a socket that never joined reaches nobody', () => {
+    const { gw, theirs, journeyId } = pair();
+    const stranger = socket();
+    registerSocket(stranger, { id: 5, username: 'x' } as User);
+
+    gw.handleBookCursor({ journeyId, spreadIndex: 0, x: 1, y: 1 }, stranger);
+    expect(cursorsIn(theirs)).toEqual([]);
+  });
+
+  it('WSGW-CUR-003: a pointer leaving the page travels as null', () => {
+    const { gw, mine, theirs, journeyId } = pair();
+    gw.handleBookCursor({ journeyId, spreadIndex: 0, x: null, y: null }, mine);
+    expect(cursorsIn(theirs)[0]).toMatchObject({ x: null, y: null });
+  });
+
+  it('WSGW-CUR-004: refuses nonsense coordinates rather than passing them on', () => {
+    const { gw, mine, theirs, journeyId } = pair();
+    gw.handleBookCursor({ journeyId, spreadIndex: -4, x: Number.NaN, y: Infinity }, mine);
+
+    expect(cursorsIn(theirs)[0]).toMatchObject({ spreadIndex: 0, x: null, y: null });
+  });
+});
+
+/*
+ * ── The ways a book message is ignored ──────────────────────────────────
+ *
+ * Every one of these is a message that must produce nothing at all: no reply,
+ * no room change, no broadcast. They are worth naming because the failure is
+ * silent in each case — a handler that quietly did something with a missing
+ * journey id would not throw, it would put a socket somewhere it does not
+ * belong and nobody would see it until two strangers shared a page.
+ */
+describe('book messages that are refused', () => {
+  let nextJourney = 300;
+
+  it('WSGW-BOOK-006: a join without a journey id is ignored', () => {
+    const gw = new RealtimeGateway(db, tokens, journeys);
+    const ws = socket();
+    registerSocket(ws, { id: 3, username: 'm' } as User);
+
+    expect(gw.handleBookJoin({}, ws)).toBeUndefined();
+    expect(ws.sent).toEqual([]);
+  });
+
+  /* An unauthenticated socket never got as far as the registry. */
+  it('WSGW-BOOK-007: a join from a socket with no user is ignored', () => {
+    const gw = new RealtimeGateway(db, tokens, journeys);
+    const j = nextJourney++;
+
+    expect(gw.handleBookJoin({ journeyId: j }, socket())).toBeUndefined();
+    expect(bookPeers(j)).toEqual([]);
+  });
+
+  it('WSGW-BOOK-008: a journey id that is not a number is refused, not joined', () => {
+    const gw = new RealtimeGateway(db, tokens, journeys);
+    const ws = socket();
+    registerSocket(ws, { id: 3, username: 'm' } as User);
+
+    expect(gw.handleBookJoin({ journeyId: 'not-a-journey' }, ws))
+      .toEqual({ type: 'error', message: 'Access denied' });
+  });
+
+  it('WSGW-BOOK-009: a leave without a journey id is ignored', () => {
+    const gw = new RealtimeGateway(db, tokens, journeys);
+    const ws = socket();
+    registerSocket(ws, { id: 3, username: 'm' } as User);
+
+    expect(gw.handleBookLeave({}, ws)).toBeUndefined();
+  });
+
+  /* Leaving a room nobody is in must not create one on the way out. */
+  it('WSGW-BOOK-010: leaving a book that was never joined does nothing', () => {
+    const gw = new RealtimeGateway(db, tokens, journeys);
+    const ws = socket();
+    registerSocket(ws, { id: 3, username: 'm' } as User);
+    const j = nextJourney++;
+
+    expect(gw.handleBookLeave({ journeyId: j }, ws)).toEqual({ type: 'book:left', journeyId: j });
+    expect(bookPeers(j)).toEqual([]);
+  });
+
+  it('WSGW-CUR-005: a pointer without a journey id reaches nobody', () => {
+    const gw = new RealtimeGateway(db, tokens, journeys);
+    const mine = socket();
+    const theirs = socket();
+    registerSocket(mine, { id: 3, username: 'm' } as User);
+    registerSocket(theirs, { id: 4, username: 'o' } as User);
+    const j = nextJourney++;
+    gw.handleBookJoin({ journeyId: j }, mine);
+    gw.handleBookJoin({ journeyId: j }, theirs);
+    theirs.sent.length = 0;
+
+    expect(gw.handleBookCursor({ x: 1, y: 1 }, mine)).toBeUndefined();
+    expect(theirs.sent).toEqual([]);
+  });
+
+  it('WSGW-CUR-006: a pointer from a socket with no user reaches nobody', () => {
+    const gw = new RealtimeGateway(db, tokens, journeys);
+    const theirs = socket();
+    registerSocket(theirs, { id: 4, username: 'o' } as User);
+    const j = nextJourney++;
+    gw.handleBookJoin({ journeyId: j }, theirs);
+    theirs.sent.length = 0;
+
+    expect(gw.handleBookCursor({ journeyId: j, x: 1, y: 1 }, socket())).toBeUndefined();
+    expect(theirs.sent).toEqual([]);
+  });
+});
+
+/*
+ * ── Sockets that are in a room but cannot be talked to ──────────────────
+ *
+ * A room holds sockets, and a socket can stop being usable without leaving:
+ * the connection drops and the close handler has not run yet, or it was put in
+ * a room without ever being registered. Both are states the peer list and the
+ * broadcast have to walk past rather than trip over, because the alternative is
+ * an editor whose peer list shows a ghost, or a throw on a path that runs ten
+ * times a second.
+ */
+describe('book rooms with unusable sockets in them', () => {
+  let nextJourney = 400;
+
+  it('WSST-BOOK-001: a closed socket is not a peer', () => {
+    const j = nextJourney++;
+    const live = socket();
+    const dead = socket();
+    registerSocket(live, { id: 3, username: 'm' } as User);
+    registerSocket(dead, { id: 9, username: 'gone' } as User);
+    joinBook(live, j);
+    joinBook(dead, j);
+    (dead as { readyState: number }).readyState = 3;
+
+    expect(bookPeers(j).map(p => p.userId)).toEqual([3]);
+  });
+
+  it('WSST-BOOK-002: a socket that was never registered is not a peer', () => {
+    const j = nextJourney++;
+    const known = socket();
+    registerSocket(known, { id: 3, username: 'm' } as User);
+    joinBook(known, j);
+    joinBook(socket(), j);
+
+    expect(bookPeers(j).map(p => p.userId)).toEqual([3]);
+  });
+
+  it('WSST-BOOK-003: a broadcast skips a closed socket instead of writing to it', () => {
+    const j = nextJourney++;
+    const live = socket();
+    const dead = socket();
+    registerSocket(live, { id: 3, username: 'm' } as User);
+    registerSocket(dead, { id: 9, username: 'gone' } as User);
+    joinBook(live, j);
+    joinBook(dead, j);
+    (dead as { readyState: number }).readyState = 3;
+
+    broadcastToBook(j, { type: 'x' });
+
+    expect(live.sent).toHaveLength(1);
+    expect(dead.sent).toEqual([]);
+  });
+
+  it('WSST-BOOK-004: a broadcast to a book nobody is in goes nowhere', () => {
+    expect(() => broadcastToBook(nextJourney++, { type: 'x' })).not.toThrow();
+  });
+
+  /*
+   * One person, two tabs, two books: the second join must extend what the
+   * socket is already in rather than replacing it, or leaving one book would
+   * take the other with it.
+   */
+  it('WSST-BOOK-005: a socket can be in two books at once', () => {
+    const a = nextJourney++;
+    const b = nextJourney++;
+    const ws = socket();
+    registerSocket(ws, { id: 3, username: 'm' } as User);
+    joinBook(ws, a);
+    joinBook(ws, b);
+
+    leaveBook(ws, a);
+
+    expect(bookPeers(a)).toEqual([]);
+    expect(bookPeers(b).map(p => p.userId)).toEqual([3]);
+  });
+
+  it('WSST-BOOK-006: leaving a book that does not exist is not an error', () => {
+    const ws = socket();
+    registerSocket(ws, { id: 3, username: 'm' } as User);
+    expect(() => leaveBook(ws, nextJourney++)).not.toThrow();
   });
 });

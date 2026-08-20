@@ -43,17 +43,19 @@ describe('incoming_leg_transport_mode migration', () => {
     //
     // >>> Appending a migration? Re-point the undo below at whatever yours
     // >>> does. That is the whole maintenance cost of this guard.
-    // Trailing migrations today (a dev/feat-storage-driver merge landed five
-    // in one release window, so the rewind spans all of them):
-    //   version-5 — reservation_day_positions cross-trip cleanup: undone by
+    // Trailing migrations today (two release windows landed on top of each
+    // other, so the rewind spans all six):
+    //   version-6 — reservation_day_positions cross-trip cleanup: undone by
     //               re-inserting a mismatched reservation/day pair.
-    //   version-4 — #1939 instance API key promotion: nothing to undo — the
+    //   version-5 — #1939 instance API key promotion: nothing to undo, the
     //               seeded users are not admins and hold no keys, so the
     //               replay is a no-op by its own guards.
-    //   version-3 — trek_photos capture metadata (#1614): column-guarded, so
+    //   version-4 — trek_photos capture metadata (#1614): column-guarded, so
     //               the replay is a no-op; the from-scratch case above covers it.
-    //   version-2 — journey_share_tokens.newest_first: undone by dropping the
+    //   version-3 — journey_share_tokens.newest_first: undone by dropping the
     //               column and letting the replay put it back.
+    //   version-2 — journey_books, the TREK Studio document store (#1973):
+    //               undone by dropping the table and its index.
     //   version-1 — storage slice-2 trip_files 'files/' prefix strip: undone
     //               by re-inserting a prefixed row.
     const upgraded = new Database(':memory:');
@@ -83,7 +85,13 @@ describe('incoming_leg_transport_mode migration', () => {
     upgraded.exec('ALTER TABLE journey_share_tokens DROP COLUMN newest_first');
     expect(hasNewestFirst()).toBe(false);
 
-    upgraded.prepare('UPDATE schema_version SET version = ?').run(version - 5);
+    upgraded.exec('DROP INDEX IF EXISTS idx_journey_books_journey');
+    upgraded.exec('DROP TABLE IF EXISTS journey_books');
+    expect(
+      upgraded.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'journey_books'").get()
+    ).toBeUndefined();
+
+    upgraded.prepare('UPDATE schema_version SET version = ?').run(version - 6);
 
     runMigrations(upgraded);
 
@@ -92,6 +100,12 @@ describe('incoming_leg_transport_mode migration', () => {
     const files = upgraded.prepare('SELECT filename FROM trip_files').all() as { filename: string }[];
     expect(files.map(r => r.filename)).toEqual(['aaa.pdf']);
     expect(hasNewestFirst()).toBe(true);
+    expect(
+      upgraded.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'journey_books'").get()
+    ).toEqual({ name: 'journey_books' });
+    expect(
+      upgraded.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'idx_journey_books_journey'").get()
+    ).toEqual({ name: 'idx_journey_books_journey' });
     expect(upgraded.prepare('SELECT version FROM schema_version').get()).toEqual({ version });
     upgraded.close();
   });

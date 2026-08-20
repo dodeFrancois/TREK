@@ -245,5 +245,277 @@ const journey: TranslationStrings = {
   'journey.editor.externalPhotosUnavailable': 'No connected photo providers are available.', // en-fallback
   'journey.editor.externalPhotosPartialFailed': '{failed} photo groups failed — save again to retry', // en-fallback
   'journey.picker.day': 'This day', // en-fallback
+  'journey.studio.title': 'TREK Studio', // en-fallback
+  'journey.studio.open': 'Studio', // en-fallback
+  'journey.studio.openAria': 'Open the photo book studio', // en-fallback
+  'journey.studio.backToJourney': 'Back to the journey', // en-fallback
+  'journey.studio.format': 'Page format', // en-fallback
+  'journey.studio.formatA4Landscape': 'A4 landscape', // en-fallback
+  'journey.studio.formatA4Portrait': 'A4 portrait', // en-fallback
+  'journey.studio.formatSquare21': 'Square 21 × 21 cm', // en-fallback
+  'journey.studio.formatSquare30': 'Square 30 × 30 cm', // en-fallback
+  'journey.studio.pages': 'Pages', // en-fallback
+  'journey.studio.cover': 'Cover', // en-fallback
+  'journey.studio.inspector': 'Properties', // en-fallback
+  'journey.studio.inspectorEmpty': 'Select something on the page to edit it.', // en-fallback
+  'journey.studio.emptySpread': 'This spread is still empty', // en-fallback
+  'journey.studio.autoLayout': 'Auto layout', // en-fallback
+  'journey.studio.export': 'Export', // en-fallback
+  'journey.studio.day': 'DAG',
+  'journey.studio.stations': 'Etappes',
+  'journey.studio.peersHere': 'hier',
+  'journey.studio.folioAuto': 'Automatisch',
+  'journey.studio.exportLayout': 'Opmaak',
+  'journey.studio.exportPages': 'Losse pagina’s',
+  'journey.studio.exportPagesHint': 'Eén blad per pagina, op leesvolgorde. Wat een drukker wil.',
+  'journey.studio.exportSpreads': 'Spreads',
+  'journey.studio.exportSpreadsHint': 'Twee pagina’s tegelijk, zoals het boek opengaat. Om te lezen.',
+  'journey.studio.exportFinishing': 'Afwerking',
+  'journey.studio.exportMarks': 'Snijtekens',
+  'journey.studio.exportMarksHint': 'Voegt {bleed} mm afloop toe aan elke rand en markeert waar gesneden wordt',
+  'journey.studio.exportNote': '{sheets} bladen van {width} × {height} mm. De browser maakt van de afdrukweergave een PDF.',
+  'journey.studio.exportOpen': 'Afdrukweergave',
+  'journey.studio.exportSave': 'Opslaan als PDF',
+  'journey.studio.exportPreparing': 'Wordt voorbereid',
+  'journey.studio.exportSheetCount': '{count} bladen',
+  'journey.studio.undo': 'Undo', // en-fallback
+  'journey.studio.redo': 'Redo', // en-fallback
+  'journey.studio.zoomIn': 'Zoom in', // en-fallback
+  'journey.studio.zoomOut': 'Zoom out', // en-fallback
+  'journey.studio.zoomFit': 'Fit to view', // en-fallback
+  'journey.studio.downloadSpread': 'Deze dubbele pagina downloaden',
+  'journey.studio.downloadSpreadHint': 'Slaat het ontwerp van deze dubbele pagina op als bestand, zonder de foto\'s, om te delen of opnieuw te gebruiken',
+  'journey.studio.importSpread': 'Importeren',
+  'journey.studio.importSpreadHint': 'Voegt een dubbele pagina toe uit een gedownload ontwerpbestand',
+  'journey.studio.importSpreadFailed': 'Dat bestand is geen TREK Studio-pagina',
+  'journey.studio.desktopOnly': 'Studio needs a bigger screen', // en-fallback
+  'journey.studio.desktopOnlyHint': 'Een boek opmaken vraagt om ruimte, dus Studio is alleen voor de desktop, en de pdf ook. Al het andere van je reis werkt hier gewoon.', // en-fallback
+  'journey.studio.formatA5Landscape': 'A5 landscape', // en-fallback
+  'journey.studio.bookView': 'Book view', // en-fallback
+  'journey.studio.multiple': 'Several', // en-fallback
+  'journey.studio.kind.photo': 'Photo', // en-fallback
+  'journey.studio.kind.text': 'Text', // en-fallback
+  'journey.studio.kind.shape': 'Shape', // en-fallback
+  'journey.studio.position': 'Position', // en-fallback
+  'journey.studio.width': 'W', // en-fallback
+  'journey.studio.height': 'H', // en-fallback
+  'journey.studio.text': 'Text', // en-fallback
+  'journey.studio.typography': 'Type', // en-fallback
+  'journey.studio.leading': 'Line', // en-fallback
+  'journey.studio.colour': 'Colour', // en-fallback
+  'journey.studio.autoColour': 'Automatisch',
+  'journey.studio.countryNames': 'Namen',
+  'journey.studio.crop': 'Crop', // en-fallback
+  'journey.studio.look': 'Look', // en-fallback
+  'journey.studio.radius': 'Corner', // en-fallback
+  'journey.studio.shape': 'Shape', // en-fallback
+  'journey.studio.arrange': 'Arrange', // en-fallback
+  'journey.studio.toFront': 'Bring to front', // en-fallback
+  'journey.studio.forward': 'Bring forward', // en-fallback
+  'journey.studio.backward': 'Send backward', // en-fallback
+  'journey.studio.toBack': 'Send to back', // en-fallback
+  'journey.studio.lock': 'Lock', // en-fallback
+  'journey.studio.unlock': 'Unlock', // en-fallback
+  'journey.studio.delete': 'Delete', // en-fallback
+  'journey.studio.pageHint': 'Page', // en-fallback
+  'journey.studio.boundHint': 'Follows the journal entry. Editing it here breaks that link.', // en-fallback
+  'journey.studio.fit.cover': 'Fill', // en-fallback
+  'journey.studio.fit.contain': 'Fit', // en-fallback
+  'journey.studio.filter.none': 'Original', // en-fallback
+  'journey.studio.filter.bw': 'Black & white', // en-fallback
+  'journey.studio.filter.warm': 'Warm', // en-fallback
+  'journey.studio.shapeKind.rect': 'Rectangle', // en-fallback
+  'journey.studio.shapeKind.ellipse': 'Ellipse', // en-fallback
+  'journey.studio.focalHint': 'Drag the point to choose what stays in frame.', // en-fallback
+  'journey.studio.backCover': 'Back cover', // en-fallback
+  'journey.studio.sections': 'Sections', // en-fallback
+  'journey.studio.content': 'Content', // en-fallback
+  'journey.studio.elements': 'Elements', // en-fallback
+  'journey.studio.templates': 'Layouts', // en-fallback
+  'journey.studio.photos': 'Photos', // en-fallback
+  'journey.studio.entries': 'Entries', // en-fallback
+  'journey.studio.addToPage': 'Add to this page', // en-fallback
+  'journey.studio.noPhotos': 'This journey has no photos yet.', // en-fallback
+  'journey.studio.untitled': 'Untitled', // en-fallback
+  'journey.studio.addTitle': 'Title', // en-fallback
+  'journey.studio.addStory': 'Story', // en-fallback
+  'journey.studio.addPlace': 'Place', // en-fallback
+  'journey.studio.shapes': 'Shapes', // en-fallback
+  'journey.studio.frames': 'Kaders', // en-fallback
+  'journey.studio.emptyFrame': 'Empty frame', // en-fallback
+  'journey.studio.frameHint': 'An empty frame marks where a picture goes. Drop one on it from Content.', // en-fallback
+  'journey.studio.shapeKind.line': 'Line', // en-fallback
+  'journey.studio.styleTitle': 'Heading', // en-fallback
+  'journey.studio.styleSubtitle': 'Subheading', // en-fallback
+  'journey.studio.styleBody': 'Body text', // en-fallback
+  'journey.studio.styleCaption': 'Caption', // en-fallback
+  'journey.studio.sampleHeading': 'A heading', // en-fallback
+  'journey.studio.sampleSubheading': 'A subheading', // en-fallback
+  'journey.studio.sampleBody': 'Write something about this day.', // en-fallback
+  'journey.studio.sampleCaption': 'Caption', // en-fallback
+  'journey.studio.templatesCoverHint': 'Layouts apply to the inside spreads. The cover and the back are designed on their own.', // en-fallback
+  'journey.studio.tpl.heroStory': 'Hero and story', // en-fallback
+  'journey.studio.tpl.fullBleed': 'One picture, full spread', // en-fallback
+  'journey.studio.tpl.twoUp': 'Two full pages', // en-fallback
+  'journey.studio.tpl.grid4': 'Four up', // en-fallback
+  'journey.studio.tpl.grid6': 'Six up', // en-fallback
+  'journey.studio.tpl.strip': 'Strip and text', // en-fallback
+  'journey.studio.tpl.quietText': 'Text only', // en-fallback
+  'journey.studio.tpl.portraitPair': 'A pair', // en-fallback
+  'journey.studio.dropPhotoHere': 'Sleep je foto\nhierheen',
+  'journey.studio.searchContent': 'Search photos and entries', // en-fallback
+  'journey.studio.noMatches': 'Nothing matches that.', // en-fallback
+  'journey.studio.decorations': 'Decoration', // en-fallback
+  'journey.studio.quoteMark': 'Quotation mark', // en-fallback
+  'journey.studio.circleOutline': 'Outlined circle', // en-fallback
+  'journey.studio.roundFrame': 'Rounded frame', // en-fallback
+  'journey.studio.shapeKind.rounded': 'Rounded rectangle', // en-fallback
+  'journey.studio.shapeKind.triangle': 'Triangle', // en-fallback
+  'journey.studio.shapeKind.outline': 'Outline only', // en-fallback
+  'journey.studio.travel': 'Reis',
+  'journey.studio.travelEmpty': 'De cijfers van deze reis zijn nog niet klaar.',
+  'journey.studio.grids': 'Rasters',
+  'journey.studio.gridHint': 'Een raster plaatst een blok lege kaders. Sleep er foto’s op vanuit Inhoud.',
+  'journey.studio.lines': 'Lijnen',
+  'journey.studio.frameStyles': 'Kaderstijlen',
+  'journey.studio.frameShapes': 'Kadervormen',
+  'journey.studio.plainFrame': 'Eenvoudig',
+  'journey.studio.polaroidFrame': 'Polaroid',
+  'journey.studio.whiteFrame': 'Witte rand',
+  'journey.studio.shadowFrame': 'Slagschaduw',
+  'journey.studio.filmFrame': 'Film',
+  'journey.studio.tapeFrame': 'Geplakt',
+  'journey.studio.shapeGroup.basic': 'Basis',
+  'journey.studio.shapeGroup.polygons': 'Veelhoeken',
+  'journey.studio.shapeGroup.stars': 'Sterren',
+  'journey.studio.shapeGroup.arrows': 'Pijlen',
+  'journey.studio.shapeGroup.speech': 'Tekstballonnen',
+  'journey.studio.shapeGroup.travel': 'Reis',
+  'journey.studio.shapeGroup.decor': 'Decoratie',
+  'journey.studio.shapeGroup.banners': 'Banieren',
+  'journey.studio.summary': 'Overzicht',
+  'journey.studio.tripSummary': 'Reisoverzicht',
+  'journey.studio.statsRow': 'Eén rij',
+  'journey.studio.statsFull': 'Alles',
+  'journey.studio.routeMap': 'Routekaart',
+  'journey.studio.mapStyle.minimal': 'Minimaal',
+  'journey.studio.mapStyle.outline': 'Omtrek',
+  'journey.studio.mapStyle.paper': 'Papier',
+  'journey.studio.mapStyle.dark': 'Donker',
+  'journey.studio.countries': 'Landen',
+  'journey.studio.countryList': 'Landenlijst',
+  'journey.studio.countryGrid': 'Landenraster',
+  'journey.studio.noCountries': 'Nog geen landen bepaald voor deze reis.',
+  'journey.studio.noRoute': 'Nog geen stops met coördinaten.',
+  'journey.studio.marks': 'Markeringen',
+  'journey.studio.dateMark': 'Datum',
+  'journey.studio.dayMark': 'Dagteller',
+  'journey.studio.dayWord': 'DAG',
+  'journey.studio.coordsMark': 'Coördinaten',
+  'journey.studio.flagMark': 'Vlag',
+  'journey.studio.distanceMark': 'Afstand',
+  'journey.studio.metric.distance': 'Afstand',
+  'journey.studio.metric.days': 'Dagen',
+  'journey.studio.metric.steps': 'Stops',
+  'journey.studio.metric.photos': 'Foto’s',
+  'journey.studio.metric.countries': 'Landen',
+  'journey.studio.metric.places': 'Plaatsen',
+  'journey.studio.metric.furthest': 'Verst',
+  'journey.studio.kind.map': 'Kaart',
+  'journey.studio.kind.stats': 'Cijfers',
+  'journey.studio.kind.countries': 'Landen',
+  'journey.studio.kind.badge': 'Markering',
+  'journey.studio.mask': 'Uitsnijden in vorm',
+  'journey.studio.maskNone': 'Geen',
+  'journey.studio.frameStyle': 'Kader',
+  'journey.studio.mapLayers': 'Lagen',
+  'journey.studio.showLand': 'Landen',
+  'journey.studio.showRoute': 'Route',
+  'journey.studio.showPins': 'Stops',
+  'journey.studio.showLabels': 'Labels',
+  'journey.studio.units': 'Eenheden',
+  'journey.studio.metrics': 'Cijfers',
+  'journey.studio.layout': 'Indeling',
+  'journey.studio.layoutGrid': 'Raster',
+  'journey.studio.layoutRow': 'Rij',
+  'journey.studio.layoutColumn': 'Kolom',
+  'journey.studio.layoutList': 'Lijst',
+  'journey.studio.showOutline': 'Omtrekken',
+  'journey.studio.showFlag': 'Vlaggen',
+  'journey.studio.showName': 'Namen',
+  'journey.studio.textScale': 'Tekstgrootte',
+  'journey.studio.accent': 'Accent',
+  'journey.studio.refresh': 'Bijwerken vanuit reis',
+  'journey.studio.staleHint': 'De reis is gewijzigd sinds deze cijfers zijn genomen.',
+  'journey.studio.align': 'Uitlijning',
+  'journey.studio.filter.cool': 'Koel',
+  'journey.studio.filter.fade': 'Vervaagd',
+  'journey.studio.filter.contrast': 'Krachtig',
+  'journey.studio.strokeStyle': 'Lijn',
+  'journey.studio.strokeSolid': 'Doorlopend',
+  'journey.studio.strokeDashed': 'Streepjes',
+  'journey.studio.strokeDotted': 'Stippen',
+  'journey.studio.singleFigures': 'Losse cijfers',
+  'journey.studio.addPage': 'Pagina toevoegen',
+  'journey.studio.addPageAfter': 'Pagina hierna invoegen',
+  'journey.studio.duplicatePage': 'Pagina dupliceren',
+  'journey.studio.deletePage': 'Pagina verwijderen',
+  'journey.studio.movePageUp': 'Naar voren',
+  'journey.studio.movePageDown': 'Naar achteren',
+  'journey.studio.beta': 'Beta',
+  'journey.studio.addProsCons': 'Voor- & nadelen',
+  'journey.studio.showMarks': 'Tekens',
+  'journey.studio.formatCustom': 'Eigen formaat',
+  'journey.studio.document': 'Document',
+  'journey.studio.pageNumbers': 'Paginanummers',
+  'journey.studio.pageNumbersOn': 'Aan',
+  'journey.studio.pageNumbersOff': 'Uit',
+  'journey.studio.folio.outer': 'Buiten',
+  'journey.studio.folio.inner': 'Binnen',
+  'journey.studio.folio.centre': 'Gecentreerd',
+  'journey.studio.folioStart': 'Begint bij',
+  'journey.studio.folioMargin': 'Marge',
+  'journey.studio.relayoutSpread': 'Deze pagina',
+  'journey.studio.relayoutSpreadHint': 'Opnieuw opbouwen uit de notitie',
+  'journey.studio.relayoutSpreadNone': 'Deze pagina komt niet uit een notitie',
+  'journey.studio.relayoutBook': 'Het hele boek',
+  'journey.studio.relayoutBookHint': 'Vervangt alle pagina’s — ongedaan te maken',
+  'journey.studio.tpl.coverFull': 'Aflopend',
+  'journey.studio.tpl.coverBand': 'Beeld met band',
+  'journey.studio.tpl.coverWindow': 'Omlijst',
+  'journey.studio.tpl.coverQuiet': 'Alleen tekst',
+  'journey.studio.tpl.coverHalf': 'Twee helften',
+  'journey.studio.tpl.fullText': 'Beeld en verhaal',
+  'journey.studio.tpl.grid9': 'Negen',
+  'journey.studio.tpl.mosaic': 'Mozaïek',
+  'journey.studio.tpl.bandQuote': 'Woorden ertussen',
+  'journey.studio.tpl.staggerFour': 'Vier verspringend',
+  'journey.studio.weightMissing': 'Dit lettertype heeft die dikte niet',
+  'journey.studio.mapSource': 'Kaartbron',
+  'journey.studio.mapSourceVector': 'Omtrekken',
+  'journey.studio.mapSourceTiles': 'Kaarttegels',
+  'journey.studio.mapSourceStatic': 'Mapbox',
+  'journey.studio.mapSourceHint': 'Wordt bij het renderen opgehaald en met bronvermelding gedrukt',
+  'journey.studio.mapZoom': 'Zoom',
+  'journey.studio.mapFraming': 'Uitsnede',
+  'journey.studio.mapFitStops': 'Stops',
+  'journey.studio.mapFitCountry': 'Hele land',
+  'journey.studio.mapPadTight': 'Krap',
+  'journey.studio.mapPadNormal': 'Normaal',
+  'journey.studio.mapPadWide': 'Ruim',
+  'journey.studio.mapPadFar': 'Heel ruim',
+  'journey.studio.mapClipRect': 'In een kader',
+  'journey.studio.mapClipCountry': 'Uitgesneden',
+  'journey.studio.mapClipNeedsCountry': 'Er is een land nodig om uit te snijden',
+  'journey.studio.mapCutVector': 'Uitsnede',
+  'journey.studio.mapCutTiles': 'Uitgesneden kaart',
+  'journey.studio.mapZoomAuto': 'Passend',
+  'journey.studio.saving': 'Opslaan',
+  'journey.studio.saved': 'Opgeslagen',
+  'journey.studio.saveFailed': 'Niet opgeslagen',
+  'journey.studio.saveRetry': 'Opnieuw proberen',
+  'journey.studio.saveConflict': 'Iemand anders heeft dit boek opgeslagen',
+  'journey.studio.saveTakeTheirs': 'De hunne',
+  'journey.studio.saveKeepMine': 'De mijne',
 };
 export default journey;
