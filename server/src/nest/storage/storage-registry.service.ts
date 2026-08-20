@@ -459,8 +459,5 @@ function validateConfig(backends: Map<string, BackendConfig>, categories: Map<St
     if (!backend) {
       throw new StorageBackendError(`category '${category}' maps to unknown backend '${backendName}'`);
     }
-    if (backend.type === 'mirror' && category !== 'backups') {
-      throw new StorageBackendError(`category '${category}' may not use a mirror backend (backups only)`);
-    }
   }
 }

@@ -215,16 +215,27 @@ describe('StorageRegistryService settings', () => {
     expect(registry.resolve('files').backendName).toBe('uploads-local');
   });
 
+  it('a mirror may serve any category — the backups-only rule is lifted (replicas-on-primary spec)', () => {
+    const extraRoot = makeTmpDir();
+    const { registry, uploadsRoot } = makeRegistry({
+      backends: [
+        { name: 'extra-local', type: 'local', options: { root: extraRoot } },
+        { name: 'm', type: 'mirror', options: { primary: 'uploads-local', replicas: ['extra-local'] } },
+      ],
+      categories: { covers: 'm' },
+    });
+    const covers = registry.resolve('covers');
+    expect(covers.backendName).toBe('m');
+    expect(covers.driver).toBeInstanceOf(MirrorDriver);
+    expect(covers.keyPrefix).toBe('covers/');
+    // Hot-path reads stay free: getLocalPath delegates to the local primary.
+    expect(covers.driver.getLocalPath!('covers/x.jpg')).toBe(
+      path.join(fs.realpathSync(uploadsRoot), 'covers/x.jpg'),
+    );
+  });
+
   it.each([
     ['unknown backend name in categories', undefined, JSON.stringify({ files: 'nope' })],
-    [
-      'mirror assigned to a non-backups category',
-      JSON.stringify([
-        { name: 'extra-local', type: 'local', options: { root: '/tmp/x' } },
-        { name: 'm', type: 'mirror', options: { primary: 'uploads-local', replicas: ['extra-local'] } },
-      ]),
-      JSON.stringify({ files: 'm' }),
-    ],
     [
       'nested mirror',
       JSON.stringify([

@@ -26,8 +26,10 @@ export interface ReplicaFailure {
 /**
  * Composite backend: one primary (source of truth) plus best-effort replicas.
  * Runs entirely over the driver interface — the second in-tree consumer of
- * the contract suite. Only the `backups` category may be assigned a mirror
- * (registry validation enforces it).
+ * the contract suite. Any category may be assigned a mirror (the v1
+ * backups-only rule was lifted by the replicas-on-primary spec); replica
+ * writes are synchronous in the request path, which is why hot categories
+ * carry an advisory in the admin UI rather than a prohibition here.
  *
  * Writes hit the primary first and must succeed; replica failures are
  * reported through `onReplicaFailure` (surfaced as health status), never
