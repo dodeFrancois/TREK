@@ -21,13 +21,25 @@ function valuesOf(backend: StorageBackend | null): FieldValues {
   return values
 }
 
+export interface BackendFormMirrorProps {
+  /** Selectable replica targets (the form excludes its own name at render). */
+  candidates: string[]
+  initialTargets: string[]
+}
+
 interface BackendFormProps {
   /** null = new backend */
   initial: StorageBackend | null
   /** Every defined backend name — mirror-target options and the duplicate pre-check. */
   backendNames: string[]
   encryptionReady: boolean
-  onCommit: (backend: StorageBackend) => void
+  /**
+   * Present on non-mirror backends: renders the Mirror-targets composer
+   * (replicas-on-primary — panel-supplied chrome, never a registry field).
+   * When present, onCommit's second argument is always an array.
+   */
+  mirror?: BackendFormMirrorProps
+  onCommit: (backend: StorageBackend, mirrorTargets?: string[]) => void
   onCancel: () => void
 }
 
@@ -36,14 +48,16 @@ const INPUT_CLASS =
   'mt-1.5 w-full px-3 py-2 border rounded-lg text-sm border-edge bg-surface-card text-content'
 
 /**
- * Renders whatever STORAGE_BACKEND_TYPES declares, by field kind — the whole
- * mirror composer is just backend-ref/backend-ref-list rendering as selects.
- * A future backend type needs no changes here.
+ * Renders whatever STORAGE_BACKEND_TYPES declares, by field kind. The raw
+ * `mirror` type is hidden from the type select — mirrors are composed via the
+ * Mirror-targets prop block and synthesized by the panels (the ref-kind
+ * renderers below stay for future registry types).
  */
 export default function BackendForm({
   initial,
   backendNames,
   encryptionReady,
+  mirror,
   onCommit,
   onCancel,
 }: BackendFormProps): React.ReactElement {
@@ -51,6 +65,7 @@ export default function BackendForm({
   const [type, setType] = useState<StorageBackendTypeId>(initial?.type ?? 'local')
   const [name, setName] = useState(initial?.name ?? '')
   const [values, setValues] = useState<FieldValues>(() => valuesOf(initial))
+  const [targets, setTargets] = useState<string[]>(mirror?.initialTargets ?? [])
 
   const fields = STORAGE_BACKEND_TYPES[type].fields as readonly StorageBackendFieldDef[]
   const refOptions = backendNames.filter((candidate) => candidate !== name.trim())
@@ -81,7 +96,12 @@ export default function BackendForm({
     }
     // The options were built from the same field defs the schema is generated
     // from — this is the same sanctioned cast storageModel.asWireBackend makes.
-    onCommit({ name: name.trim(), type, options } as StorageBackend)
+    const payload = { name: name.trim(), type, options } as StorageBackend
+    // Arity matters: the landed tests pin single-argument calls when no mirror
+    // block is supplied (toHaveBeenCalledWith treats a trailing undefined as a
+    // mismatch), so the second argument exists only when the composer does.
+    if (mirror) onCommit(payload, targets)
+    else onCommit(payload)
   }
 
   const renderField = (field: StorageBackendFieldDef): React.ReactElement => {
@@ -176,13 +196,48 @@ export default function BackendForm({
             setType(next as StorageBackendTypeId)
             setValues({}) // a different type has different fields
           }}
-          options={STORAGE_BACKEND_TYPE_IDS.map((id) => ({ value: id, label: t(`storage.type.${id}`) }))}
+          options={STORAGE_BACKEND_TYPE_IDS.filter((id) => id !== 'mirror').map((id) => ({
+            value: id,
+            label: t(`storage.type.${id}`),
+          }))}
           size="sm"
           disabled={initial !== null}
         />
       </div>
 
       {fields.map(renderField)}
+
+      {mirror && (
+        <div>
+          <span className={LABEL_CLASS}>{t('storage.mirror.targets')}</span>
+          <p className="text-xs mb-1 text-content-faint">{t('storage.mirror.targetsHelp')}</p>
+          <div className="space-y-1">
+            {mirror.candidates
+              .filter((candidate) => candidate !== name.trim())
+              .map((candidate) => (
+                <label key={candidate} className="flex items-center gap-2 text-sm text-content">
+                  <input
+                    type="checkbox"
+                    checked={targets.includes(candidate)}
+                    onChange={(e) =>
+                      setTargets(
+                        e.target.checked
+                          ? [...targets, candidate]
+                          : targets.filter((existing) => existing !== candidate),
+                      )
+                    }
+                  />
+                  {candidate}
+                </label>
+              ))}
+          </div>
+          {targets.length > 0 && (
+            <p className="text-xs mt-1 text-content-faint" role="note">
+              {t('storage.mirror.latencyNote')}
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="flex items-center gap-3">
         {blocked ? (

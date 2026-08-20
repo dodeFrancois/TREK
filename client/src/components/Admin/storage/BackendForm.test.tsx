@@ -49,19 +49,6 @@ describe('BackendForm', () => {
     expect(screen.getByLabelText(/Timeout \(ms\)/)).toHaveAttribute('placeholder', '30000');
   });
 
-  it('FE-ADMIN-STORF-003: mirror renders the composer — primary select and replica checkboxes over the other backends', () => {
-    renderForm({
-      initial: { name: 'mir', type: 'mirror', options: { primary: 'uploads-local', replicas: ['off-box'] } },
-    });
-    // The composer is just the two ref kinds rendering: a select and checkboxes.
-    expect(screen.getByText(/Primary backend/)).toBeInTheDocument();
-    const replicas = screen.getAllByRole('checkbox');
-    // Own name excluded: uploads-local, backups-local, off-box minus 'mir' (not in NAMES anyway) → 3
-    expect(replicas).toHaveLength(3);
-    expect(screen.getByRole('checkbox', { name: 'off-box' })).toBeChecked();
-    expect(screen.getByRole('checkbox', { name: 'backups-local' })).not.toBeChecked();
-  });
-
   it('FE-ADMIN-STORF-004: the mask echoes back through commit untouched (no-op by contract)', () => {
     const { onCommit } = renderForm({ initial: S3_INITIAL });
     fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
@@ -130,5 +117,41 @@ describe('BackendForm', () => {
     // Keeping the original name stays allowed.
     fireEvent.change(screen.getByLabelText(/Name/), { target: { value: 'off-box' } });
     expect(screen.getByRole('button', { name: 'Apply' })).toBeEnabled();
+  });
+
+  it('FE-ADMIN-STORF-010: the type select no longer offers Mirror', () => {
+    renderForm();
+    fireEvent.click(screen.getByText('Local')); // open the type select
+    expect(screen.queryByText('Mirror')).not.toBeInTheDocument();
+    expect(screen.getByText('S3')).toBeInTheDocument();
+  });
+
+  it('FE-ADMIN-STORF-011: the mirror composer renders candidates minus self and commits targets', () => {
+    const { onCommit } = renderForm({
+      initial: S3_INITIAL,
+      mirror: { candidates: ['uploads-local', 'backups-local', 'off-box'], initialTargets: ['backups-local'] },
+    });
+    expect(screen.getByText('Mirror targets')).toBeInTheDocument();
+    const boxes = screen.getAllByRole('checkbox');
+    expect(boxes).toHaveLength(2); // off-box (self) excluded
+    expect(screen.getByRole('checkbox', { name: 'backups-local' })).toBeChecked();
+    expect(screen.getByRole('note').textContent).toContain('slows every upload');
+    fireEvent.click(screen.getByRole('checkbox', { name: 'uploads-local' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    expect(onCommit).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'off-box', type: 's3' }),
+      ['backups-local', 'uploads-local'],
+    );
+  });
+
+  it('FE-ADMIN-STORF-012: unchecking every target commits an empty array (dissolve) and hides the latency note', () => {
+    const { onCommit } = renderForm({
+      initial: S3_INITIAL,
+      mirror: { candidates: ['uploads-local'], initialTargets: ['uploads-local'] },
+    });
+    fireEvent.click(screen.getByRole('checkbox', { name: 'uploads-local' }));
+    expect(screen.queryByRole('note')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    expect(onCommit).toHaveBeenCalledWith(expect.objectContaining({ name: 'off-box' }), []);
   });
 });
