@@ -41,9 +41,15 @@ turns replication off again.
 - Replica failures **never fail the original request**. They are recorded and
   shown in the **Health** strip at the top of the tab, with the backend, the
   object, the operation, and how long ago it happened. An empty strip means
-  every replicated write landed.
-- Replication starts with the next write — objects that existed before you
-  added a target are not copied to it.
+  every replicated write landed. Replica failures also notify admins — in-app
+  and over the configured webhook/ntfy/email channels (first failure
+  immediately, then at most one summary per backend per hour). Preferences
+  live in the admin Notifications tab.
+- Replication starts with the next write. To copy objects that existed before
+  you added a target, press **Sync now** on the backend's row — one sync runs
+  at a time, with progress and a cancel button; objects already present with
+  matching sizes are skipped, and per-object failures land in the Health
+  strip without stopping the run.
 
 ### Test
 
@@ -80,6 +86,14 @@ content that is re-fetchable or provider-derived.
 The legacy `/uploads/photos` directory written by older TREK versions is not
 a category: its files are still served and included in backups, but nothing
 writes there anymore and it cannot be reassigned.
+
+## Usage
+
+The Backends section shows per-backend and per-category object counts and
+sizes, scanned nightly (04:15 server time) and on demand via **Refresh**. The
+stamp shows when the numbers were computed — reassigning categories does not
+retroactively move them until the next scan. The uploads backend's total
+includes the legacy photo library.
 
 ## Secrets and encryption
 

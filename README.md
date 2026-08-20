@@ -504,13 +504,20 @@ box everything lives on local disk (`uploads/` and `data/backups`). From
   add an S3 backend, edit `backups-local`, tick the S3 backend as a mirror
   target, save. Replica writes happen one after another during each upload, so
   a slow or unreachable target slows every upload of every category on that
-  backend — fine for backups, worth weighing for hot categories.
+  backend — fine for backups, worth weighing for hot categories. Existing
+  objects are not replicated when you add a target — press **Sync now** on
+  the backend to copy them (one sync at a time; progress and cancel in the
+  panel).
 - **Watch the Health strip**: replica failures never fail the original
   request; they are recorded and shown there instead. All-clear means every
-  replicated write landed.
+  replicated write landed. Failures also notify admins over the configured
+  notification channels (first failure immediately, then hourly summaries) —
+  tune it under Admin → Notifications.
 - **Test** any backend from its row (for a replicated backend it probes the
   primary and each target individually). Targets must be saved before Test
   can probe them.
+- **Usage**: per-category and per-backend object counts and sizes, scanned
+  nightly and on demand.
 
 Storing credentialed backends requires `ENCRYPTION_KEY` to be set explicitly —
 secrets are encrypted at rest, and the panel refuses to save a plaintext
