@@ -52,6 +52,12 @@ const uk: NotificationLocale = {
       title: 'Доступна нова версія TREK',
       body: `TREK ${p.version} тепер доступний. Перейдіть до панелі адміністратора для оновлення.`,
     }),
+    replica_failure: (p) => ({
+      title: 'Storage replica failure',
+      body:
+        `Replica write failed on '${p.backend}': ${p.op} of ${p.key} — ${p.error}.` +
+        (p.suppressed !== '0' ? ` ${p.suppressed} more failures were suppressed since the last notification.` : ''),
+    }),
     synology_session_cleared: () => ({
       title: 'Сеанс Synology скинуто',
       body: 'Ваш обліковий запис або URL Synology змінився. Ви вийшли з Synology Photos.',

@@ -52,6 +52,12 @@ const hu: NotificationLocale = {
       title: 'Új TREK verzió érhető el',
       body: `A TREK ${p.version} elérhető. Látogasson el az adminisztrációs panelre a frissítéshez.`,
     }),
+    replica_failure: (p) => ({
+      title: 'Storage replica failure',
+      body:
+        `Replica write failed on '${p.backend}': ${p.op} of ${p.key} — ${p.error}.` +
+        (p.suppressed !== '0' ? ` ${p.suppressed} more failures were suppressed since the last notification.` : ''),
+    }),
     synology_session_cleared: () => ({
       title: 'Synology munkamenet törölve',
       body: 'A Synology fiókja vagy URL-je megváltozott. Kijelentkeztek a Synology Photos-ból.',

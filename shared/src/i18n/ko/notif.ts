@@ -27,6 +27,8 @@ const notif: TranslationStrings = {
   'notif.packing_tagged.text': '{actor}이(가) {trip}의 {category}에 배정했습니다',
   'notif.version_available.title': '새 버전 사용 가능',
   'notif.version_available.text': 'TREK {version}이(가) 사용 가능합니다',
+  'notif.replica_failure.title': 'Storage replica failure',
+  'notif.replica_failure.text': "Replica write failed on '{backend}': {op} of {key} — {error}",
   'notif.action.view_trip': '여행 보기',
   'notif.action.view_collab': '메시지 보기',
   'notif.action.view_packing': '짐 목록 보기',

@@ -27,6 +27,8 @@ const notif: TranslationStrings = {
   'notif.packing_tagged.text': '{actor} heeft je toegewezen aan {category} in {trip}',
   'notif.version_available.title': 'Nieuwe versie beschikbaar',
   'notif.version_available.text': 'TREK {version} is nu beschikbaar',
+  'notif.replica_failure.title': 'Storage replica failure',
+  'notif.replica_failure.text': "Replica write failed on '{backend}': {op} of {key} — {error}",
   'notif.action.view_trip': 'Reis bekijken',
   'notif.action.view_collab': 'Berichten bekijken',
   'notif.action.view_packing': 'Paklijst bekijken',

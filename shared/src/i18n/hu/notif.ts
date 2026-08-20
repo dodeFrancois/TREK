@@ -27,6 +27,8 @@ const notif: TranslationStrings = {
   'notif.packing_tagged.text': '{actor} hozzárendelte Önt a {category} kategóriához a(z) {trip} utazásban',
   'notif.version_available.title': 'Új verzió elérhető',
   'notif.version_available.text': 'A TREK {version} elérhető',
+  'notif.replica_failure.title': 'Storage replica failure',
+  'notif.replica_failure.text': "Replica write failed on '{backend}': {op} of {key} — {error}",
   'notif.action.view_trip': 'Utazás megtekintése',
   'notif.action.view_collab': 'Üzenetek megtekintése',
   'notif.action.view_packing': 'Csomagolás megtekintése',

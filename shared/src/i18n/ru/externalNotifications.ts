@@ -52,6 +52,12 @@ const ru: NotificationLocale = {
       title: 'Доступна новая версия TREK',
       body: `TREK ${p.version} теперь доступен. Перейдите в панель администратора для обновления.`,
     }),
+    replica_failure: (p) => ({
+      title: 'Storage replica failure',
+      body:
+        `Replica write failed on '${p.backend}': ${p.op} of ${p.key} — ${p.error}.` +
+        (p.suppressed !== '0' ? ` ${p.suppressed} more failures were suppressed since the last notification.` : ''),
+    }),
     synology_session_cleared: () => ({
       title: 'Сессия Synology сброшена',
       body: 'Ваш аккаунт или URL Synology изменился. Вы вышли из Synology Photos.',

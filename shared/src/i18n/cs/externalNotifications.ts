@@ -52,6 +52,12 @@ const cs: NotificationLocale = {
       title: 'Nová verze TREK dostupná',
       body: `TREK ${p.version} je nyní dostupný. Navštivte administrátorský panel pro aktualizaci.`,
     }),
+    replica_failure: (p) => ({
+      title: 'Storage replica failure',
+      body:
+        `Replica write failed on '${p.backend}': ${p.op} of ${p.key} — ${p.error}.` +
+        (p.suppressed !== '0' ? ` ${p.suppressed} more failures were suppressed since the last notification.` : ''),
+    }),
     synology_session_cleared: () => ({
       title: 'Relace Synology byla zrušena',
       body: 'Váš účet nebo URL Synology se změnil. Byli jste odhlášeni ze Synology Photos.',

@@ -39,6 +39,7 @@ export type NotifEventType =
   | 'collab_message'
   | 'packing_tagged'
   | 'version_available'
+  | 'replica_failure'
   | 'synology_session_cleared'
   | 'plugin_notification';
 
@@ -55,12 +56,13 @@ export const ALL_EVENT_TYPES: NotifEventType[] = [
   'collab_message',
   'packing_tagged',
   'version_available',
+  'replica_failure',
   'synology_session_cleared',
   'plugin_notification',
 ];
 
 /** Events that target admins only (shown in admin panel, not in user settings). */
-export const ADMIN_SCOPED_EVENTS = new Set<NotifEventType>(['version_available']);
+export const ADMIN_SCOPED_EVENTS = new Set<NotifEventType>(['version_available', 'replica_failure']);
 
 // Compile-time guard: shared NotificationEventKey and server NotifEventType must
 // stay in sync. It sits next to the union it guards — it used to live in the

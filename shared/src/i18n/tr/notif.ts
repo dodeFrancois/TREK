@@ -27,6 +27,8 @@ const notif: TranslationStrings = {
   'notif.packing_tagged.text': '{actor} sizi {trip} içinde {category} kategorisine atadı',
   'notif.version_available.title': 'Yeni Sürüm Mevcut',
   'notif.version_available.text': 'TREK {version} artık kullanılabilir',
+  'notif.replica_failure.title': 'Storage replica failure',
+  'notif.replica_failure.text': "Replica write failed on '{backend}': {op} of {key} — {error}",
   'notif.action.view_trip': 'Seyahati Görüntüle',
   'notif.action.view_collab': 'Mesajları Görüntüle',
   'notif.action.view_packing': 'Paket listesini görüntüle',

@@ -52,6 +52,12 @@ const id: NotificationLocale = {
       title: 'Versi TREK baru tersedia',
       body: `TREK ${p.version} sekarang tersedia. Kunjungi panel admin untuk memperbarui.`,
     }),
+    replica_failure: (p) => ({
+      title: 'Storage replica failure',
+      body:
+        `Replica write failed on '${p.backend}': ${p.op} of ${p.key} — ${p.error}.` +
+        (p.suppressed !== '0' ? ` ${p.suppressed} more failures were suppressed since the last notification.` : ''),
+    }),
     synology_session_cleared: () => ({
       title: 'Sesi Synology dihapus',
       body: 'Akun atau URL Synology Anda berubah. Anda telah keluar dari Synology Photos.',

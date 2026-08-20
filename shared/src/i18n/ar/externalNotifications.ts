@@ -52,6 +52,12 @@ const ar: NotificationLocale = {
       title: 'إصدار TREK جديد متاح',
       body: `TREK ${p.version} متاح الآن. تفضل بزيارة لوحة الإدارة للتحديث.`,
     }),
+    replica_failure: (p) => ({
+      title: 'Storage replica failure',
+      body:
+        `Replica write failed on '${p.backend}': ${p.op} of ${p.key} — ${p.error}.` +
+        (p.suppressed !== '0' ? ` ${p.suppressed} more failures were suppressed since the last notification.` : ''),
+    }),
     synology_session_cleared: () => ({
       title: 'تمت إعادة تعيين جلسة Synology',
       body: 'تغيّر حسابك أو رابط Synology. تم تسجيل خروجك من Synology Photos.',

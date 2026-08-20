@@ -210,6 +210,13 @@ const EVENT_NOTIFICATION_CONFIG: Record<string, EventNotifConfig> = {
     navigateTextKey: 'notif.action.view_admin',
     navigateTarget: () => '/admin',
   },
+  replica_failure: {
+    inAppType: 'navigate',
+    titleKey: 'notif.replica_failure.title',
+    textKey: 'notif.replica_failure.text',
+    navigateTextKey: 'notif.action.view',
+    navigateTarget: () => '/admin?tab=storage',
+  },
   synology_session_cleared: {
     inAppType: 'simple',
     titleKey: 'notifications.synologySessionCleared.title',

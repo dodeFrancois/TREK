@@ -27,6 +27,8 @@ const notif: TranslationStrings = {
   'notif.packing_tagged.text': '{actor} đã giao cho bạn {category} trong {trip}',
   'notif.version_available.title': 'Phiên bản mới có sẵn',
   'notif.version_available.text': 'TREK {version} hiện có sẵn',
+  'notif.replica_failure.title': 'Storage replica failure',
+  'notif.replica_failure.text': "Replica write failed on '{backend}': {op} of {key} — {error}",
   'notif.action.view_trip': 'Xem chuyến đi',
   'notif.action.view_collab': 'Xem tin nhắn',
   'notif.action.view_packing': 'Xem đóng gói',

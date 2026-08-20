@@ -52,6 +52,12 @@ const en: NotificationLocale = {
       title: 'New TREK version available',
       body: `TREK ${p.version} is now available. Visit the admin panel to update.`,
     }),
+    replica_failure: (p) => ({
+      title: 'Storage replica failure',
+      body:
+        `Replica write failed on '${p.backend}': ${p.op} of ${p.key} — ${p.error}.` +
+        (p.suppressed !== '0' ? ` ${p.suppressed} more failures were suppressed since the last notification.` : ''),
+    }),
     synology_session_cleared: () => ({
       title: 'Synology session cleared',
       body: 'Your Synology account or URL changed. You have been logged out of Synology Photos.',

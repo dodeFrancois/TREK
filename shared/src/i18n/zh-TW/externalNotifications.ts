@@ -52,6 +52,12 @@ const zhTW: NotificationLocale = {
       title: '新版 TREK 可用',
       body: `TREK ${p.version} 現已可用。請前往管理面板進行更新。`,
     }),
+    replica_failure: (p) => ({
+      title: 'Storage replica failure',
+      body:
+        `Replica write failed on '${p.backend}': ${p.op} of ${p.key} — ${p.error}.` +
+        (p.suppressed !== '0' ? ` ${p.suppressed} more failures were suppressed since the last notification.` : ''),
+    }),
     synology_session_cleared: () => ({
       title: 'Synology 工作階段已清除',
       body: '您的 Synology 帳戶或 URL 已變更，您已登出 Synology Photos。',

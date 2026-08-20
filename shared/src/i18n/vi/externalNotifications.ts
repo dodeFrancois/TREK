@@ -52,6 +52,12 @@ const en: NotificationLocale = {
       title: 'Đã có phiên bản TREK mới',
       body: `TREK ${p.version} có bản mới. Vui lòng truy cập bảng điều khiển quản trị để cập nhật.`,
     }),
+    replica_failure: (p) => ({
+      title: 'Storage replica failure',
+      body:
+        `Replica write failed on '${p.backend}': ${p.op} of ${p.key} — ${p.error}.` +
+        (p.suppressed !== '0' ? ` ${p.suppressed} more failures were suppressed since the last notification.` : ''),
+    }),
     synology_session_cleared: () => ({
       title: 'Đã xóa phiên Synology',
       body: 'Tài khoản Synology của bạn hoặc URL đã thay đổi. Bạn đã đăng xuất khỏi Synology Photos.',

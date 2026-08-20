@@ -52,6 +52,12 @@ const nl: NotificationLocale = {
       title: 'Nieuwe TREK-versie beschikbaar',
       body: `TREK ${p.version} is nu beschikbaar. Bezoek het beheerderspaneel om bij te werken.`,
     }),
+    replica_failure: (p) => ({
+      title: 'Storage replica failure',
+      body:
+        `Replica write failed on '${p.backend}': ${p.op} of ${p.key} — ${p.error}.` +
+        (p.suppressed !== '0' ? ` ${p.suppressed} more failures were suppressed since the last notification.` : ''),
+    }),
     synology_session_cleared: () => ({
       title: 'Synology-sessie gewist',
       body: 'Je Synology-account of URL is gewijzigd. Je bent uitgelogd bij Synology Photos.',

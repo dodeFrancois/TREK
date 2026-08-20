@@ -52,6 +52,12 @@ const br: NotificationLocale = {
       title: 'Nova versão do TREK disponível',
       body: `O TREK ${p.version} está disponível. Acesse o painel de administração para atualizar.`,
     }),
+    replica_failure: (p) => ({
+      title: 'Storage replica failure',
+      body:
+        `Replica write failed on '${p.backend}': ${p.op} of ${p.key} — ${p.error}.` +
+        (p.suppressed !== '0' ? ` ${p.suppressed} more failures were suppressed since the last notification.` : ''),
+    }),
     synology_session_cleared: () => ({
       title: 'Sessão Synology encerrada',
       body: 'Sua conta ou URL do Synology foi alterada. Você foi desconectado do Synology Photos.',

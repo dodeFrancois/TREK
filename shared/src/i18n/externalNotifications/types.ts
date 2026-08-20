@@ -33,6 +33,7 @@ export type NotificationEventKey =
   | 'collab_message'
   | 'packing_tagged'
   | 'version_available'
+  | 'replica_failure'
   | 'synology_session_cleared'
   | 'plugin_notification';
 
