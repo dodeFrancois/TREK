@@ -73,5 +73,22 @@ const storage: TranslationStrings = {
   'storage.health.seedFile':
     "È presente un file seed storage-config.json ma viene ignorato — esistono già righe di configurazione. Gestisci l'archiviazione qui.",
   'storage.health.failureLine': '{op} di {key} su {backend} non riuscito: {error}',
+
+  // Replicas-on-primary mirror UX (2026-08-20 spec)
+  'storage.mirror.targets': 'Destinazioni mirror',
+  'storage.mirror.targetsHelp':
+    'Ogni scrittura su questo backend viene copiata anche su ogni destinazione selezionata.',
+  'storage.mirror.latencyNote':
+    "Le repliche vengono scritte una dopo l'altra durante ogni caricamento — una destinazione lenta o irraggiungibile rallenta ogni caricamento di ogni categoria su questo backend.",
+  'storage.mirror.mirroredTo': 'Rispecchiato su: {targets}',
+  'storage.mirror.replicaOf': 'Replica di: {primaries}',
+  'storage.mirror.cacheWarning':
+    'Non consigliato: questa categoria contiene contenuti riottenibili — replicarli è di solito uno spreco.',
+  'storage.mirror.degenerate.duplicate-mirror':
+    'Un secondo mirror avvolge {primary} — il pannello gestisce solo il primo; rimuovi questo per gestire il mirroring da {primary}.',
+  'storage.mirror.degenerate.env-primary':
+    "Avvolge un backend definito da una variabile d'ambiente — non modificabile qui.",
+  'storage.mirror.degenerate.missing-primary': 'Fa riferimento a un backend che non esiste più.',
+  'storage.remove.usedAsReplicaBy': 'Usato come replica da: {primaries}',
 };
 export default storage;

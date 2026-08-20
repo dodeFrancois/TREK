@@ -71,5 +71,20 @@ const storage: TranslationStrings = {
   'storage.health.seedFile':
     'يوجد ملف بذرة storage-config.json لكن يتم تجاهله — صفوف الإعدادات موجودة بالفعل. أدر التخزين من هنا.',
   'storage.health.failureLine': 'فشلت عملية {op} لـ {key} على {backend}: {error}',
+
+  // Replicas-on-primary mirror UX (2026-08-20 spec)
+  'storage.mirror.targets': 'أهداف المرآة',
+  'storage.mirror.targetsHelp': 'كل عملية كتابة على هذه الواجهة الخلفية تُنسخ أيضًا إلى كل هدف محدد.',
+  'storage.mirror.latencyNote':
+    'تُكتب النسخ المتماثلة واحدة تلو الأخرى أثناء كل عملية رفع — أي هدف بطيء أو يتعذّر الوصول إليه يُبطئ كل عملية رفع لكل فئة على هذه الواجهة الخلفية.',
+  'storage.mirror.mirroredTo': 'معكوسة إلى: {targets}',
+  'storage.mirror.replicaOf': 'نسخة من: {primaries}',
+  'storage.mirror.cacheWarning':
+    'غير مستحسن: تحتوي هذه الفئة على محتوى قابل لإعادة الجلب — نسخه عادةً ما يكون مضيعة للموارد.',
+  'storage.mirror.degenerate.duplicate-mirror':
+    'مرآة ثانية تُغلّف {primary} — تُدير اللوحة الأولى فقط؛ أزل هذه لإدارة المرآة من {primary}.',
+  'storage.mirror.degenerate.env-primary': 'تُغلّف واجهة خلفية معرّفة بواسطة متغيّر بيئة — غير قابلة للتعديل هنا.',
+  'storage.mirror.degenerate.missing-primary': 'تشير إلى واجهة خلفية لم تعد موجودة.',
+  'storage.remove.usedAsReplicaBy': 'مستخدَمة كنسخة متماثلة بواسطة: {primaries}',
 };
 export default storage;

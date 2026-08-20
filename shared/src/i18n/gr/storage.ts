@@ -73,5 +73,21 @@ const storage: TranslationStrings = {
   'storage.health.seedFile':
     'Υπάρχει αρχείο seed storage-config.json αλλά αγνοείται — υπάρχουν ήδη γραμμές ρύθμισης. Διαχειρίσου την αποθήκευση εδώ.',
   'storage.health.failureLine': '{op} του {key} στο {backend} απέτυχε: {error}',
+
+  // Replicas-on-primary mirror UX (2026-08-20 spec)
+  'storage.mirror.targets': 'Στόχοι καθρέφτη',
+  'storage.mirror.targetsHelp': 'Κάθε εγγραφή σε αυτό το backend αντιγράφεται επίσης σε κάθε επιλεγμένο στόχο.',
+  'storage.mirror.latencyNote':
+    'Τα αντίγραφα γράφονται το ένα μετά το άλλο σε κάθε μεταφόρτωση — ένας αργός ή μη προσβάσιμος στόχος επιβραδύνει κάθε μεταφόρτωση κάθε κατηγορίας σε αυτό το backend.',
+  'storage.mirror.mirroredTo': 'Αντικατοπτρίζεται σε: {targets}',
+  'storage.mirror.replicaOf': 'Αντίγραφο του: {primaries}',
+  'storage.mirror.cacheWarning':
+    'Δεν συνιστάται: αυτή η κατηγορία περιέχει περιεχόμενο που μπορεί να ανακτηθεί ξανά — η αναπαραγωγή του είναι συνήθως σπατάλη.',
+  'storage.mirror.degenerate.duplicate-mirror':
+    'Ένας δεύτερος καθρέφτης τυλίγει το {primary} — ο πίνακας διαχειρίζεται μόνο τον πρώτο· αφαίρεσε αυτόν για να διαχειριστείς την αντικατοπτρισμό από το {primary}.',
+  'storage.mirror.degenerate.env-primary':
+    'Τυλίγει ένα backend που ορίζεται από μεταβλητή περιβάλλοντος — δεν επεξεργάζεται εδώ.',
+  'storage.mirror.degenerate.missing-primary': 'Αναφέρεται σε ένα backend που δεν υπάρχει πια.',
+  'storage.remove.usedAsReplicaBy': 'Χρησιμοποιείται ως αντίγραφο από: {primaries}',
 };
 export default storage;

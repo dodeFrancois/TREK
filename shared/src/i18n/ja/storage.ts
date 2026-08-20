@@ -71,5 +71,20 @@ const storage: TranslationStrings = {
   'storage.health.seedFile':
     'storage-config.jsonのシードファイルが存在しますが無視されます — 設定行は既に存在します。ここでストレージを管理してください。',
   'storage.health.failureLine': '{backend}での{key}の{op}が失敗しました: {error}',
+
+  // Replicas-on-primary mirror UX (2026-08-20 spec)
+  'storage.mirror.targets': 'ミラー先',
+  'storage.mirror.targetsHelp': 'このバックエンドへの書き込みは、選択した各ターゲットにもコピーされます。',
+  'storage.mirror.latencyNote':
+    'レプリカは各アップロード中に順番に書き込まれます — 遅いターゲットや到達不能なターゲットがあると、このバックエンド上のすべてのカテゴリのすべてのアップロードが遅くなります。',
+  'storage.mirror.mirroredTo': 'ミラー先: {targets}',
+  'storage.mirror.replicaOf': 'レプリカ元: {primaries}',
+  'storage.mirror.cacheWarning': '非推奨: このカテゴリは再取得可能なコンテンツを保持しています — 複製は通常無駄です。',
+  'storage.mirror.degenerate.duplicate-mirror':
+    '2つ目のミラーが{primary}をラップしています — パネルは最初のものだけを管理します。{primary}からのミラーリングを管理するには、これを削除してください。',
+  'storage.mirror.degenerate.env-primary':
+    '環境変数で定義されたバックエンドをラップしています — ここでは編集できません。',
+  'storage.mirror.degenerate.missing-primary': 'もう存在しないバックエンドを参照しています。',
+  'storage.remove.usedAsReplicaBy': 'レプリカとして使用中: {primaries}',
 };
 export default storage;

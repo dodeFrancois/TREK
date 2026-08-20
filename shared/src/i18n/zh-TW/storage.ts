@@ -68,5 +68,18 @@ const storage: TranslationStrings = {
   'storage.health.allClear': '未記錄任何複本失敗。',
   'storage.health.seedFile': '存在 storage-config.json 種子檔案但已被忽略 — 設定資料列已存在。請在此管理儲存。',
   'storage.health.failureLine': '{backend} 上 {key} 的 {op} 失敗：{error}',
+
+  // Replicas-on-primary mirror UX (2026-08-20 spec)
+  'storage.mirror.targets': '鏡像目標',
+  'storage.mirror.targetsHelp': '對此後端的每次寫入也會複製到每個選定的目標。',
+  'storage.mirror.latencyNote': '每次上傳時，複本會依序寫入 — 緩慢或無法連線的目標會拖慢此後端上每個分類的每次上傳。',
+  'storage.mirror.mirroredTo': '已鏡像至：{targets}',
+  'storage.mirror.replicaOf': '複本來源：{primaries}',
+  'storage.mirror.cacheWarning': '不建議：此分類儲存的是可重新取得的內容 — 複製它通常是浪費的。',
+  'storage.mirror.degenerate.duplicate-mirror':
+    '第二個鏡像包覆了 {primary} — 面板僅管理第一個；移除此項以從 {primary} 管理鏡像。',
+  'storage.mirror.degenerate.env-primary': '包覆了一個由環境變數定義的後端 — 此處不可編輯。',
+  'storage.mirror.degenerate.missing-primary': '參照了一個已不存在的後端。',
+  'storage.remove.usedAsReplicaBy': '被用作複本，使用者：{primaries}',
 };
 export default storage;

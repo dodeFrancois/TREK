@@ -71,5 +71,20 @@ const storage: TranslationStrings = {
   'storage.health.seedFile':
     'Je přítomen seed soubor storage-config.json, ale je ignorován — konfigurační řádky již existují. Spravujte úložiště zde.',
   'storage.health.failureLine': '{op} u {key} na {backend} selhalo: {error}',
+
+  // Replicas-on-primary mirror UX (2026-08-20 spec)
+  'storage.mirror.targets': 'Cíle zrcadla',
+  'storage.mirror.targetsHelp': 'Každý zápis do tohoto backendu se také zkopíruje do každého vybraného cíle.',
+  'storage.mirror.latencyNote':
+    'Repliky se zapisují jedna po druhé během každého nahrávání — pomalý nebo nedostupný cíl zpomalí každé nahrávání každé kategorie na tomto backendu.',
+  'storage.mirror.mirroredTo': 'Zrcadleno do: {targets}',
+  'storage.mirror.replicaOf': 'Replika: {primaries}',
+  'storage.mirror.cacheWarning':
+    'Nedoporučeno: tato kategorie obsahuje znovu získatelný obsah — jeho replikace je obvykle zbytečná.',
+  'storage.mirror.degenerate.duplicate-mirror':
+    'Druhé zrcadlo obaluje {primary} — panel spravuje pouze první; odeberte toto pro správu zrcadlení z {primary}.',
+  'storage.mirror.degenerate.env-primary': 'Obaluje backend definovaný proměnnou prostředí — zde needitovatelné.',
+  'storage.mirror.degenerate.missing-primary': 'Odkazuje na backend, který již neexistuje.',
+  'storage.remove.usedAsReplicaBy': 'Používáno jako replika: {primaries}',
 };
 export default storage;

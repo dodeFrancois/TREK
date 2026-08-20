@@ -73,5 +73,21 @@ const storage: TranslationStrings = {
   'storage.health.seedFile':
     'Egy storage-config.json seed fájl jelen van, de figyelmen kívül marad — konfigurációs sorok már léteznek. A tárhelyet itt kezelheted.',
   'storage.health.failureLine': '{op} sikertelen: {key} ezen: {backend} — {error}',
+
+  // Replicas-on-primary mirror UX (2026-08-20 spec)
+  'storage.mirror.targets': 'Tükör célok',
+  'storage.mirror.targetsHelp': 'Az ebbe a backendbe történő minden írás minden kiválasztott célra is átmásolódik.',
+  'storage.mirror.latencyNote':
+    'A replikák egymás után íródnak minden feltöltés során — egy lassú vagy elérhetetlen cél lelassítja e backend minden kategóriájának minden feltöltését.',
+  'storage.mirror.mirroredTo': 'Tükrözve ide: {targets}',
+  'storage.mirror.replicaOf': 'Replika innen: {primaries}',
+  'storage.mirror.cacheWarning':
+    'Nem ajánlott: ez a kategória újra lekérhető tartalmat tartalmaz — a replikálása általában felesleges.',
+  'storage.mirror.degenerate.duplicate-mirror':
+    'Egy második tükör veszi körül a(z) {primary} elemet — a panel csak az elsőt kezeli; távolítsd el ezt, hogy a tükrözést a(z) {primary} elemtől kezelhesd.',
+  'storage.mirror.degenerate.env-primary':
+    'Egy környezeti változóval definiált backendet vesz körül — itt nem szerkeszthető.',
+  'storage.mirror.degenerate.missing-primary': 'Egy már nem létező backendre hivatkozik.',
+  'storage.remove.usedAsReplicaBy': 'Replikaként használja: {primaries}',
 };
 export default storage;

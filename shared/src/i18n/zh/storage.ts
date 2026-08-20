@@ -68,5 +68,18 @@ const storage: TranslationStrings = {
   'storage.health.allClear': '未记录任何副本故障。',
   'storage.health.seedFile': '存在 storage-config.json 种子文件但已被忽略 — 配置行已存在。请在此管理存储。',
   'storage.health.failureLine': '{backend} 上 {key} 的 {op} 失败：{error}',
+
+  // Replicas-on-primary mirror UX (2026-08-20 spec)
+  'storage.mirror.targets': '镜像目标',
+  'storage.mirror.targetsHelp': '对该后端的每次写入也会复制到每个选定的目标。',
+  'storage.mirror.latencyNote': '每次上传时，副本会依次写入 — 缓慢或无法访问的目标会拖慢该后端上每个分类的每次上传。',
+  'storage.mirror.mirroredTo': '已镜像至：{targets}',
+  'storage.mirror.replicaOf': '副本来源：{primaries}',
+  'storage.mirror.cacheWarning': '不建议：此分类保存的是可重新获取的内容 — 复制它通常是浪费的。',
+  'storage.mirror.degenerate.duplicate-mirror':
+    '第二个镜像包裹了 {primary} — 面板仅管理第一个；移除此项以从 {primary} 管理镜像。',
+  'storage.mirror.degenerate.env-primary': '包裹了一个由环境变量定义的后端 — 此处不可编辑。',
+  'storage.mirror.degenerate.missing-primary': '引用了一个已不存在的后端。',
+  'storage.remove.usedAsReplicaBy': '被用作副本，使用者：{primaries}',
 };
 export default storage;

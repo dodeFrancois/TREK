@@ -72,5 +72,20 @@ const storage: TranslationStrings = {
   'storage.health.seedFile':
     'En storage-config.json-startfil finns men ignoreras — konfigurationsrader finns redan. Hantera lagringen här.',
   'storage.health.failureLine': '{op} av {key} på {backend} misslyckades: {error}',
+
+  // Replicas-on-primary mirror UX (2026-08-20 spec)
+  'storage.mirror.targets': 'Spegelmål',
+  'storage.mirror.targetsHelp': 'Varje skrivning till denna backend kopieras även till varje valt mål.',
+  'storage.mirror.latencyNote':
+    'Repliker skrivs en efter en under varje uppladdning — ett långsamt eller onåbart mål saktar ner varje uppladdning av varje kategori på denna backend.',
+  'storage.mirror.mirroredTo': 'Speglad till: {targets}',
+  'storage.mirror.replicaOf': 'Replik av: {primaries}',
+  'storage.mirror.cacheWarning':
+    'Rekommenderas inte: denna kategori innehåller innehåll som kan hämtas på nytt — att replikera det är oftast slöseri.',
+  'storage.mirror.degenerate.duplicate-mirror':
+    'En andra spegel omsluter {primary} — panelen hanterar bara den första; ta bort den här för att hantera spegling från {primary}.',
+  'storage.mirror.degenerate.env-primary': 'Omsluter en backend definierad av en miljövariabel — inte redigerbar här.',
+  'storage.mirror.degenerate.missing-primary': 'Refererar till en backend som inte längre finns.',
+  'storage.remove.usedAsReplicaBy': 'Används som replik av: {primaries}',
 };
 export default storage;

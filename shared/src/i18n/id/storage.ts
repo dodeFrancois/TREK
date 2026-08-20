@@ -73,5 +73,21 @@ const storage: TranslationStrings = {
   'storage.health.seedFile':
     'File seed storage-config.json ada tetapi diabaikan — baris konfigurasi sudah ada. Kelola penyimpanan di sini.',
   'storage.health.failureLine': '{op} pada {key} di {backend} gagal: {error}',
+
+  // Replicas-on-primary mirror UX (2026-08-20 spec)
+  'storage.mirror.targets': 'Target cermin',
+  'storage.mirror.targetsHelp': 'Setiap penulisan ke backend ini juga disalin ke setiap target yang dipilih.',
+  'storage.mirror.latencyNote':
+    'Replika ditulis satu per satu selama setiap unggahan — target yang lambat atau tidak terjangkau memperlambat setiap unggahan setiap kategori pada backend ini.',
+  'storage.mirror.mirroredTo': 'Dicerminkan ke: {targets}',
+  'storage.mirror.replicaOf': 'Replika dari: {primaries}',
+  'storage.mirror.cacheWarning':
+    'Tidak disarankan: kategori ini menyimpan konten yang dapat diambil ulang — mereplikasinya biasanya sia-sia.',
+  'storage.mirror.degenerate.duplicate-mirror':
+    'Cermin kedua membungkus {primary} — panel hanya mengelola yang pertama; hapus yang ini untuk mengelola pencerminan dari {primary}.',
+  'storage.mirror.degenerate.env-primary':
+    'Membungkus backend yang ditentukan oleh variabel lingkungan — tidak dapat diedit di sini.',
+  'storage.mirror.degenerate.missing-primary': 'Merujuk ke backend yang sudah tidak ada.',
+  'storage.remove.usedAsReplicaBy': 'Digunakan sebagai replika oleh: {primaries}',
 };
 export default storage;

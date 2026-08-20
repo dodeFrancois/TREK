@@ -73,5 +73,20 @@ const storage: TranslationStrings = {
   'storage.health.seedFile':
     'Присутній файл-заготовка storage-config.json, але він ігнорується — рядки конфігурації вже існують. Керуйте сховищем тут.',
   'storage.health.failureLine': '{op} для {key} на {backend} не вдалося: {error}',
+
+  // Replicas-on-primary mirror UX (2026-08-20 spec)
+  'storage.mirror.targets': 'Цілі дзеркала',
+  'storage.mirror.targetsHelp': 'Кожен запис у цей бекенд також копіюється в кожну вибрану ціль.',
+  'storage.mirror.latencyNote':
+    'Репліки записуються одна за одною під час кожного завантаження — повільна або недоступна ціль сповільнює кожне завантаження кожної категорії на цьому бекенді.',
+  'storage.mirror.mirroredTo': 'Дзеркалюється в: {targets}',
+  'storage.mirror.replicaOf': 'Репліка з: {primaries}',
+  'storage.mirror.cacheWarning':
+    'Не рекомендується: ця категорія містить контент, який можна отримати повторно — його реплікація зазвичай марна.',
+  'storage.mirror.degenerate.duplicate-mirror':
+    'Друге дзеркало обгортає {primary} — панель керує лише першим; вилучіть це, щоб керувати дзеркалюванням від {primary}.',
+  'storage.mirror.degenerate.env-primary': 'Обгортає бекенд, визначений змінною середовища — тут не редагується.',
+  'storage.mirror.degenerate.missing-primary': 'Посилається на бекенд, якого більше не існує.',
+  'storage.remove.usedAsReplicaBy': 'Використовується як репліка: {primaries}',
 };
 export default storage;

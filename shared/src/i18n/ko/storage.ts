@@ -71,5 +71,20 @@ const storage: TranslationStrings = {
   'storage.health.seedFile':
     'storage-config.json 시드 파일이 있지만 무시됩니다 — 구성 행이 이미 존재합니다. 여기에서 스토리지를 관리하세요.',
   'storage.health.failureLine': '{backend}에서 {key}의 {op}이(가) 실패했습니다: {error}',
+
+  // Replicas-on-primary mirror UX (2026-08-20 spec)
+  'storage.mirror.targets': '미러 대상',
+  'storage.mirror.targetsHelp': '이 백엔드에 대한 모든 쓰기는 선택된 각 대상에도 복사됩니다.',
+  'storage.mirror.latencyNote':
+    '복제본은 업로드할 때마다 순차적으로 기록됩니다 — 느리거나 접근할 수 없는 대상이 있으면 이 백엔드의 모든 카테고리의 모든 업로드가 느려집니다.',
+  'storage.mirror.mirroredTo': '미러링 대상: {targets}',
+  'storage.mirror.replicaOf': '복제본 출처: {primaries}',
+  'storage.mirror.cacheWarning':
+    '권장하지 않음: 이 카테고리는 다시 가져올 수 있는 콘텐츠를 포함합니다 — 복제하는 것은 대개 낭비입니다.',
+  'storage.mirror.degenerate.duplicate-mirror':
+    '두 번째 미러가 {primary}을(를) 감싸고 있습니다 — 패널은 첫 번째만 관리합니다. {primary}에서 미러링을 관리하려면 이것을 제거하세요.',
+  'storage.mirror.degenerate.env-primary': '환경 변수로 정의된 백엔드를 감싸고 있습니다 — 여기서는 편집할 수 없습니다.',
+  'storage.mirror.degenerate.missing-primary': '더 이상 존재하지 않는 백엔드를 참조합니다.',
+  'storage.remove.usedAsReplicaBy': '다음의 복제본으로 사용됨: {primaries}',
 };
 export default storage;

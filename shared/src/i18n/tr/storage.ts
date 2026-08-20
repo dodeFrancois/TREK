@@ -72,5 +72,21 @@ const storage: TranslationStrings = {
   'storage.health.seedFile':
     'Bir storage-config.json tohum dosyası mevcut ama yok sayılıyor — yapılandırma satırları zaten var. Depolamayı buradan yönetin.',
   'storage.health.failureLine': '{backend} üzerinde {key} için {op} başarısız oldu: {error}',
+
+  // Replicas-on-primary mirror UX (2026-08-20 spec)
+  'storage.mirror.targets': 'Ayna hedefleri',
+  'storage.mirror.targetsHelp': 'Bu arka uca yapılan her yazma, seçilen her hedefe de kopyalanır.',
+  'storage.mirror.latencyNote':
+    'Kopyalar her yüklemede sırayla yazılır — yavaş veya erişilemeyen bir hedef, bu arka uçtaki her kategorinin her yüklemesini yavaşlatır.',
+  'storage.mirror.mirroredTo': 'Şuraya aynalandı: {targets}',
+  'storage.mirror.replicaOf': 'Şunun kopyası: {primaries}',
+  'storage.mirror.cacheWarning':
+    'Önerilmez: bu kategori yeniden alınabilir içerik barındırıyor — bunu çoğaltmak genellikle israftır.',
+  'storage.mirror.degenerate.duplicate-mirror':
+    'İkinci bir ayna {primary} öğesini sarmalıyor — panel yalnızca ilkini yönetir; {primary} üzerinden aynalamayı yönetmek için bunu kaldırın.',
+  'storage.mirror.degenerate.env-primary':
+    'Ortam değişkeniyle tanımlanmış bir arka ucu sarmalıyor — burada düzenlenemez.',
+  'storage.mirror.degenerate.missing-primary': 'Artık var olmayan bir arka uca başvuruyor.',
+  'storage.remove.usedAsReplicaBy': 'Kopya olarak kullanan: {primaries}',
 };
 export default storage;

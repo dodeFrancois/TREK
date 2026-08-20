@@ -72,5 +72,21 @@ const storage: TranslationStrings = {
   'storage.health.seedFile':
     "Hi ha un fitxer llavor storage-config.json present però s'ignora — ja existeixen files de configuració. Gestiona l'emmagatzematge aquí.",
   'storage.health.failureLine': '{op} de {key} a {backend} ha fallat: {error}',
+
+  // Replicas-on-primary mirror UX (2026-08-20 spec)
+  'storage.mirror.targets': 'Objectius del mirall',
+  'storage.mirror.targetsHelp': 'Cada escriptura en aquest backend també es copia a cada objectiu seleccionat.',
+  'storage.mirror.latencyNote':
+    "Les rèpliques s'escriuen una després de l'altra durant cada pujada — un objectiu lent o inabastable alenteix cada pujada de cada categoria en aquest backend.",
+  'storage.mirror.mirroredTo': 'Reflectit a: {targets}',
+  'storage.mirror.replicaOf': 'Rèplica de: {primaries}',
+  'storage.mirror.cacheWarning':
+    'No recomanat: aquesta categoria conté contingut que es pot tornar a obtenir — replicar-lo sol ser un malbaratament.',
+  'storage.mirror.degenerate.duplicate-mirror':
+    "Un segon mirall embolcalla {primary} — el panell només gestiona el primer; elimina'l per gestionar el mirall des de {primary}.",
+  'storage.mirror.degenerate.env-primary':
+    "Embolcalla un backend definit per una variable d'entorn — no editable aquí.",
+  'storage.mirror.degenerate.missing-primary': 'Fa referència a un backend que ja no existeix.',
+  'storage.remove.usedAsReplicaBy': 'Utilitzat com a rèplica per: {primaries}',
 };
 export default storage;

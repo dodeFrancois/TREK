@@ -72,5 +72,21 @@ const storage: TranslationStrings = {
   'storage.health.seedFile':
     'Có tệp khởi tạo storage-config.json nhưng bị bỏ qua — các dòng cấu hình đã tồn tại. Quản lý lưu trữ tại đây.',
   'storage.health.failureLine': '{op} của {key} trên {backend} thất bại: {error}',
+
+  // Replicas-on-primary mirror UX (2026-08-20 spec)
+  'storage.mirror.targets': 'Đích của bản sao gương',
+  'storage.mirror.targetsHelp': 'Mọi thao tác ghi vào backend này cũng được sao chép đến từng đích đã chọn.',
+  'storage.mirror.latencyNote':
+    'Các bản sao được ghi lần lượt trong mỗi lần tải lên — một đích chậm hoặc không thể truy cập sẽ làm chậm mọi lần tải lên của mọi danh mục trên backend này.',
+  'storage.mirror.mirroredTo': 'Được nhân bản đến: {targets}',
+  'storage.mirror.replicaOf': 'Bản sao của: {primaries}',
+  'storage.mirror.cacheWarning':
+    'Không khuyến nghị: danh mục này chứa nội dung có thể lấy lại được — sao chép nó thường là lãng phí.',
+  'storage.mirror.degenerate.duplicate-mirror':
+    'Một bản sao gương thứ hai bao quanh {primary} — bảng điều khiển chỉ quản lý bản đầu tiên; hãy xóa mục này để quản lý việc nhân bản từ {primary}.',
+  'storage.mirror.degenerate.env-primary':
+    'Bao quanh một backend được xác định bởi biến môi trường — không thể chỉnh sửa tại đây.',
+  'storage.mirror.degenerate.missing-primary': 'Tham chiếu đến một backend không còn tồn tại.',
+  'storage.remove.usedAsReplicaBy': 'Được dùng làm bản sao bởi: {primaries}',
 };
 export default storage;

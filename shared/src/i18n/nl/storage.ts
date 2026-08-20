@@ -73,5 +73,21 @@ const storage: TranslationStrings = {
   'storage.health.seedFile':
     'Er is een storage-config.json seedbestand aanwezig maar dit wordt genegeerd — configuratierijen bestaan al. Beheer de opslag hier.',
   'storage.health.failureLine': '{op} van {key} op {backend} mislukt: {error}',
+
+  // Replicas-on-primary mirror UX (2026-08-20 spec)
+  'storage.mirror.targets': 'Mirrordoelen',
+  'storage.mirror.targetsHelp': 'Elke schrijfactie naar deze backend wordt ook gekopieerd naar elk geselecteerd doel.',
+  'storage.mirror.latencyNote':
+    "Replica's worden bij elke upload één voor één geschreven — een traag of onbereikbaar doel vertraagt elke upload van elke categorie op deze backend.",
+  'storage.mirror.mirroredTo': 'Gespiegeld naar: {targets}',
+  'storage.mirror.replicaOf': 'Replica van: {primaries}',
+  'storage.mirror.cacheWarning':
+    'Niet aanbevolen: deze categorie bevat opnieuw ophaalbare inhoud — repliceren is meestal verspilling.',
+  'storage.mirror.degenerate.duplicate-mirror':
+    'Een tweede mirror omhult {primary} — het paneel beheert alleen de eerste; verwijder deze om spiegeling vanaf {primary} te beheren.',
+  'storage.mirror.degenerate.env-primary':
+    'Omhult een backend die door een omgevingsvariabele is gedefinieerd — hier niet bewerkbaar.',
+  'storage.mirror.degenerate.missing-primary': 'Verwijst naar een backend die niet meer bestaat.',
+  'storage.remove.usedAsReplicaBy': 'Gebruikt als replica door: {primaries}',
 };
 export default storage;
