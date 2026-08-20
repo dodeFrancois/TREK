@@ -51,7 +51,21 @@ export function useStorageAdmin(genericError: string): StorageAdmin {
     dirtyRef.current = dirty
   }, [dirty])
 
+  // Read imperatively at refreshState's resolve time so a poll GET that was
+  // in flight when a save started never applies after the save's own state.
+  const savingRef = useRef(saving)
+  useEffect(() => {
+    savingRef.current = saving
+  }, [saving])
+
+  // Bumped by every deliberate state application (initial load, save
+  // success). A refreshState() call captures the seq before its GET and
+  // drops the response if the seq moved on — i.e. a save applied its own
+  // fresher state — while that GET was in flight.
+  const stateSeq = useRef(0)
+
   const applyState = useCallback((next: StorageAdminState) => {
+    stateSeq.current += 1
     setState(next)
     setDraftState(settingsDocumentOf(next))
     setDirty(false)
@@ -118,8 +132,16 @@ export function useStorageAdmin(genericError: string): StorageAdmin {
   // `draft` when the operator has no unsaved edits in flight — never touches
   // `dirty`/`saveError`, so a running poll cannot clobber a dirty draft or
   // mask a pending save error.
+  //
+  // Race guard: a poll GET issued before a save's PUT resolves can resolve
+  // AFTER the save applied its own (fresher) response, overwriting it with
+  // the pre-save world. Capture the state-application sequence number before
+  // the await and drop the response if it moved on, or if a save is
+  // in-flight/just landed (read via a ref so it's current at resolve time).
   const refreshState = useCallback(async (): Promise<void> => {
+    const seq = stateSeq.current
     const next = await adminApi.getStorage()
+    if (stateSeq.current !== seq || savingRef.current) return
     setState(next)
     if (!dirtyRef.current) setDraftState(settingsDocumentOf(next))
   }, [])
@@ -140,7 +162,7 @@ export function useStorageAdmin(genericError: string): StorageAdmin {
     async (mirrorName: string): Promise<string | null> => {
       try {
         await adminApi.startStorageBackfill(mirrorName)
-        void refreshState()
+        void refreshState().catch(() => {})
         return null
       } catch (err: unknown) {
         return getApiErrorMessage(err, genericError)
@@ -153,7 +175,7 @@ export function useStorageAdmin(genericError: string): StorageAdmin {
     async (mirrorName: string): Promise<string | null> => {
       try {
         await adminApi.cancelStorageBackfill(mirrorName)
-        void refreshState()
+        void refreshState().catch(() => {})
         return null
       } catch (err: unknown) {
         return getApiErrorMessage(err, genericError)

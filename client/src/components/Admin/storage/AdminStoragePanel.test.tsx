@@ -441,4 +441,50 @@ describe('AdminStoragePanel', () => {
     expect(screen.getByText('Unsaved changes')).toBeInTheDocument();
     expect(within(categoryRow('files')).getByText(/Existing objects do not move/)).toBeInTheDocument();
   });
+
+  it('FE-ADMIN-STOR-024: a poll GET that resolves after a save must not overwrite the saved state', async () => {
+    const runningState = mirroredState();
+    (runningState as StorageAdminState).backfills = [
+      { backend: 'mirror', status: 'running', done: 1, total: 5, copied: 1, skipped: 0, failed: 0, startedAt: 1 },
+    ];
+    await renderPanel(runningState);
+
+    // Stub GET with a deferred response: the poll that fires next is held
+    // open (simulating a slow GET issued before the save's PUT resolves)
+    // until the test releases it explicitly, after the save has landed.
+    let releaseStalePoll!: () => void;
+    server.use(
+      http.get('/api/admin/storage', () => {
+        return new Promise<Response>((resolve) => {
+          releaseStalePoll = () => resolve(HttpResponse.json(runningState) as unknown as Response);
+        });
+      }),
+    );
+    // Wait for the 50ms interval to fire and get stuck on the deferred GET.
+    await waitFor(() => expect(releaseStalePoll).toBeDefined());
+
+    // The save's own PUT lands a distinct, fresh world: files reassigned to
+    // off-box, backfill finished. This must be what the panel shows.
+    const savedState = mirroredState();
+    savedState.categories.files = { backend: 'off-box', source: 'settings' };
+    server.use(
+      http.put('/api/admin/storage', async ({ request }) => {
+        await request.json();
+        return HttpResponse.json(savedState);
+      }),
+    );
+    fireEvent.click(within(categoryRow('files')).getByText('uploads-local (default)'));
+    const choices = screen.getAllByText('off-box');
+    fireEvent.click(choices[choices.length - 1]!);
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    await screen.findByText('Storage configuration saved');
+    expect(within(categoryRow('files')).getByText('off-box')).toBeInTheDocument();
+
+    // Now let the stale poll (issued before the save, carrying the pre-save
+    // world) resolve. It must be dropped, not applied over the save.
+    releaseStalePoll();
+    await new Promise((r) => setTimeout(r, 150));
+    expect(within(categoryRow('files')).getByText('off-box')).toBeInTheDocument();
+    expect(within(categoryRow('files')).queryByText('uploads-local')).not.toBeInTheDocument();
+  });
 });
