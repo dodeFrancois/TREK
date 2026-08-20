@@ -213,6 +213,7 @@ const admin: TranslationStrings = {
   'admin.packingTemplates.saveError': 'Αποτυχία αποθήκευσης',
   'admin.tabs.addons': 'Πρόσθετα',
   'admin.tabs.plugins': 'Plugins',
+  'admin.tabs.storage': 'Αποθήκευση',
   'admin.plugins.rescan': 'Επανασάρωση',
   'admin.plugins.rescanned': 'Ο φάκελος plugins σαρώθηκε ξανά',
   'admin.plugins.upload': 'Μεταφόρτωση plugin',

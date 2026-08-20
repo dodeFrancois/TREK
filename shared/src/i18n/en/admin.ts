@@ -219,6 +219,7 @@ const admin: TranslationStrings = {
   'admin.packingTemplates.saveError': 'Failed to save',
   'admin.tabs.addons': 'Addons',
   'admin.tabs.plugins': 'Plugins',
+  'admin.tabs.storage': 'Storage',
   'admin.plugins.rescan': 'Rescan',
   'admin.plugins.rescanned': 'Rescanned the plugins folder',
   'admin.plugins.upload': 'Upload plugin',

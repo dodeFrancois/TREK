@@ -167,6 +167,7 @@ const admin: TranslationStrings = {
   'admin.packingTemplates.saveError': 'Fout bij opslaan',
   'admin.tabs.addons': 'Add-ons',
   'admin.tabs.plugins': 'Plugins',
+  'admin.tabs.storage': 'Opslag',
   'admin.plugins.rescan': 'Opnieuw scannen',
   'admin.plugins.rescanned': 'Pluginmap opnieuw gescand',
   'admin.plugins.upload': 'Plugin uploaden',

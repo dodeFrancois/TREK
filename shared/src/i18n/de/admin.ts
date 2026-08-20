@@ -167,6 +167,7 @@ const admin: TranslationStrings = {
   'admin.packingTemplates.saveError': 'Fehler beim Speichern',
   'admin.tabs.addons': 'Addons',
   'admin.tabs.plugins': 'Plugins',
+  'admin.tabs.storage': 'Speicher',
   'admin.plugins.rescan': 'Neu scannen',
   'admin.plugins.rescanned': 'Plugin-Ordner neu gescannt',
   'admin.plugins.upload': 'Plugin hochladen',

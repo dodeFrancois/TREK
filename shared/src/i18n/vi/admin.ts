@@ -222,6 +222,7 @@ const admin: TranslationStrings = {
   'admin.packingTemplates.saveError': 'Không lưu được',
   'admin.tabs.addons': 'Tiện ích bổ sung',
   'admin.tabs.plugins': 'Plugins',
+  'admin.tabs.storage': 'Lưu trữ',
   'admin.plugins.rescan': 'Quét lại',
   'admin.plugins.rescanned': 'Đã quét lại thư mục plugin',
   'admin.plugins.upload': 'Tải plugin lên',

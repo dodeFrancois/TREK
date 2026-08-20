@@ -211,6 +211,7 @@ const admin: TranslationStrings = {
   'admin.packingTemplates.saveError': 'Kaydedilemedi',
   'admin.tabs.addons': 'Eklentiler',
   'admin.tabs.plugins': 'Plugins',
+  'admin.tabs.storage': 'Depolama',
   'admin.plugins.rescan': 'Yeniden tara',
   'admin.plugins.rescanned': 'Eklenti klasörü yeniden tarandı',
   'admin.plugins.upload': 'Eklenti yükle',

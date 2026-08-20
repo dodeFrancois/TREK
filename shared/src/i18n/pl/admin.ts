@@ -160,6 +160,7 @@ const admin: TranslationStrings = {
   'admin.packingTemplates.saveError': 'Nie udało się zapisać szablonu',
   'admin.tabs.addons': 'Dodatki',
   'admin.tabs.plugins': 'Wtyczki',
+  'admin.tabs.storage': 'Magazyn',
   'admin.plugins.rescan': 'Skanuj ponownie',
   'admin.plugins.rescanned': 'Folder wtyczek został ponownie przeskanowany',
   'admin.plugins.upload': 'Prześlij wtyczkę',

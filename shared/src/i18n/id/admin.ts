@@ -209,6 +209,7 @@ const admin: TranslationStrings = {
   'admin.packingTemplates.saveError': 'Gagal menyimpan',
   'admin.tabs.addons': 'Addon',
   'admin.tabs.plugins': 'Plugins',
+  'admin.tabs.storage': 'Penyimpanan',
   'admin.plugins.rescan': 'Pindai ulang',
   'admin.plugins.rescanned': 'Folder plugin dipindai ulang',
   'admin.plugins.upload': 'Unggah plugin',

@@ -377,6 +377,7 @@ const admin: TranslationStrings = {
   'admin.unsplashKey': "Clau API d'Unsplash",
   'admin.unsplashKeyHint': "Per a la cerca d'imatges. Gratuït a unsplash.com/developers",
   'admin.tabs.plugins': 'Connectors',
+  'admin.tabs.storage': 'Emmagatzematge',
   'admin.plugins.rescan': 'Torna a escanejar',
   'admin.plugins.rescanned': "S'ha tornat a escanejar la carpeta de connectors",
   'admin.plugins.upload': 'Puja el connector',

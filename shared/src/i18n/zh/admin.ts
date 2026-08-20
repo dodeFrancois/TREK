@@ -161,6 +161,7 @@ const admin: TranslationStrings = {
   'admin.packingTemplates.saveError': '保存失败',
   'admin.tabs.addons': '扩展',
   'admin.tabs.plugins': '插件',
+  'admin.tabs.storage': '存储',
   'admin.plugins.rescan': '重新扫描',
   'admin.plugins.rescanned': '已重新扫描插件文件夹',
   'admin.plugins.upload': '上传插件',

@@ -167,6 +167,7 @@ const admin: TranslationStrings = {
   'admin.packingTemplates.saveError': 'Ошибка сохранения',
   'admin.tabs.addons': 'Дополнения',
   'admin.tabs.plugins': 'Плагины',
+  'admin.tabs.storage': 'Хранилище',
   'admin.plugins.rescan': 'Пересканировать',
   'admin.plugins.rescanned': 'Папка плагинов пересканирована',
   'admin.plugins.upload': 'Загрузить плагин',

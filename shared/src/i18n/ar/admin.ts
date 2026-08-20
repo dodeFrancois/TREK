@@ -185,6 +185,7 @@ const admin: TranslationStrings = {
   'admin.packingTemplates.saveError': 'فشل الحفظ',
   'admin.tabs.addons': 'الإضافات',
   'admin.tabs.plugins': 'الإضافات الخارجية',
+  'admin.tabs.storage': 'التخزين',
   'admin.plugins.rescan': 'إعادة الفحص',
   'admin.plugins.rescanned': 'تمت إعادة فحص مجلد الإضافات',
   'admin.plugins.upload': 'رفع إضافة',

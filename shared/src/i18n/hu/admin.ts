@@ -167,6 +167,7 @@ const admin: TranslationStrings = {
   'admin.packingTemplates.saveError': 'Nem sikerült menteni',
   'admin.tabs.addons': 'Bővítmények',
   'admin.tabs.plugins': 'Pluginok',
+  'admin.tabs.storage': 'Tárhely',
   'admin.plugins.rescan': 'Újraszkennelés',
   'admin.plugins.rescanned': 'Plugin mappa újraszkennelve',
   'admin.plugins.upload': 'Plugin feltöltése',

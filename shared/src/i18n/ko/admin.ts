@@ -204,6 +204,7 @@ const admin: TranslationStrings = {
   'admin.packingTemplates.saveError': '저장 실패',
   'admin.tabs.addons': '애드온',
   'admin.tabs.plugins': '플러그인',
+  'admin.tabs.storage': '스토리지',
   'admin.plugins.rescan': '다시 스캔',
   'admin.plugins.rescanned': '플러그인 폴더를 다시 스캔했습니다',
   'admin.plugins.upload': '플러그인 업로드',

@@ -198,6 +198,7 @@ const admin: TranslationStrings = {
   'admin.packingTemplates.saveError': '保存に失敗しました',
   'admin.tabs.addons': 'アドオン',
   'admin.tabs.plugins': 'プラグイン',
+  'admin.tabs.storage': 'ストレージ',
   'admin.plugins.rescan': '再スキャン',
   'admin.plugins.rescanned': 'プラグインフォルダを再スキャンしました',
   'admin.plugins.upload': 'プラグインをアップロード',

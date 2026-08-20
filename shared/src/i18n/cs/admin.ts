@@ -165,6 +165,7 @@ const admin: TranslationStrings = {
   'admin.packingTemplates.saveError': 'Uložení se nezdařilo',
   'admin.tabs.addons': 'Doplňky',
   'admin.tabs.plugins': 'Pluginy',
+  'admin.tabs.storage': 'Úložiště',
   'admin.plugins.rescan': 'Znovu prohledat',
   'admin.plugins.rescanned': 'Složka pluginů byla znovu prohledána',
   'admin.plugins.upload': 'Nahrát plugin',

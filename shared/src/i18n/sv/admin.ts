@@ -223,6 +223,7 @@ const admin: TranslationStrings = {
   'admin.packingTemplates.saveError': 'Det gick inte att spara',
   'admin.tabs.addons': 'Tillägg',
   'admin.tabs.plugins': 'Plugins',
+  'admin.tabs.storage': 'Lagring',
   'admin.plugins.rescan': 'Skanna om',
   'admin.plugins.rescanned': 'Plugin-mappen har skannats om',
   'admin.plugins.upload': 'Ladda upp plugin',

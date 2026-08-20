@@ -42,6 +42,7 @@ import settings from './settings';
 import share from './share';
 import shared from './shared';
 import stats from './stats';
+import storage from './storage';
 import system_notice from './system_notice';
 import todo from './todo';
 import transport from './transport';
@@ -102,5 +103,6 @@ const locale = {
   ...mobileAdmin,
   ...mobileSettings,
   ...mobileCollections,
+  ...storage,
 };
 export default locale;

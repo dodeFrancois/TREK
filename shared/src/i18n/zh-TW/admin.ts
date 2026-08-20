@@ -201,6 +201,7 @@ const admin: TranslationStrings = {
   'admin.packingTemplates.saveError': '儲存失敗',
   'admin.tabs.addons': '擴充套件',
   'admin.tabs.plugins': '外掛',
+  'admin.tabs.storage': '儲存',
   'admin.plugins.rescan': '重新掃描',
   'admin.plugins.rescanned': '已重新掃描外掛資料夾',
   'admin.plugins.upload': '上傳外掛',
