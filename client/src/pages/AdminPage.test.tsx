@@ -69,6 +69,10 @@ vi.mock('../components/Admin/DefaultUserSettingsTab', () => ({
   default: () => <div data-testid="default-user-settings" />,
 }));
 
+vi.mock('../components/Admin/storage/AdminStoragePanel', () => ({
+  default: () => <div data-testid="admin-storage-panel" />,
+}));
+
 beforeEach(() => {
   resetAllStores();
 });
@@ -1630,5 +1634,20 @@ describe('AdminPage', () => {
       await waitFor(() => expect(screen.getByRole('button', { name: /^users$/i })).toBeInTheDocument());
       expect(screen.queryByText('Files')).not.toBeInTheDocument();
     });
+  });
+
+  it('FE-PAGE-ADMIN-STOR-001: the Storage tab renders the storage panel', async () => {
+    seedStore(useAuthStore, { isAuthenticated: true, user: buildAdmin() });
+    render(<AdminPage />);
+    const tab = await screen.findByRole('button', { name: /^storage$/i });
+    fireEvent.click(tab);
+    expect(screen.getByTestId('admin-storage-panel')).toBeInTheDocument();
+  });
+
+  it('FE-PAGE-ADMIN-STOR-002: managed mode hides the Storage tab (hoster-level config)', async () => {
+    seedStore(useAuthStore, { isAuthenticated: true, user: buildAdmin(), managed: true });
+    render(<AdminPage />);
+    await screen.findByRole('button', { name: /^users$/i });
+    expect(screen.queryByRole('button', { name: /^storage$/i })).not.toBeInTheDocument();
   });
 });
