@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { AppConfigModule } from '../app-config/app-config.module';
 import { AuditModule } from '../audit/audit.module';
+import { StorageEventsService } from './storage-events.service';
+import { StorageJobsService } from './storage-jobs.service';
 import { StorageRegistryService } from './storage-registry.service';
 import { StorageService } from './storage.service';
 import { StorageAdminService } from './storage-admin.service';
@@ -22,7 +24,7 @@ import { StorageAdminController } from './storage-admin.controller';
 @Module({
   imports: [AppConfigModule, AuditModule],
   controllers: [StorageAdminController],
-  providers: [StorageRegistryService, StorageService, StorageAdminService],
-  exports: [StorageService],
+  providers: [StorageRegistryService, StorageService, StorageAdminService, StorageEventsService, StorageJobsService],
+  exports: [StorageService, StorageEventsService],
 })
 export class StorageModule {}

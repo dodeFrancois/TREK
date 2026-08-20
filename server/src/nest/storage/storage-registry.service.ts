@@ -7,6 +7,7 @@ import { decrypt_api_key } from '../common/crypto/apiKeyCrypto';
 import { LocalDriver } from './drivers/local.driver';
 import { MirrorDriver, type ReplicaFailure } from './drivers/mirror.driver';
 import { S3Driver } from './drivers/s3.driver';
+import { StorageEventsService } from './storage-events.service';
 import { DEFAULT_BACKUPS_ROOT, DEFAULT_UPLOADS_ROOT, GLOBAL_TEMP_DIR, SEED_CONFIG_PATH } from './storage-paths';
 import {
   assertNoMaskSentinels,
@@ -121,6 +122,7 @@ export class StorageRegistryService implements OnModuleInit {
   constructor(
     private readonly db: DatabaseService,
     private readonly env: RuntimeEnvService,
+    private readonly events: StorageEventsService,
   ) {}
 
   onModuleInit(): void {
@@ -173,6 +175,7 @@ export class StorageRegistryService implements OnModuleInit {
     if (this.failures.length > REPLICA_FAILURE_RING_SIZE) {
       this.failures = this.failures.slice(-REPLICA_FAILURE_RING_SIZE);
     }
+    this.events.emitReplicaFailure(failure);
   }
 
   replicaFailures(): readonly ReplicaFailure[] {

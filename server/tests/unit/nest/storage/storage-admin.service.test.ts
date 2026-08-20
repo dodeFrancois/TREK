@@ -20,6 +20,7 @@ import { DatabaseService } from '../../../../src/nest/database/database.service'
 import type { RuntimeEnvService } from '../../../../src/nest/app-config/runtime-env.service';
 import { encrypt_api_key } from '../../../../src/nest/common/crypto/apiKeyCrypto';
 import { StorageAdminService } from '../../../../src/nest/storage/storage-admin.service';
+import { StorageEventsService } from '../../../../src/nest/storage/storage-events.service';
 import { StorageRegistryService, BACKENDS_KEY, CATEGORIES_KEY } from '../../../../src/nest/storage/storage-registry.service';
 import { StorageService } from '../../../../src/nest/storage/storage.service';
 
@@ -62,7 +63,7 @@ function makeService(opts: { encryptionKeySet?: boolean; uploadsRoot?: string } 
   const env = {
     env: () => ({ paths: {}, security: { encryptionKeySet: opts.encryptionKeySet ?? true } }),
   } as unknown as RuntimeEnvService;
-  const registry = new StorageRegistryService(db, env);
+  const registry = new StorageRegistryService(db, env, new StorageEventsService());
   registry.onModuleInit();
   const service = new StorageAdminService(db, registry, new StorageService(registry), env);
   return { service, registry, uploadsRoot };

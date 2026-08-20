@@ -25,6 +25,7 @@ import { runMigrations } from '../../../../src/db/migrations';
 import { DatabaseService } from '../../../../src/nest/database/database.service';
 import type { RuntimeEnvService } from '../../../../src/nest/app-config/runtime-env.service';
 import { encrypt_api_key } from '../../../../src/nest/common/crypto/apiKeyCrypto';
+import { StorageEventsService } from '../../../../src/nest/storage/storage-events.service';
 import { StorageRegistryService } from '../../../../src/nest/storage/storage-registry.service';
 import { LocalDriver } from '../../../../src/nest/storage/drivers/local.driver';
 import { MirrorDriver, type ReplicaFailure } from '../../../../src/nest/storage/drivers/mirror.driver';
@@ -99,7 +100,7 @@ function makeRegistry(opts: RegistryOpts = {}) {
     { placePhotoDir: opts.placePhotoDir },
     { encryptionKeySet: opts.encryptionKeySet ?? true },
   );
-  const registry = new StorageRegistryService(db, stub.env);
+  const registry = new StorageRegistryService(db, stub.env, new StorageEventsService());
   if (opts.boot !== false) registry.onModuleInit();
   return { registry, uploadsRoot, setUploadsRoot: (root: string) => rewriteUploadsOverride(root) };
 }
@@ -479,7 +480,7 @@ describe('seed-once storage-config.json import', () => {
   /** A registry with NO storage.* rows (makeRegistry seeds an override row, so build raw). */
   function makeUnseededRegistry(opts: { encryptionKeySet?: boolean } = {}) {
     const stub = makeEnvStub({}, { encryptionKeySet: opts.encryptionKeySet ?? true });
-    return new StorageRegistryService(db, stub.env);
+    return new StorageRegistryService(db, stub.env, new StorageEventsService());
   }
 
   function readRow(key: string): string | undefined {
