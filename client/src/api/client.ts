@@ -51,6 +51,7 @@ import {
   type StorageBackend,
   type StorageConfig,
   type StorageTestResponse,
+  type StorageUsage,
 } from '@trek/shared'
 import { getSocketId } from './websocket'
 import { probeNow } from '../sync/connectivity'
@@ -650,6 +651,13 @@ export const adminApi = {
   // its own generous ceiling.
   testStorageBackend: (backend: StorageBackend): Promise<StorageTestResponse> =>
     apiClient.post('/admin/storage/test', { backend }, { timeout: 120_000 }).then(r => r.data),
+  startStorageBackfill: (backend: string): Promise<{ started: true }> =>
+    apiClient.post(`/admin/storage/backends/${encodeURIComponent(backend)}/backfill`).then(r => r.data),
+  cancelStorageBackfill: (backend: string): Promise<{ cancelled: true }> =>
+    apiClient.delete(`/admin/storage/backends/${encodeURIComponent(backend)}/backfill`).then(r => r.data),
+  // A full scan of a large install can exceed the 8s instance timeout.
+  refreshStorageStats: (): Promise<StorageUsage> =>
+    apiClient.post('/admin/storage/stats/refresh', undefined, { timeout: 120_000 }).then(r => r.data),
 }
 
 export const addonsApi = {
