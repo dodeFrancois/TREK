@@ -223,7 +223,7 @@ export const storageAdminStateSchema = z.object({
       categories: z.array(storageCategorySchema),
     }),
   ),
-  // Exhaustive record: the effective world always maps all nine categories.
+  // Exhaustive record: the effective world always maps all eight configurable categories.
   categories: z.record(
     storageCategorySchema,
     z.object({ backend: z.string().min(1), source: storageCategorySourceSchema }),

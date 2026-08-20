@@ -110,7 +110,7 @@ export interface DegenerateMirror {
  */
 export const CACHE_CATEGORIES: readonly StorageCategory[] = ['photos-google', 'places']
 
-/** The nine categories resolved draft-over-state (draft entries win; defaults fill the rest). */
+/** The configurable categories resolved draft-over-state (draft entries win; defaults fill the rest). */
 export function effectiveCategoryMap(state: StorageAdminState, draft: StorageConfig): Record<StorageCategory, string> {
   const map = {} as Record<StorageCategory, string>
   for (const category of STORAGE_CATEGORIES) {
