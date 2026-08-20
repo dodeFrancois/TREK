@@ -22,6 +22,19 @@ export interface ResolvedCategory {
   backendName: string;
 }
 
+export type BackendSource = 'built-in' | 'env' | 'settings';
+export interface BackendSnapshot {
+  name: string;
+  type: 'local' | 's3' | 'mirror';
+  source: BackendSource;
+  /** Stored options — secret fields still encrypted; masking is the admin layer's job. */
+  options: Record<string, string | number | string[]>;
+}
+export interface RegistrySnapshot {
+  backends: BackendSnapshot[];
+  categories: Record<StorageCategory, { backend: string; source: 'default' | 'settings' }>;
+}
+
 interface LocalBackendConfig {
   name: string;
   type: 'local';
@@ -51,6 +64,7 @@ type BackendConfig = LocalBackendConfig | MirrorBackendConfig | S3BackendConfig;
 interface RegistryState {
   drivers: Map<string, StorageDriver>;
   categories: Map<StorageCategory, { backendName: string; keyPrefix: string }>;
+  snapshot: RegistrySnapshot;
 }
 
 const BACKENDS_KEY = 'storage.backends';
@@ -134,6 +148,12 @@ export class StorageRegistryService implements OnModuleInit {
       throw new StorageBackendError(`storage backend '${assignment.backendName}' missing for category '${category}'`);
     }
     return { driver, keyPrefix: assignment.keyPrefix, backendName: assignment.backendName };
+  }
+
+  /** The effective world with provenance — the admin GET renders from this. */
+  snapshot(): RegistrySnapshot {
+    if (!this.state) throw new StorageBackendError('storage registry not initialized');
+    return this.state.snapshot;
   }
 
   /** Driver-agnostic global scratch space (data/tmp). */
@@ -251,17 +271,27 @@ export class StorageRegistryService implements OnModuleInit {
     const backends = new Map<string, BackendConfig>();
     backends.set('uploads-local', { name: 'uploads-local', type: 'local', options: { root: DEFAULT_UPLOADS_ROOT } });
     backends.set('backups-local', { name: 'backups-local', type: 'local', options: { root: DEFAULT_BACKUPS_ROOT } });
+    const backendSources = new Map<string, BackendSource>([
+      ['uploads-local', 'built-in'],
+      ['backups-local', 'built-in'],
+    ]);
     if (placePhotoDir) {
       backends.set('place-photos-local', { name: 'place-photos-local', type: 'local', options: { root: placePhotoDir } });
+      backendSources.set('place-photos-local', 'env');
     }
-    for (const config of parseBackendList(settings.backends)) backends.set(config.name, config);
+    for (const config of parseBackendList(settings.backends)) {
+      backends.set(config.name, config);
+      backendSources.set(config.name, 'settings');
+    }
 
     const categoryBackends = new Map<StorageCategory, string>();
     for (const category of STORAGE_CATEGORIES) categoryBackends.set(category, 'uploads-local');
     categoryBackends.set('backups', 'backups-local');
     if (placePhotoDir) categoryBackends.set('photos-google', 'place-photos-local');
+    const categorySources = new Map<StorageCategory, 'default' | 'settings'>();
     for (const [category, backendName] of parseCategoryMap(settings.categories)) {
       categoryBackends.set(category, backendName);
+      categorySources.set(category, 'settings');
     }
 
     // 3. Validate the merged config as a whole.
@@ -311,8 +341,25 @@ export class StorageRegistryService implements OnModuleInit {
     }
     fs.mkdirSync(GLOBAL_TEMP_DIR, { recursive: true });
 
-    // 6. Single-assignment swap — callers mid-operation keep their instances.
-    return { drivers, categories };
+    // 6. The effective world with provenance — assembled from the same merged
+    // maps, so it always matches what drivers/categories actually resolve to.
+    const snapshot: RegistrySnapshot = {
+      backends: [...backends.values()].map((config) => ({
+        name: config.name,
+        type: config.type,
+        source: backendSources.get(config.name) ?? 'settings',
+        options: { ...config.options },
+      })),
+      categories: Object.fromEntries(
+        [...categoryBackends.entries()].map(([category, backendName]) => [
+          category,
+          { backend: backendName, source: categorySources.get(category) ?? 'default' },
+        ]),
+      ) as RegistrySnapshot['categories'],
+    };
+
+    // 7. Single-assignment swap — callers mid-operation keep their instances.
+    return { drivers, categories, snapshot };
   }
 }
 

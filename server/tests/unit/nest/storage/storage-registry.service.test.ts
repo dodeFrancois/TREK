@@ -590,3 +590,72 @@ describe('seed-once storage-config.json import', () => {
     expect(second.resolve('backups').backendName).toBe('nas');
   });
 });
+
+// ── snapshot() — effective world with provenance ──────────────────────────────
+
+describe('snapshot()', () => {
+  it('reports built-ins, env backends, and settings entries with their sources', () => {
+    const photoDir = makeTmpDir();
+    const nasRoot = makeTmpDir();
+    const { registry, uploadsRoot } = makeRegistry({
+      placePhotoDir: photoDir,
+      backends: [{ name: 'nas-backups', type: 'local', options: { root: nasRoot } }],
+      categories: { backups: 'nas-backups' },
+    });
+    const snap = registry.snapshot();
+    const byName = new Map(snap.backends.map((b) => [b.name, b]));
+
+    // uploads-local is overridden by the helper's settings row → source 'settings'
+    expect(byName.get('uploads-local')).toMatchObject({ type: 'local', source: 'settings', options: { root: uploadsRoot } });
+    expect(byName.get('backups-local')).toMatchObject({ source: 'built-in' });
+    expect(byName.get('place-photos-local')).toMatchObject({ source: 'env', options: { root: photoDir } });
+    expect(byName.get('nas-backups')).toMatchObject({ source: 'settings' });
+
+    expect(snap.categories.backups).toEqual({ backend: 'nas-backups', source: 'settings' });
+    expect(snap.categories.files).toEqual({ backend: 'uploads-local', source: 'default' });
+    expect(snap.categories['photos-google']).toEqual({ backend: 'place-photos-local', source: 'default' });
+    expect(Object.keys(snap.categories).sort()).toEqual([...STORAGE_CATEGORIES].sort());
+  });
+
+  it('reports pure built-in defaults when no settings rows exist', () => {
+    const { registry } = makeRegistry({ boot: false });
+    testDb.prepare("DELETE FROM app_settings WHERE key = 'storage.backends'").run();
+    registry.onModuleInit();
+    const snap = registry.snapshot();
+    expect(snap.backends.map((b) => [b.name, b.source])).toEqual([
+      ['uploads-local', 'built-in'],
+      ['backups-local', 'built-in'],
+    ]);
+  });
+
+  it('keeps encrypted secrets encrypted in the snapshot (never plaintext)', () => {
+    const cipher = encrypt_api_key('sk-secret');
+    const { registry } = makeRegistry({
+      backends: [
+        {
+          name: 'off-box',
+          type: 's3',
+          options: {
+            endpoint: 'http://127.0.0.1:9000',
+            bucket: 'trek',
+            accessKeyId: 'ak',
+            secretAccessKey: cipher,
+          },
+        },
+      ],
+      categories: { backups: 'off-box' },
+    });
+    const offBox = registry.snapshot().backends.find((b) => b.name === 'off-box')!;
+    expect(offBox.options.secretAccessKey).toBe(cipher); // byte-identical ciphertext
+    expect(offBox.options).toMatchObject({ region: 'us-east-1', retries: 1 }); // schema defaults visible
+  });
+
+  it('shows the last-good world after an invalid reload (snapshot = live state)', () => {
+    vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    const { registry } = makeRegistry();
+    const before = registry.snapshot();
+    setSetting('storage.categories', 'garbage {');
+    registry.reload();
+    expect(registry.snapshot()).toEqual(before);
+  });
+});
