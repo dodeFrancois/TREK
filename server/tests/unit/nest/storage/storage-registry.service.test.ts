@@ -86,10 +86,10 @@ interface RegistryOpts {
 }
 
 /**
- * TREK_UPLOADS_DIR is removed: the uploads-local root is the computed default,
- * relocatable only via a settings override row bearing the built-in's name
- * (first-class merge-by-name). The helper seeds that override so unit runs
- * never write into the real server/uploads.
+ * The uploads-local root is the computed default, relocatable only via a
+ * settings override row bearing the built-in's name (first-class
+ * merge-by-name). The helper seeds that override so unit runs never write
+ * into the real server/uploads.
  */
 function makeRegistry(opts: RegistryOpts = {}) {
   const uploadsRoot = opts.uploadsRoot ?? makeTmpDir();

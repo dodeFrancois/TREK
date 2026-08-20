@@ -30,7 +30,7 @@ export function validateEnvAtBoot(raw: RawEnv = process.env as RawEnv): void {
         const key = String(issue.path[0]);
         return `  - ${key}=${JSON.stringify(raw[key])}: ${issue.message}`;
       });
-  lines.push(...managedPreconditions(raw), ...storageTombstonePreconditions(raw));
+  lines.push(...managedPreconditions(raw));
   if (lines.length === 0) return;
   console.error(`Invalid environment configuration:\n${lines.join('\n')}`);
   throw new Error(
@@ -67,30 +67,4 @@ function managedPreconditions(raw: RawEnv): string[] {
   }
 
   return problems;
-}
-
-/**
- * Storage configuration moved wholesale to the admin UI / data/storage-config.json
- * (spec: docs/superpowers/specs/2026-08-19-storage-admin-config-design.md).
- * These variables are tombstoned rather than ignored: an upgrading operator
- * with them set would otherwise silently run local-only — the exact
- * half-configured trap the old all-or-nothing rule existed to prevent.
- * TREK_PLACE_PHOTO_DIR intentionally survives (documented, prod-supported).
- */
-const REMOVED_STORAGE_VARS = [
-  'TREK_S3_ENDPOINT',
-  'TREK_S3_BUCKET',
-  'TREK_S3_ACCESS_KEY_ID',
-  'TREK_S3_SECRET_ACCESS_KEY',
-  'TREK_S3_REGION',
-  'TREK_S3_KEY_PREFIX',
-  'TREK_S3_RETRIES',
-  'TREK_S3_TIMEOUT_MS',
-  'TREK_UPLOADS_DIR',
-] as const;
-
-function storageTombstonePreconditions(raw: RawEnv): string[] {
-  return REMOVED_STORAGE_VARS.filter((key) => Boolean(raw[key]?.trim())).map(
-    (key) => `  - ${key} was removed — configure storage in the admin UI or data/storage-config.json.`,
-  );
 }

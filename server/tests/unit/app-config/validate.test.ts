@@ -156,38 +156,6 @@ describe('validateEnvAtBoot — centrally administered preconditions', () => {
   });
 });
 
-describe('validateEnvAtBoot — removed storage variables (tombstones)', () => {
-  const removed = [
-    'TREK_S3_ENDPOINT',
-    'TREK_S3_BUCKET',
-    'TREK_S3_ACCESS_KEY_ID',
-    'TREK_S3_SECRET_ACCESS_KEY',
-    'TREK_S3_REGION',
-    'TREK_S3_KEY_PREFIX',
-    'TREK_S3_RETRIES',
-    'TREK_S3_TIMEOUT_MS',
-    'TREK_UPLOADS_DIR',
-  ] as const;
-
-  it.each(removed)('TOMB-001 %s present at boot aborts, naming the replacement', (key) => {
-    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
-    expect(() => validateEnvAtBoot({ [key]: 'anything' })).toThrow(
-      /Invalid environment configuration \(1 problem\)/,
-    );
-    const report = error.mock.calls.map((c) => c.join(' ')).join('\n');
-    expect(report).toContain(`${key} was removed`);
-    expect(report).toContain('admin UI or data/storage-config.json');
-  });
-
-  it('TOMB-002 TREK_PLACE_PHOTO_DIR survives (documented, prod-supported)', () => {
-    expect(() => validateEnvAtBoot({ TREK_PLACE_PHOTO_DIR: '/photos' })).not.toThrow();
-  });
-
-  it('TOMB-003 blank values are unset-equivalent and do not trip the tombstone', () => {
-    expect(() => validateEnvAtBoot({ TREK_UPLOADS_DIR: '   ', TREK_S3_BUCKET: '' })).not.toThrow();
-  });
-});
-
 describe('readEnv', () => {
   it('reads process.env live — a runtime mutation is visible on the next call', () => {
     const before = process.env.DEMO_MODE;

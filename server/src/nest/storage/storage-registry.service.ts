@@ -273,8 +273,8 @@ export class StorageRegistryService implements OnModuleInit {
     const placePhotoDir = this.env.env().paths.placePhotoDir;
 
     // 2. Built-in defaults; settings entries with the same name/category override.
-    //    uploads-local's root is the computed default since TREK_UPLOADS_DIR was
-    //    removed — relocation is a settings override row with the built-in's name.
+    //    uploads-local's root is the computed default; relocation is a settings
+    //    override row bearing the built-in's name.
     const backends = new Map<string, BackendConfig>();
     backends.set('uploads-local', { name: 'uploads-local', type: 'local', options: { root: DEFAULT_UPLOADS_ROOT } });
     backends.set('backups-local', { name: 'backups-local', type: 'local', options: { root: DEFAULT_BACKUPS_ROOT } });
