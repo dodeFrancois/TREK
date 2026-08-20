@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import {
   STORAGE_BACKEND_TYPES,
@@ -11,6 +11,7 @@ import {
 } from '@trek/shared'
 import { useTranslation } from '../../../i18n'
 import { useToast } from '../../../components/shared/Toast'
+import { formatBytes } from '../../../utils/formatBytes'
 import { relativeTime } from '../../../utils/relativeTime'
 import {
   CACHE_CATEGORIES,
@@ -23,8 +24,10 @@ import {
   removeBackendAndMirrors,
   renameBackendRefs,
   replicaOfPrimaries,
+  settingsDocumentOf,
   setMirrorTargets,
   upsertBackend,
+  usageByBackend,
   type FoldedBackendRow,
 } from '../../../components/Admin/storage/storageModel'
 import { useStorageAdmin } from '../../../components/Admin/storage/useStorageAdmin'
@@ -253,6 +256,21 @@ export default function MAdminStoragePanel(): React.ReactElement {
   } | null>(null)
   const [confirmRemove, setConfirmRemove] = useState<{ name: string; degenerate: boolean } | null>(null)
   const [categoryPicker, setCategoryPicker] = useState<StorageCategory | null>(null)
+  const [syncPrompt, setSyncPrompt] = useState<string | null>(null)
+  // Set by `save` right before it calls admin.save(): the pre-save mirror
+  // target count per row name. Consumed (and cleared) by the effect below the
+  // first time `admin.state` changes afterward — never touched otherwise, so
+  // unrelated state changes (the backfill poll included) are no-ops here.
+  const pendingPromptCheck = useRef<Map<string, number> | null>(null)
+
+  useEffect(() => {
+    if (!pendingPromptCheck.current || !admin.state) return
+    const before = pendingPromptCheck.current
+    pendingPromptCheck.current = null
+    const { rows: afterRows } = foldBackends(admin.state, settingsDocumentOf(admin.state))
+    const grown = afterRows.find((r) => r.mirrorTargets.length > (before.get(r.name) ?? 0))
+    if (grown) setSyncPrompt(grown.name)
+  }, [admin.state])
 
   if (admin.loading) {
     return (
@@ -273,6 +291,7 @@ export default function MAdminStoragePanel(): React.ReactElement {
   const backendNames = [...new Set([...state.backends.map((b) => b.name), ...draft.backends.map((b) => b.name)])]
   const { rows, degenerate } = foldBackends(state, draft)
   const effective = effectiveCategoryMap(state, draft)
+  const usageSums = usageByBackend(state, draft)
 
   const startEdit = (row: FoldedBackendRow) => {
     setEditing({
@@ -324,7 +343,32 @@ export default function MAdminStoragePanel(): React.ReactElement {
   }
 
   const save = async () => {
+    // Snapshot the LAST-CONFIRMED (pre-save `state`'s own fold, not the
+    // in-progress `draft`) mirror target counts; the effect above compares
+    // them against the fresh post-save state to detect newly-added
+    // replicas. Folding `draft` here would already include the unsaved
+    // edit and mask the very growth this is meant to detect.
+    const { rows: beforeRows } = foldBackends(state, settingsDocumentOf(state))
+    pendingPromptCheck.current = new Map(beforeRows.map((r) => [r.name, r.mirrorTargets.length]))
     if (await admin.save()) toast.success(t('storage.saved'))
+  }
+
+  const handleRefreshStats = async () => {
+    const error = await admin.refreshStats()
+    if (error) toast.error(error)
+  }
+
+  const handleStartBackfill = async (row: FoldedBackendRow) => {
+    if (!row.mirrorName) return
+    setSyncPrompt((prev) => (prev === row.name ? null : prev))
+    const error = await admin.startBackfill(row.mirrorName)
+    if (error) toast.error(error)
+  }
+
+  const handleCancelBackfill = async (row: FoldedBackendRow) => {
+    if (!row.mirrorName) return
+    const error = await admin.cancelBackfill(row.mirrorName)
+    if (error) toast.error(error)
   }
 
   return (
@@ -355,6 +399,16 @@ export default function MAdminStoragePanel(): React.ReactElement {
 
       <MAdminCard>
         <MAdminCardHead title={t('storage.backends.title')} hint={t('storage.description')} />
+        <div className="mb-2 flex items-center gap-2">
+          <p className="font-geist text-[0.625rem] text-m-muted">
+            {state.usage
+              ? t('storage.usage.computed', { age: relativeTime(state.usage.computedAt, locale) })
+              : t('storage.usage.never')}
+          </p>
+          <MAdminButton variant="ghost" onClick={handleRefreshStats}>
+            {state.usage ? t('storage.usage.refresh') : t('storage.usage.compute')}
+          </MAdminButton>
+        </div>
         <div className="space-y-2">
           {rows.map((row) => {
             const resultKey = row.mirrorName ?? row.name
@@ -364,6 +418,8 @@ export default function MAdminStoragePanel(): React.ReactElement {
             const testCandidate = row.mirrorName
               ? draft.backends.find((b) => b.name === row.mirrorName)!
               : row.backend
+            const rowUsage = usageSums?.[row.name]
+            const backfill = row.mirrorName ? state.backfills.find((b) => b.backend === row.mirrorName) : undefined
             return (
               <div
                 key={row.name}
@@ -384,6 +440,14 @@ export default function MAdminStoragePanel(): React.ReactElement {
                     ? t('storage.backends.usedBy', { categories: categoryNames(t, row.categories) })
                     : t('storage.backends.unused')}
                 </p>
+                {rowUsage && (
+                  <p className="mt-1 font-geist text-[0.625rem] text-m-muted">
+                    {t('storage.usage.line', { objects: String(rowUsage.objects), size: formatBytes(rowUsage.bytes) })}
+                    {row.name === 'uploads-local' && state.usage!.legacyPhotos.objects > 0
+                      ? ` (${t('storage.usage.legacyNote')})`
+                      : ''}
+                  </p>
+                )}
                 {row.mirrorTargets.length > 0 && (
                   <p className="mt-1 font-geist text-[0.625rem] text-m-muted">
                     {t('storage.mirror.mirroredTo', { targets: row.mirrorTargets.join(', ') })}
@@ -428,6 +492,58 @@ export default function MAdminStoragePanel(): React.ReactElement {
                       ))}
                     </div>
                   )
+                )}
+                {row.mirrorTargets.length > 0 && (
+                  <div className="mt-2">
+                    {backfill?.status === 'running' ? (
+                      <>
+                        <p className="font-geist text-[0.625rem] text-m-muted">
+                          {t('storage.sync.running', { done: String(backfill.done), total: String(backfill.total) })}
+                        </p>
+                        <p className="font-geist text-[0.625rem] text-m-muted">
+                          {t('storage.sync.counts', {
+                            copied: String(backfill.copied),
+                            skipped: String(backfill.skipped),
+                            failed: String(backfill.failed),
+                          })}
+                        </p>
+                        <div className="mt-1">
+                          <MAdminButton variant="ghost" onClick={() => handleCancelBackfill(row)}>
+                            {t('storage.sync.cancel')}
+                          </MAdminButton>
+                        </div>
+                      </>
+                    ) : backfill?.status === 'done' ? (
+                      <p className="font-geist text-[0.625rem] text-m-muted">
+                        {t('storage.sync.done', { copied: String(backfill.copied), failed: String(backfill.failed) })}
+                      </p>
+                    ) : backfill?.status === 'cancelled' ? (
+                      <p className="font-geist text-[0.625rem] text-m-muted">{t('storage.sync.cancelled')}</p>
+                    ) : backfill?.status === 'error' ? (
+                      <p className="font-geist text-[0.625rem] text-m-muted">
+                        {t('storage.sync.error', { error: backfill.error ?? '' })}
+                      </p>
+                    ) : syncPrompt !== row.name ? (
+                      <div className="mt-1">
+                        <MAdminButton variant="ghost" onClick={() => handleStartBackfill(row)}>
+                          {t('storage.sync.now')}
+                        </MAdminButton>
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+                {syncPrompt === row.name && (
+                  <div className="mt-2 rounded-lg border border-[color:var(--m-rowbr)] p-2">
+                    <p className="text-[0.75rem] text-m-ink">{t('storage.sync.prompt')}</p>
+                    <div className="mt-1 flex items-center gap-2">
+                      <MAdminButton variant="ghost" onClick={() => handleStartBackfill(row)}>
+                        {t('storage.sync.now')}
+                      </MAdminButton>
+                      <MAdminButton variant="ghost" onClick={() => setSyncPrompt(null)}>
+                        {t('storage.sync.dismiss')}
+                      </MAdminButton>
+                    </div>
+                  </div>
                 )}
               </div>
             )

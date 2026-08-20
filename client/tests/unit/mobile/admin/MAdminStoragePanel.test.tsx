@@ -172,4 +172,50 @@ describe('MAdminStoragePanel', () => {
     expect(within(files).getByRole('button')).toBeInTheDocument(); // row still tappable
     expect(screen.queryByTestId('m-storage-category-photos')).not.toBeInTheDocument();
   });
+
+  it('FE-MOB-MSTOR-010: usage renders on rows and the header; never-computed shows the compute prompt', async () => {
+    const usage = {
+      computedAt: Date.now() - 3_600_000,
+      categories: Object.fromEntries(
+        (['files', 'journey', 'covers', 'avatars', 'places', 'photos-google', 'photos-trek', 'backups'] as const).map(
+          (c) => [c, { objects: 2, bytes: 1024 * 1024 }],
+        ),
+      ),
+      legacyPhotos: { objects: 0, bytes: 0 },
+    };
+    await renderPanel({ ...baseState(), usage } as StorageAdminState);
+    expect(screen.getByText(/Usage computed/)).toBeInTheDocument();
+    expect(within(screen.getByTestId('m-storage-backend-backups-local')).getByText(/2 objects · 1\.0 MB/)).toBeInTheDocument();
+  });
+
+  it('FE-MOB-MSTOR-011: Sync now → running → done via the test poll', async () => {
+    let polls = 0;
+    await renderPanel(mirroredState());
+    server.use(
+      http.post('/api/admin/storage/backends/mirror/backfill', () => HttpResponse.json({ started: true })),
+      http.get('/api/admin/storage', () => {
+        polls += 1;
+        const state = mirroredState();
+        (state as StorageAdminState).backfills =
+          polls < 3
+            ? [{ backend: 'mirror', status: 'running', done: 1, total: 4, copied: 1, skipped: 0, failed: 0, startedAt: 1 }]
+            : [{ backend: 'mirror', status: 'done', done: 4, total: 4, copied: 4, skipped: 0, failed: 0, startedAt: 1, finishedAt: 2 }];
+        return HttpResponse.json(state);
+      }),
+    );
+    const row = screen.getByTestId('m-storage-backend-backups-local');
+    fireEvent.click(within(row).getByRole('button', { name: 'Sync now' }));
+    await within(row).findByText(/Syncing… 1\/4/);
+    await within(row).findByText(/Sync finished: 4 copied, 0 failed/);
+  });
+
+  it('FE-MOB-MSTOR-012: a save that added targets raises the sync prompt', async () => {
+    await renderPanel();
+    server.use(http.put('/api/admin/storage', async () => HttpResponse.json(mirroredState())));
+    fireEvent.click(within(screen.getByTestId('m-storage-backend-backups-local')).getByRole('button', { name: 'Edit' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'off-box' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    await screen.findByText(/Existing objects are not replicated yet/);
+  });
 });
