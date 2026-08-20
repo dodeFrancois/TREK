@@ -100,5 +100,22 @@ const storage: TranslationStrings = {
   'storage.mirror.degenerate.env-primary': 'Обгортає бекенд, визначений змінною середовища — тут не редагується.',
   'storage.mirror.degenerate.missing-primary': 'Посилається на бекенд, якого більше не існує.',
   'storage.remove.usedAsReplicaBy': 'Використовується як репліка: {primaries}',
+
+  // Backfill + usage (backfill/stats/notifications spec)
+  'storage.sync.now': 'Синхронізувати зараз',
+  'storage.sync.running': 'Синхронізація… {done}/{total}',
+  'storage.sync.counts': '{copied} скопійовано · {skipped} пропущено · {failed} не вдалося',
+  'storage.sync.cancel': 'Скасувати синхронізацію',
+  'storage.sync.done': 'Синхронізацію завершено: {copied} скопійовано, {failed} не вдалося',
+  'storage.sync.cancelled': 'Синхронізацію скасовано',
+  'storage.sync.error': 'Синхронізація не вдалася: {error}',
+  'storage.sync.prompt': "Наявні об'єкти ще не реплікуються — синхронізувати зараз?",
+  'storage.sync.dismiss': 'Приховати',
+  'storage.usage.line': "{objects} об'єктів · {size}",
+  'storage.usage.computed': 'Використання обчислено {age}',
+  'storage.usage.never': 'Використання ще не обчислено',
+  'storage.usage.refresh': 'Оновити',
+  'storage.usage.compute': 'Обчислити зараз',
+  'storage.usage.legacyNote': 'включає стару фотобібліотеку',
 };
 export default storage;

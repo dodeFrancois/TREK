@@ -100,5 +100,22 @@ const storage: TranslationStrings = {
     'Ortam değişkeniyle tanımlanmış bir arka ucu sarmalıyor — burada düzenlenemez.',
   'storage.mirror.degenerate.missing-primary': 'Artık var olmayan bir arka uca başvuruyor.',
   'storage.remove.usedAsReplicaBy': 'Kopya olarak kullanan: {primaries}',
+
+  // Backfill + usage (backfill/stats/notifications spec)
+  'storage.sync.now': 'Şimdi eşitle',
+  'storage.sync.running': 'Eşitleniyor… {done}/{total}',
+  'storage.sync.counts': '{copied} kopyalandı · {skipped} atlandı · {failed} başarısız',
+  'storage.sync.cancel': 'Eşitlemeyi iptal et',
+  'storage.sync.done': 'Eşitleme tamamlandı: {copied} kopyalandı, {failed} başarısız',
+  'storage.sync.cancelled': 'Eşitleme iptal edildi',
+  'storage.sync.error': 'Eşitleme başarısız oldu: {error}',
+  'storage.sync.prompt': 'Mevcut nesneler henüz çoğaltılmadı — şimdi eşitlensin mi?',
+  'storage.sync.dismiss': 'Kapat',
+  'storage.usage.line': '{objects} nesne · {size}',
+  'storage.usage.computed': 'Kullanım hesaplandı {age}',
+  'storage.usage.never': 'Kullanım henüz hesaplanmadı',
+  'storage.usage.refresh': 'Yenile',
+  'storage.usage.compute': 'Şimdi hesapla',
+  'storage.usage.legacyNote': 'eski fotoğraf kitaplığını içerir',
 };
 export default storage;

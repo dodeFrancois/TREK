@@ -101,5 +101,22 @@ const storage: TranslationStrings = {
     'Egy környezeti változóval definiált backendet vesz körül — itt nem szerkeszthető.',
   'storage.mirror.degenerate.missing-primary': 'Egy már nem létező backendre hivatkozik.',
   'storage.remove.usedAsReplicaBy': 'Replikaként használja: {primaries}',
+
+  // Backfill + usage (backfill/stats/notifications spec)
+  'storage.sync.now': 'Szinkronizálás most',
+  'storage.sync.running': 'Szinkronizálás… {done}/{total}',
+  'storage.sync.counts': '{copied} másolva · {skipped} kihagyva · {failed} sikertelen',
+  'storage.sync.cancel': 'Szinkronizálás megszakítása',
+  'storage.sync.done': 'Szinkronizálás befejezve: {copied} másolva, {failed} sikertelen',
+  'storage.sync.cancelled': 'Szinkronizálás megszakítva',
+  'storage.sync.error': 'A szinkronizálás sikertelen: {error}',
+  'storage.sync.prompt': 'A meglévő objektumok még nincsenek replikálva — szinkronizálsz most?',
+  'storage.sync.dismiss': 'Elvetés',
+  'storage.usage.line': '{objects} objektum · {size}',
+  'storage.usage.computed': 'A használat kiszámítva {age}',
+  'storage.usage.never': 'A használat még nincs kiszámítva',
+  'storage.usage.refresh': 'Frissítés',
+  'storage.usage.compute': 'Számítás most',
+  'storage.usage.legacyNote': 'tartalmazza a régi fotókönyvtárat',
 };
 export default storage;

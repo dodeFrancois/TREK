@@ -100,5 +100,22 @@ const storage: TranslationStrings = {
     'Membungkus backend yang ditentukan oleh variabel lingkungan — tidak dapat diedit di sini.',
   'storage.mirror.degenerate.missing-primary': 'Merujuk ke backend yang sudah tidak ada.',
   'storage.remove.usedAsReplicaBy': 'Digunakan sebagai replika oleh: {primaries}',
+
+  // Backfill + usage (backfill/stats/notifications spec)
+  'storage.sync.now': 'Sinkronkan sekarang',
+  'storage.sync.running': 'Menyinkronkan… {done}/{total}',
+  'storage.sync.counts': '{copied} disalin · {skipped} dilewati · {failed} gagal',
+  'storage.sync.cancel': 'Batalkan sinkronisasi',
+  'storage.sync.done': 'Sinkronisasi selesai: {copied} disalin, {failed} gagal',
+  'storage.sync.cancelled': 'Sinkronisasi dibatalkan',
+  'storage.sync.error': 'Sinkronisasi gagal: {error}',
+  'storage.sync.prompt': 'Objek yang ada belum direplikasi — sinkronkan sekarang?',
+  'storage.sync.dismiss': 'Abaikan',
+  'storage.usage.line': '{objects} objek · {size}',
+  'storage.usage.computed': 'Penggunaan dihitung {age}',
+  'storage.usage.never': 'Penggunaan belum dihitung',
+  'storage.usage.refresh': 'Segarkan',
+  'storage.usage.compute': 'Hitung sekarang',
+  'storage.usage.legacyNote': 'termasuk pustaka foto lama',
 };
 export default storage;

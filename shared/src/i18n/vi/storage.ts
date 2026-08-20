@@ -100,5 +100,22 @@ const storage: TranslationStrings = {
     'Bao quanh một backend được xác định bởi biến môi trường — không thể chỉnh sửa tại đây.',
   'storage.mirror.degenerate.missing-primary': 'Tham chiếu đến một backend không còn tồn tại.',
   'storage.remove.usedAsReplicaBy': 'Được dùng làm bản sao bởi: {primaries}',
+
+  // Backfill + usage (backfill/stats/notifications spec)
+  'storage.sync.now': 'Đồng bộ ngay',
+  'storage.sync.running': 'Đang đồng bộ… {done}/{total}',
+  'storage.sync.counts': '{copied} đã sao chép · {skipped} đã bỏ qua · {failed} thất bại',
+  'storage.sync.cancel': 'Hủy đồng bộ',
+  'storage.sync.done': 'Đồng bộ hoàn tất: {copied} đã sao chép, {failed} thất bại',
+  'storage.sync.cancelled': 'Đã hủy đồng bộ',
+  'storage.sync.error': 'Đồng bộ thất bại: {error}',
+  'storage.sync.prompt': 'Các đối tượng hiện có chưa được nhân bản — đồng bộ ngay?',
+  'storage.sync.dismiss': 'Bỏ qua',
+  'storage.usage.line': '{objects} đối tượng · {size}',
+  'storage.usage.computed': 'Đã tính dung lượng sử dụng {age}',
+  'storage.usage.never': 'Chưa tính dung lượng sử dụng',
+  'storage.usage.refresh': 'Làm mới',
+  'storage.usage.compute': 'Tính ngay',
+  'storage.usage.legacyNote': 'bao gồm thư viện ảnh cũ',
 };
 export default storage;

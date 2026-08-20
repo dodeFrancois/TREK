@@ -89,5 +89,22 @@ const storage: TranslationStrings = {
   'storage.mirror.degenerate.env-primary': '包裹了一个由环境变量定义的后端 — 此处不可编辑。',
   'storage.mirror.degenerate.missing-primary': '引用了一个已不存在的后端。',
   'storage.remove.usedAsReplicaBy': '被用作副本，使用者：{primaries}',
+
+  // Backfill + usage (backfill/stats/notifications spec)
+  'storage.sync.now': '立即同步',
+  'storage.sync.running': '同步中… {done}/{total}',
+  'storage.sync.counts': '已复制 {copied} · 已跳过 {skipped} · 失败 {failed}',
+  'storage.sync.cancel': '取消同步',
+  'storage.sync.done': '同步完成：已复制 {copied}，失败 {failed}',
+  'storage.sync.cancelled': '同步已取消',
+  'storage.sync.error': '同步失败：{error}',
+  'storage.sync.prompt': '现有对象尚未复制 — 立即同步？',
+  'storage.sync.dismiss': '关闭',
+  'storage.usage.line': '{objects} 个对象 · {size}',
+  'storage.usage.computed': '用量已计算：{age}',
+  'storage.usage.never': '尚未计算用量',
+  'storage.usage.refresh': '刷新',
+  'storage.usage.compute': '立即计算',
+  'storage.usage.legacyNote': '包含旧版照片库',
 };
 export default storage;

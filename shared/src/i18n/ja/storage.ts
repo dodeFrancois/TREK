@@ -98,5 +98,22 @@ const storage: TranslationStrings = {
     '環境変数で定義されたバックエンドをラップしています — ここでは編集できません。',
   'storage.mirror.degenerate.missing-primary': 'もう存在しないバックエンドを参照しています。',
   'storage.remove.usedAsReplicaBy': 'レプリカとして使用中: {primaries}',
+
+  // Backfill + usage (backfill/stats/notifications spec)
+  'storage.sync.now': '今すぐ同期',
+  'storage.sync.running': '同期中… {done}/{total}',
+  'storage.sync.counts': '{copied}件コピー · {skipped}件スキップ · {failed}件失敗',
+  'storage.sync.cancel': '同期をキャンセル',
+  'storage.sync.done': '同期完了: {copied}件コピー、{failed}件失敗',
+  'storage.sync.cancelled': '同期をキャンセルしました',
+  'storage.sync.error': '同期に失敗しました: {error}',
+  'storage.sync.prompt': '既存のオブジェクトはまだ複製されていません — 今すぐ同期しますか？',
+  'storage.sync.dismiss': '閉じる',
+  'storage.usage.line': '{objects}個のオブジェクト · {size}',
+  'storage.usage.computed': '使用量計算済み: {age}',
+  'storage.usage.never': '使用量はまだ計算されていません',
+  'storage.usage.refresh': '更新',
+  'storage.usage.compute': '今すぐ計算',
+  'storage.usage.legacyNote': '従来の写真ライブラリを含む',
 };
 export default storage;

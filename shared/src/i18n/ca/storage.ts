@@ -101,5 +101,22 @@ const storage: TranslationStrings = {
     "Embolcalla un backend definit per una variable d'entorn — no editable aquí.",
   'storage.mirror.degenerate.missing-primary': 'Fa referència a un backend que ja no existeix.',
   'storage.remove.usedAsReplicaBy': 'Utilitzat com a rèplica per: {primaries}',
+
+  // Backfill + usage (backfill/stats/notifications spec)
+  'storage.sync.now': 'Sincronitza ara',
+  'storage.sync.running': 'Sincronitzant… {done}/{total}',
+  'storage.sync.counts': '{copied} copiats · {skipped} omesos · {failed} fallits',
+  'storage.sync.cancel': 'Cancel·la la sincronització',
+  'storage.sync.done': 'Sincronització finalitzada: {copied} copiats, {failed} fallits',
+  'storage.sync.cancelled': 'Sincronització cancel·lada',
+  'storage.sync.error': 'Ha fallat la sincronització: {error}',
+  'storage.sync.prompt': "Els objectes existents encara no s'han replicat — vols sincronitzar ara?",
+  'storage.sync.dismiss': 'Descarta',
+  'storage.usage.line': '{objects} objectes · {size}',
+  'storage.usage.computed': 'Ús calculat {age}',
+  'storage.usage.never': 'Ús encara no calculat',
+  'storage.usage.refresh': 'Actualitza',
+  'storage.usage.compute': 'Calcula ara',
+  'storage.usage.legacyNote': 'inclou la biblioteca de fotos antiga',
 };
 export default storage;

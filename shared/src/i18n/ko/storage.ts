@@ -96,5 +96,22 @@ const storage: TranslationStrings = {
   'storage.mirror.degenerate.env-primary': '환경 변수로 정의된 백엔드를 감싸고 있습니다 — 여기서는 편집할 수 없습니다.',
   'storage.mirror.degenerate.missing-primary': '더 이상 존재하지 않는 백엔드를 참조합니다.',
   'storage.remove.usedAsReplicaBy': '다음의 복제본으로 사용됨: {primaries}',
+
+  // Backfill + usage (backfill/stats/notifications spec)
+  'storage.sync.now': '지금 동기화',
+  'storage.sync.running': '동기화 중… {done}/{total}',
+  'storage.sync.counts': '{copied}개 복사 · {skipped}개 건너뜀 · {failed}개 실패',
+  'storage.sync.cancel': '동기화 취소',
+  'storage.sync.done': '동기화 완료: {copied}개 복사, {failed}개 실패',
+  'storage.sync.cancelled': '동기화가 취소되었습니다',
+  'storage.sync.error': '동기화 실패: {error}',
+  'storage.sync.prompt': '기존 객체가 아직 복제되지 않았습니다 — 지금 동기화할까요?',
+  'storage.sync.dismiss': '닫기',
+  'storage.usage.line': '{objects}개 객체 · {size}',
+  'storage.usage.computed': '사용량 계산됨 {age}',
+  'storage.usage.never': '아직 사용량이 계산되지 않았습니다',
+  'storage.usage.refresh': '새로고침',
+  'storage.usage.compute': '지금 계산',
+  'storage.usage.legacyNote': '기존 사진 라이브러리 포함',
 };
 export default storage;

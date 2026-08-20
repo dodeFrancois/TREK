@@ -102,5 +102,22 @@ const storage: TranslationStrings = {
     'Envuelve un backend definido por una variable de entorno — no editable aquí.',
   'storage.mirror.degenerate.missing-primary': 'Hace referencia a un backend que ya no existe.',
   'storage.remove.usedAsReplicaBy': 'Usado como réplica por: {primaries}',
+
+  // Backfill + usage (backfill/stats/notifications spec)
+  'storage.sync.now': 'Sincronizar ahora',
+  'storage.sync.running': 'Sincronizando… {done}/{total}',
+  'storage.sync.counts': '{copied} copiados · {skipped} omitidos · {failed} fallidos',
+  'storage.sync.cancel': 'Cancelar sincronización',
+  'storage.sync.done': 'Sincronización finalizada: {copied} copiados, {failed} fallidos',
+  'storage.sync.cancelled': 'Sincronización cancelada',
+  'storage.sync.error': 'Error en la sincronización: {error}',
+  'storage.sync.prompt': 'Los objetos existentes aún no se han replicado — ¿sincronizar ahora?',
+  'storage.sync.dismiss': 'Descartar',
+  'storage.usage.line': '{objects} objetos · {size}',
+  'storage.usage.computed': 'Uso calculado {age}',
+  'storage.usage.never': 'Uso aún no calculado',
+  'storage.usage.refresh': 'Actualizar',
+  'storage.usage.compute': 'Calcular ahora',
+  'storage.usage.legacyNote': 'incluye la biblioteca de fotos antigua',
 };
 export default storage;

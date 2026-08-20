@@ -97,5 +97,22 @@ const storage: TranslationStrings = {
   'storage.mirror.degenerate.env-primary': 'Obaluje backend definovaný proměnnou prostředí — zde needitovatelné.',
   'storage.mirror.degenerate.missing-primary': 'Odkazuje na backend, který již neexistuje.',
   'storage.remove.usedAsReplicaBy': 'Používáno jako replika: {primaries}',
+
+  // Backfill + usage (backfill/stats/notifications spec)
+  'storage.sync.now': 'Synchronizovat nyní',
+  'storage.sync.running': 'Synchronizace… {done}/{total}',
+  'storage.sync.counts': '{copied} zkopírováno · {skipped} přeskočeno · {failed} selhalo',
+  'storage.sync.cancel': 'Zrušit synchronizaci',
+  'storage.sync.done': 'Synchronizace dokončena: {copied} zkopírováno, {failed} selhalo',
+  'storage.sync.cancelled': 'Synchronizace zrušena',
+  'storage.sync.error': 'Synchronizace selhala: {error}',
+  'storage.sync.prompt': 'Existující objekty ještě nejsou replikovány — synchronizovat nyní?',
+  'storage.sync.dismiss': 'Zavřít',
+  'storage.usage.line': '{objects} objektů · {size}',
+  'storage.usage.computed': 'Využití vypočteno {age}',
+  'storage.usage.never': 'Využití zatím nebylo vypočteno',
+  'storage.usage.refresh': 'Obnovit',
+  'storage.usage.compute': 'Vypočítat nyní',
+  'storage.usage.legacyNote': 'zahrnuje starší fotoknihovnu',
 };
 export default storage;

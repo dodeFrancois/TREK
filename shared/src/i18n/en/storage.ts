@@ -113,5 +113,22 @@ const storage: TranslationStrings = {
   'storage.mirror.degenerate.env-primary': 'Wraps an environment-defined backend — not editable here.',
   'storage.mirror.degenerate.missing-primary': 'References a backend that no longer exists.',
   'storage.remove.usedAsReplicaBy': 'Used as replica by: {primaries}',
+
+  // Backfill + usage (backfill/stats/notifications spec)
+  'storage.sync.now': 'Sync now',
+  'storage.sync.running': 'Syncing… {done}/{total}',
+  'storage.sync.counts': '{copied} copied · {skipped} skipped · {failed} failed',
+  'storage.sync.cancel': 'Cancel sync',
+  'storage.sync.done': 'Sync finished: {copied} copied, {failed} failed',
+  'storage.sync.cancelled': 'Sync cancelled',
+  'storage.sync.error': 'Sync failed: {error}',
+  'storage.sync.prompt': 'Existing objects are not replicated yet — sync now?',
+  'storage.sync.dismiss': 'Dismiss',
+  'storage.usage.line': '{objects} objects · {size}',
+  'storage.usage.computed': 'Usage computed {age}',
+  'storage.usage.never': 'Usage not computed yet',
+  'storage.usage.refresh': 'Refresh',
+  'storage.usage.compute': 'Compute now',
+  'storage.usage.legacyNote': 'includes the legacy photo library',
 };
 export default storage;

@@ -97,5 +97,22 @@ const storage: TranslationStrings = {
   'storage.mirror.degenerate.env-primary': 'تُغلّف واجهة خلفية معرّفة بواسطة متغيّر بيئة — غير قابلة للتعديل هنا.',
   'storage.mirror.degenerate.missing-primary': 'تشير إلى واجهة خلفية لم تعد موجودة.',
   'storage.remove.usedAsReplicaBy': 'مستخدَمة كنسخة متماثلة بواسطة: {primaries}',
+
+  // Backfill + usage (backfill/stats/notifications spec)
+  'storage.sync.now': 'مزامنة الآن',
+  'storage.sync.running': 'جارٍ المزامنة… {done}/{total}',
+  'storage.sync.counts': '{copied} منسوخة · {skipped} متخطاة · {failed} فاشلة',
+  'storage.sync.cancel': 'إلغاء المزامنة',
+  'storage.sync.done': 'انتهت المزامنة: تم نسخ {copied}، وفشل {failed}',
+  'storage.sync.cancelled': 'تم إلغاء المزامنة',
+  'storage.sync.error': 'فشلت المزامنة: {error}',
+  'storage.sync.prompt': 'الكائنات الحالية لم تُنسخ بعد — هل تريد المزامنة الآن؟',
+  'storage.sync.dismiss': 'تجاهل',
+  'storage.usage.line': '{objects} كائن · {size}',
+  'storage.usage.computed': 'تم حساب الاستخدام {age}',
+  'storage.usage.never': 'لم يُحسب الاستخدام بعد',
+  'storage.usage.refresh': 'تحديث',
+  'storage.usage.compute': 'احسب الآن',
+  'storage.usage.legacyNote': 'يشمل مكتبة الصور القديمة',
 };
 export default storage;

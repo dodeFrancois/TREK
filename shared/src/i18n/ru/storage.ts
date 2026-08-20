@@ -102,5 +102,22 @@ const storage: TranslationStrings = {
     'Оборачивает бэкенд, определённый переменной окружения — здесь не редактируется.',
   'storage.mirror.degenerate.missing-primary': 'Ссылается на бэкенд, которого больше не существует.',
   'storage.remove.usedAsReplicaBy': 'Используется как реплика в: {primaries}',
+
+  // Backfill + usage (backfill/stats/notifications spec)
+  'storage.sync.now': 'Синхронизировать сейчас',
+  'storage.sync.running': 'Синхронизация… {done}/{total}',
+  'storage.sync.counts': '{copied} скопировано · {skipped} пропущено · {failed} не удалось',
+  'storage.sync.cancel': 'Отменить синхронизацию',
+  'storage.sync.done': 'Синхронизация завершена: {copied} скопировано, {failed} не удалось',
+  'storage.sync.cancelled': 'Синхронизация отменена',
+  'storage.sync.error': 'Ошибка синхронизации: {error}',
+  'storage.sync.prompt': 'Существующие объекты ещё не реплицированы — синхронизировать сейчас?',
+  'storage.sync.dismiss': 'Скрыть',
+  'storage.usage.line': '{objects} объектов · {size}',
+  'storage.usage.computed': 'Использование рассчитано {age}',
+  'storage.usage.never': 'Использование ещё не рассчитано',
+  'storage.usage.refresh': 'Обновить',
+  'storage.usage.compute': 'Рассчитать сейчас',
+  'storage.usage.legacyNote': 'включает старую библиотеку фото',
 };
 export default storage;

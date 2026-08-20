@@ -101,5 +101,22 @@ const storage: TranslationStrings = {
     'Omhult een backend die door een omgevingsvariabele is gedefinieerd — hier niet bewerkbaar.',
   'storage.mirror.degenerate.missing-primary': 'Verwijst naar een backend die niet meer bestaat.',
   'storage.remove.usedAsReplicaBy': 'Gebruikt als replica door: {primaries}',
+
+  // Backfill + usage (backfill/stats/notifications spec)
+  'storage.sync.now': 'Nu synchroniseren',
+  'storage.sync.running': 'Synchroniseren… {done}/{total}',
+  'storage.sync.counts': '{copied} gekopieerd · {skipped} overgeslagen · {failed} mislukt',
+  'storage.sync.cancel': 'Synchronisatie annuleren',
+  'storage.sync.done': 'Synchronisatie voltooid: {copied} gekopieerd, {failed} mislukt',
+  'storage.sync.cancelled': 'Synchronisatie geannuleerd',
+  'storage.sync.error': 'Synchronisatie mislukt: {error}',
+  'storage.sync.prompt': 'Bestaande objecten zijn nog niet gerepliceerd — nu synchroniseren?',
+  'storage.sync.dismiss': 'Negeren',
+  'storage.usage.line': '{objects} objecten · {size}',
+  'storage.usage.computed': 'Gebruik berekend {age}',
+  'storage.usage.never': 'Gebruik nog niet berekend',
+  'storage.usage.refresh': 'Vernieuwen',
+  'storage.usage.compute': 'Nu berekenen',
+  'storage.usage.legacyNote': 'inclusief de oude fotobibliotheek',
 };
 export default storage;

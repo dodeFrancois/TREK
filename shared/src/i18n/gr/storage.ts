@@ -103,5 +103,22 @@ const storage: TranslationStrings = {
     'Τυλίγει ένα backend που ορίζεται από μεταβλητή περιβάλλοντος — δεν επεξεργάζεται εδώ.',
   'storage.mirror.degenerate.missing-primary': 'Αναφέρεται σε ένα backend που δεν υπάρχει πια.',
   'storage.remove.usedAsReplicaBy': 'Χρησιμοποιείται ως αντίγραφο από: {primaries}',
+
+  // Backfill + usage (backfill/stats/notifications spec)
+  'storage.sync.now': 'Συγχρονισμός τώρα',
+  'storage.sync.running': 'Συγχρονισμός… {done}/{total}',
+  'storage.sync.counts': '{copied} αντιγράφηκαν · {skipped} παραλείφθηκαν · {failed} απέτυχαν',
+  'storage.sync.cancel': 'Ακύρωση συγχρονισμού',
+  'storage.sync.done': 'Ο συγχρονισμός ολοκληρώθηκε: {copied} αντιγράφηκαν, {failed} απέτυχαν',
+  'storage.sync.cancelled': 'Ο συγχρονισμός ακυρώθηκε',
+  'storage.sync.error': 'Ο συγχρονισμός απέτυχε: {error}',
+  'storage.sync.prompt': 'Τα υπάρχοντα αντικείμενα δεν έχουν αναπαραχθεί ακόμα — συγχρονισμός τώρα;',
+  'storage.sync.dismiss': 'Απόρριψη',
+  'storage.usage.line': '{objects} αντικείμενα · {size}',
+  'storage.usage.computed': 'Η χρήση υπολογίστηκε {age}',
+  'storage.usage.never': 'Η χρήση δεν έχει υπολογιστεί ακόμα',
+  'storage.usage.refresh': 'Ανανέωση',
+  'storage.usage.compute': 'Υπολογισμός τώρα',
+  'storage.usage.legacyNote': 'περιλαμβάνει την παλιά βιβλιοθήκη φωτογραφιών',
 };
 export default storage;

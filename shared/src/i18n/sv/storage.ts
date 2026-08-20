@@ -98,5 +98,22 @@ const storage: TranslationStrings = {
   'storage.mirror.degenerate.env-primary': 'Omsluter en backend definierad av en miljövariabel — inte redigerbar här.',
   'storage.mirror.degenerate.missing-primary': 'Refererar till en backend som inte längre finns.',
   'storage.remove.usedAsReplicaBy': 'Används som replik av: {primaries}',
+
+  // Backfill + usage (backfill/stats/notifications spec)
+  'storage.sync.now': 'Synkronisera nu',
+  'storage.sync.running': 'Synkroniserar… {done}/{total}',
+  'storage.sync.counts': '{copied} kopierade · {skipped} överhoppade · {failed} misslyckade',
+  'storage.sync.cancel': 'Avbryt synkronisering',
+  'storage.sync.done': 'Synkronisering klar: {copied} kopierade, {failed} misslyckade',
+  'storage.sync.cancelled': 'Synkronisering avbruten',
+  'storage.sync.error': 'Synkronisering misslyckades: {error}',
+  'storage.sync.prompt': 'Befintliga objekt har inte replikerats än — synkronisera nu?',
+  'storage.sync.dismiss': 'Avvisa',
+  'storage.usage.line': '{objects} objekt · {size}',
+  'storage.usage.computed': 'Användning beräknad {age}',
+  'storage.usage.never': 'Användning inte beräknad än',
+  'storage.usage.refresh': 'Uppdatera',
+  'storage.usage.compute': 'Beräkna nu',
+  'storage.usage.legacyNote': 'inkluderar det äldre fotobiblioteket',
 };
 export default storage;
