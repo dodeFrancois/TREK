@@ -35,6 +35,16 @@ function baseState(overrides: Partial<StorageAdminState> = {}): StorageAdminStat
   };
 }
 
+function mirroredState(): StorageAdminState {
+  const state = baseState();
+  state.backends.push({
+    name: 'mirror', type: 'mirror', source: 'settings',
+    options: { primary: 'backups-local', replicas: ['off-box'] }, categories: ['backups'],
+  });
+  state.categories.backups = { backend: 'mirror', source: 'settings' };
+  return state;
+}
+
 async function renderPanel(state: StorageAdminState = baseState()) {
   server.use(http.get('/api/admin/storage', () => HttpResponse.json(state)));
   render(
@@ -98,5 +108,53 @@ describe('MAdminStoragePanel', () => {
     fireEvent.change(nameInput, { target: { value: 'uploads-local' } });
     expect(screen.getByText(/A backend named uploads-local already exists/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Apply' })).toBeDisabled();
+  });
+
+  it('FE-MOB-MSTOR-006: mirrors fold — no mirror card, primary and replica decorated', async () => {
+    await renderPanel(mirroredState());
+    expect(screen.queryByTestId('m-storage-backend-mirror')).not.toBeInTheDocument();
+    const primary = screen.getByTestId('m-storage-backend-backups-local');
+    expect(within(primary).getByText('Mirrored to: off-box')).toBeInTheDocument();
+    const replica = screen.getByTestId('m-storage-backend-off-box');
+    expect(within(replica).getByText('Replica of: backups-local')).toBeInTheDocument();
+  });
+
+  it('FE-MOB-MSTOR-007: toggling a target on a primary synthesizes the mirror in the PUT', async () => {
+    let putBody: unknown;
+    await renderPanel();
+    server.use(
+      http.put('/api/admin/storage', async ({ request }) => {
+        putBody = await request.json();
+        return HttpResponse.json(baseState());
+      }),
+    );
+    fireEvent.click(within(screen.getByTestId('m-storage-backend-backups-local')).getByRole('button', { name: 'Edit' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'off-box' }));
+    expect(screen.getByText(/slows every upload/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    await screen.findByText('Storage configuration saved');
+    const body = putBody as { backends: Array<{ name: string; type: string; options: unknown }>; categories: Record<string, string> };
+    expect(body.backends.find((b) => b.name === 'backups-local-mirror')!.options).toEqual({
+      primary: 'backups-local', replicas: ['off-box'],
+    });
+    expect(body.categories.backups).toBe('backups-local-mirror');
+  });
+
+  it('FE-MOB-MSTOR-008: the category picker deals in primaries and warns on cache categories', async () => {
+    let putBody: unknown;
+    await renderPanel(mirroredState());
+    server.use(
+      http.put('/api/admin/storage', async ({ request }) => {
+        putBody = await request.json();
+        return HttpResponse.json(mirroredState());
+      }),
+    );
+    fireEvent.click(within(screen.getByTestId('m-storage-category-places')).getByRole('button'));
+    fireEvent.click(within(screen.getByRole('dialog', { name: 'Place images' })).getByRole('button', { name: 'backups-local' })); // picker option = primary name
+    expect(screen.getByText(/re-fetchable/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    await screen.findByText('Storage configuration saved');
+    expect((putBody as { categories: Record<string, string> }).categories.places).toBe('mirror');
   });
 });

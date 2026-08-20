@@ -13,13 +13,19 @@ import { useTranslation } from '../../../i18n'
 import { useToast } from '../../../components/shared/Toast'
 import { relativeTime } from '../../../utils/relativeTime'
 import {
-  asWireBackend,
-  categoriesPointingAt,
+  CACHE_CATEGORIES,
+  adoptedMirrorFor,
+  effectiveCategoryMap,
+  foldBackends,
   hasPlaintextSecret,
-  mirrorsReferencing,
+  primaryNameOf,
   removeBackend,
+  removeBackendAndMirrors,
+  renameBackendRefs,
+  replicaOfPrimaries,
+  setMirrorTargets,
   upsertBackend,
-  type StateBackend,
+  type FoldedBackendRow,
 } from '../../../components/Admin/storage/storageModel'
 import { useStorageAdmin } from '../../../components/Admin/storage/useStorageAdmin'
 import MToggle from '../../components/MToggle'
@@ -44,19 +50,22 @@ function MBackendForm({
   initial,
   backendNames,
   encryptionReady,
+  mirror,
   onCommit,
   onCancel,
 }: {
   initial: StorageBackend | null
   backendNames: string[]
   encryptionReady: boolean
-  onCommit: (backend: StorageBackend) => void
+  mirror: { candidates: string[]; initialTargets: string[] }
+  onCommit: (backend: StorageBackend, mirrorTargets: string[]) => void
   onCancel: () => void
 }): React.ReactElement {
   const { t } = useTranslation()
   const [type, setType] = useState<StorageBackendTypeId>(initial?.type ?? 'local')
   const [name, setName] = useState(initial?.name ?? '')
   const [values, setValues] = useState<FieldValues>(() => valuesOf(initial))
+  const [targets, setTargets] = useState<string[]>(mirror.initialTargets)
   const [picker, setPicker] = useState<string | null>(null)
 
   const fields = STORAGE_BACKEND_TYPES[type].fields as readonly StorageBackendFieldDef[]
@@ -84,7 +93,7 @@ function MBackendForm({
       if (text === '' && !field.required) continue
       options[field.key] = field.kind === 'number' ? Number(text) : text
     }
-    onCommit({ name: name.trim(), type, options } as StorageBackend)
+    onCommit({ name: name.trim(), type, options } as StorageBackend, targets)
   }
 
   return (
@@ -109,7 +118,10 @@ function MBackendForm({
             open={picker === 'type'}
             onClose={() => setPicker(null)}
             title={t('storage.form.type')}
-            options={STORAGE_BACKEND_TYPE_IDS.map((id) => ({ value: id, label: t(`storage.type.${id}`) }))}
+            options={STORAGE_BACKEND_TYPE_IDS.filter((id) => id !== 'mirror').map((id) => ({
+              value: id,
+              label: t(`storage.type.${id}`),
+            }))}
             value={type}
             onSelect={(next) => {
               setType(next as StorageBackendTypeId)
@@ -184,6 +196,30 @@ function MBackendForm({
         )
       })}
 
+      <MAdminField label={t('storage.mirror.targets')} hint={t('storage.mirror.targetsHelp')}>
+        <div className="space-y-2">
+          {mirror.candidates
+            .filter((candidate) => candidate !== name.trim())
+            .map((candidate) => (
+              <div key={candidate} className="flex items-center justify-between gap-2">
+                <span className="text-[0.8125rem] font-semibold text-m-ink">{candidate}</span>
+                <MToggle
+                  checked={targets.includes(candidate)}
+                  ariaLabel={candidate}
+                  onChange={(checked) =>
+                    setTargets(checked ? [...targets, candidate] : targets.filter((existing) => existing !== candidate))
+                  }
+                />
+              </div>
+            ))}
+        </div>
+        {targets.length > 0 && (
+          <p role="note" className="mt-1 font-geist text-[0.625rem] leading-relaxed text-m-muted">
+            {t('storage.mirror.latencyNote')}
+          </p>
+        )}
+      </MAdminField>
+
       <div className="flex items-center gap-2">
         {blocked ? (
           <p role="alert" className="font-geist text-[0.625rem] leading-relaxed text-m-muted">
@@ -206,8 +242,12 @@ export default function MAdminStoragePanel(): React.ReactElement {
   const { t, locale } = useTranslation()
   const toast = useToast()
   const admin = useStorageAdmin(t('common.error'))
-  const [editing, setEditing] = useState<{ initial: StorageBackend | null; originalName: string | null } | null>(null)
-  const [confirmRemove, setConfirmRemove] = useState<string | null>(null)
+  const [editing, setEditing] = useState<{
+    initial: StorageBackend | null
+    originalName: string | null
+    mirror: { candidates: string[]; initialTargets: string[] }
+  } | null>(null)
+  const [confirmRemove, setConfirmRemove] = useState<{ name: string; degenerate: boolean } | null>(null)
   const [categoryPicker, setCategoryPicker] = useState<StorageCategory | null>(null)
 
   if (admin.loading) {
@@ -226,60 +266,55 @@ export default function MAdminStoragePanel(): React.ReactElement {
   }
   const { state, draft } = admin
 
-  const draftNames = draft.backends.map((b) => b.name)
-  const backendNames = [...new Set([...state.backends.map((b) => b.name), ...draftNames])]
-  const stateByName = new Map(state.backends.map((b) => [b.name, b]))
+  const backendNames = [...new Set([...state.backends.map((b) => b.name), ...draft.backends.map((b) => b.name)])]
+  const { rows, degenerate } = foldBackends(state, draft)
+  const effective = effectiveCategoryMap(state, draft)
 
-  interface Row {
-    name: string
-    type: StorageBackend['type']
-    source: 'built-in' | 'env' | 'settings'
-    backend: StorageBackend
-    categories: readonly string[]
-  }
-  const rows: Row[] = []
-  for (const b of state.backends) {
-    if (draftNames.includes(b.name)) continue
-    if (b.source === 'settings') continue
-    rows.push({ name: b.name, type: b.type, source: b.source, backend: asWireBackend(b), categories: b.categories })
-  }
-  for (const b of draft.backends) {
-    const inState = stateByName.get(b.name) as StateBackend | undefined
-    rows.push({
-      name: b.name,
-      type: b.type,
-      source: 'settings',
-      backend: b,
-      categories: inState?.categories ?? categoriesPointingAt(draft, b.name),
+  const startEdit = (row: FoldedBackendRow) => {
+    setEditing({
+      initial: row.backend,
+      originalName: row.name,
+      mirror: {
+        candidates: rows.filter((r) => r.name !== row.name).map((r) => r.name),
+        initialTargets: row.mirrorTargets,
+      },
     })
   }
 
-  const commitBackend = (backend: StorageBackend) => {
+  const commitBackend = (backend: StorageBackend, mirrorTargets: string[]) => {
     const renamedFrom = editing?.originalName && editing.originalName !== backend.name ? editing.originalName : null
-    const base = renamedFrom ? removeBackend(draft, renamedFrom) : draft
-    admin.setDraft(upsertBackend(base, backend))
+    let next = draft
+    if (renamedFrom) next = renameBackendRefs(removeBackend(next, renamedFrom), renamedFrom, backend.name)
+    next = upsertBackend(next, backend)
+    next = setMirrorTargets(state, next, backend.name, mirrorTargets)
+    admin.setDraft(next)
     setEditing(null)
   }
 
-  const removeMessage = (name: string): string => {
-    const assigned = categoriesPointingAt(draft, name)
-    const mirrors = mirrorsReferencing(draft, name)
+  const removeMessage = (name: string, isDegenerate: boolean): string => {
+    const row = rows.find((r) => r.name === name)
+    const assigned = isDegenerate
+      ? degenerate.find((d) => d.backend.name === name)?.categories ?? []
+      : row?.categories ?? []
+    const usedAsReplicaBy = isDegenerate ? [] : replicaOfPrimaries(draft, name)
     return [
       t('storage.remove.body', { name }),
       assigned.length > 0 ? t('storage.remove.stillAssigned', { categories: assigned.join(', ') }) : '',
-      mirrors.length > 0 ? t('storage.remove.referencedBy', { backends: mirrors.join(', ') }) : '',
+      usedAsReplicaBy.length > 0 ? t('storage.remove.usedAsReplicaBy', { primaries: usedAsReplicaBy.join(', ') }) : '',
     ]
       .filter(Boolean)
       .join(' ')
   }
 
-  const setCategory = (category: StorageCategory, backendName: string) => {
-    const effective = state.categories[category]
+  const setCategory = (category: StorageCategory, primaryName: string) => {
+    const target = adoptedMirrorFor(draft, primaryName)?.name ?? primaryName
+    // The admin state's category record is exhaustive by schema contract.
+    const stateEntry = state.categories[category]!
     const categories = { ...draft.categories }
-    if (effective.source === 'default' && backendName === effective.backend) {
+    if (stateEntry.source === 'default' && target === stateEntry.backend) {
       delete categories[category]
     } else {
-      categories[category] = backendName
+      categories[category] = target
     }
     admin.setDraft({ ...draft, categories })
   }
@@ -318,7 +353,11 @@ export default function MAdminStoragePanel(): React.ReactElement {
         <MAdminCardHead title={t('storage.backends.title')} hint={t('storage.description')} />
         <div className="space-y-2">
           {rows.map((row) => {
-            const result = admin.testResults[row.name]
+            const resultKey = row.mirrorName ?? row.name
+            const result = admin.testResults[resultKey]
+            const testCandidate = row.mirrorName
+              ? draft.backends.find((b) => b.name === row.mirrorName)!
+              : row.backend
             return (
               <div
                 key={row.name}
@@ -339,20 +378,30 @@ export default function MAdminStoragePanel(): React.ReactElement {
                     ? t('storage.backends.usedBy', { categories: row.categories.join(', ') })
                     : t('storage.backends.unused')}
                 </p>
+                {row.mirrorTargets.length > 0 && (
+                  <p className="mt-1 font-geist text-[0.625rem] text-m-muted">
+                    {t('storage.mirror.mirroredTo', { targets: row.mirrorTargets.join(', ') })}
+                  </p>
+                )}
+                {row.replicaOf.length > 0 && (
+                  <p className="mt-1 font-geist text-[0.625rem] text-m-muted">
+                    {t('storage.mirror.replicaOf', { primaries: row.replicaOf.join(', ') })}
+                  </p>
+                )}
                 {row.source === 'env' && (
                   <p className="mt-1 font-geist text-[0.625rem] text-m-muted">{t('storage.backends.envReadOnly')}</p>
                 )}
                 <div className="mt-2 flex gap-2">
-                  <MAdminButton variant="ghost" onClick={() => admin.test(row.backend)}>
+                  <MAdminButton variant="ghost" onClick={() => admin.test(testCandidate)}>
                     {t('storage.actions.test')}
                   </MAdminButton>
                   {row.source !== 'env' && (
-                    <MAdminButton variant="ghost" onClick={() => setEditing({ initial: row.backend, originalName: row.name })}>
+                    <MAdminButton variant="ghost" onClick={() => startEdit(row)}>
                       {t('storage.actions.edit')}
                     </MAdminButton>
                   )}
                   {row.source === 'settings' && (
-                    <MAdminButton variant="danger" onClick={() => setConfirmRemove(row.name)}>
+                    <MAdminButton variant="danger" onClick={() => setConfirmRemove({ name: row.name, degenerate: false })}>
                       {t('storage.actions.remove')}
                     </MAdminButton>
                   )}
@@ -377,10 +426,65 @@ export default function MAdminStoragePanel(): React.ReactElement {
               </div>
             )
           })}
+
+          {degenerate.map(({ backend, reason }) => {
+            const result = admin.testResults[backend.name]
+            const primary = backend.type === 'mirror' ? backend.options.primary : ''
+            return (
+              <div
+                key={backend.name}
+                data-testid={`m-storage-backend-${backend.name}`}
+                className="rounded-xl border border-[color:var(--m-rowbr)] bg-[color:var(--m-sheet)] p-3"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[0.8125rem] font-bold text-m-ink">{backend.name}</span>
+                  <span className="rounded-full border border-[color:var(--m-rowbr)] px-2 py-[1px] font-geist text-[0.625rem] text-m-muted">
+                    {t('storage.type.mirror')}
+                  </span>
+                </div>
+                <p className="mt-1 font-geist text-[0.625rem] text-m-muted">
+                  {t(`storage.mirror.degenerate.${reason}`, { primary })}
+                </p>
+                <div className="mt-2 flex gap-2">
+                  <MAdminButton variant="ghost" onClick={() => admin.test(backend)}>
+                    {t('storage.actions.test')}
+                  </MAdminButton>
+                  <MAdminButton variant="danger" onClick={() => setConfirmRemove({ name: backend.name, degenerate: true })}>
+                    {t('storage.actions.remove')}
+                  </MAdminButton>
+                </div>
+                {result === 'running' ? (
+                  <p className="mt-2 font-geist text-[0.625rem] text-m-muted">{t('storage.test.running')}</p>
+                ) : (
+                  result && (
+                    <div className="mt-2 space-y-0.5">
+                      <p className="text-[0.75rem] font-bold text-m-ink">
+                        {result.ok ? t('storage.test.ok') : t('storage.test.failed')}
+                      </p>
+                      {result.targets.map((target) => (
+                        <p key={target.name} className="font-geist text-[0.625rem] text-m-muted">
+                          {target.ok ? '✓' : '✗'} {target.name}
+                          {target.error ? ` — ${target.error}` : ''}
+                        </p>
+                      ))}
+                    </div>
+                  )
+                )}
+              </div>
+            )
+          })}
         </div>
         {editing === null && (
           <div className="mt-3">
-            <MAdminButton onClick={() => setEditing({ initial: null, originalName: null })}>
+            <MAdminButton
+              onClick={() =>
+                setEditing({
+                  initial: null,
+                  originalName: null,
+                  mirror: { candidates: rows.map((r) => r.name), initialTargets: [] },
+                })
+              }
+            >
               {t('storage.backends.add')}
             </MAdminButton>
           </div>
@@ -392,6 +496,7 @@ export default function MAdminStoragePanel(): React.ReactElement {
           initial={editing.initial}
           backendNames={backendNames}
           encryptionReady={state.encryptionReady}
+          mirror={editing.mirror}
           onCommit={commitBackend}
           onCancel={() => setEditing(null)}
         />
@@ -401,17 +506,19 @@ export default function MAdminStoragePanel(): React.ReactElement {
         <MAdminCardHead title={t('storage.categories.title')} />
         <div className="space-y-2">
           {STORAGE_CATEGORIES.map((category) => {
-            const effective = state.categories[category]
-            const selected = draft.categories[category] ?? effective.backend
-            const changed = selected !== effective.backend
+            // The admin state's category record is exhaustive by schema contract.
+            const stateEntry = state.categories[category]!
+            const selectedPrimary = primaryNameOf(state, draft, effective[category])
+            const changed = selectedPrimary !== primaryNameOf(state, draft, stateEntry.backend)
+            const viaMirror = effective[category] !== selectedPrimary
             return (
               <MAdminField key={category} label={t(`storage.category.${category}`)}>
                 <div data-testid={`m-storage-category-${category}`} className="contents">
                   <MSetSelectRow
                     label={
-                      effective.source === 'default' && selected === effective.backend
-                        ? `${selected} (${t('storage.categories.default')})`
-                        : selected
+                      stateEntry.source === 'default' && selectedPrimary === stateEntry.backend
+                        ? `${selectedPrimary} (${t('storage.categories.default')})`
+                        : selectedPrimary
                     }
                     trailing={<ChevronDown size={14} className="text-m-faint" />}
                     onClick={() => setCategoryPicker(category)}
@@ -422,6 +529,11 @@ export default function MAdminStoragePanel(): React.ReactElement {
                     {t('storage.categories.reassignWarning')}
                   </p>
                 )}
+                {viaMirror && CACHE_CATEGORIES.includes(category) && (
+                  <p role="note" className="mt-1 font-geist text-[0.625rem] text-m-muted">
+                    {t('storage.mirror.cacheWarning')}
+                  </p>
+                )}
               </MAdminField>
             )
           })}
@@ -430,8 +542,8 @@ export default function MAdminStoragePanel(): React.ReactElement {
           open={categoryPicker !== null}
           onClose={() => setCategoryPicker(null)}
           title={categoryPicker ? t(`storage.category.${categoryPicker}`) : ''}
-          options={backendNames.map((name) => ({ value: name, label: name }))}
-          value={categoryPicker ? (draft.categories[categoryPicker] ?? state.categories[categoryPicker].backend) : ''}
+          options={rows.map((row) => ({ value: row.name, label: row.name }))}
+          value={categoryPicker ? primaryNameOf(state, draft, effective[categoryPicker]) : ''}
           onSelect={(name) => {
             if (categoryPicker) setCategory(categoryPicker, name)
           }}
@@ -454,12 +566,18 @@ export default function MAdminStoragePanel(): React.ReactElement {
         open={confirmRemove !== null}
         onClose={() => setConfirmRemove(null)}
         title={t('storage.remove.title')}
-        message={confirmRemove ? removeMessage(confirmRemove) : ''}
+        message={confirmRemove ? removeMessage(confirmRemove.name, confirmRemove.degenerate) : ''}
         confirmLabel={t('storage.actions.remove')}
         cancelLabel={t('storage.form.cancel')}
         danger
         onConfirm={() => {
-          if (confirmRemove) admin.setDraft(removeBackend(draft, confirmRemove))
+          if (confirmRemove) {
+            admin.setDraft(
+              confirmRemove.degenerate
+                ? removeBackend(draft, confirmRemove.name)
+                : removeBackendAndMirrors(draft, confirmRemove.name),
+            )
+          }
           setConfirmRemove(null)
         }}
       />
