@@ -1,5 +1,6 @@
-import { Body, Controller, Get, HttpCode, HttpException, Post, Put, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpException, Param, Post, Put, Req, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
+import type { StorageUsage } from '@trek/shared';
 import { redactStorageSecrets } from './storage-secrets';
 import type { User } from '../../types';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -10,6 +11,8 @@ import { getClientIp } from '../audit/client-ip';
 import { ManagedForbidden } from '../common/managed';
 import { StorageAdminService } from './storage-admin.service';
 import { StorageConfigDto, StorageTestRequestDto } from './storage-admin.dto';
+import { BackfillBusyError, BackfillTargetError } from './storage-jobs.service';
+import { StatsBusyError } from './storage-stats.service';
 
 /**
  * /api/admin/storage — the admin surface over the storage registry (spec:
@@ -71,5 +74,57 @@ export class StorageAdminController {
       },
     });
     return result;
+  }
+
+  /** Start a replica catch-up for a routed mirror. One at a time, globally. */
+  @Post('backends/:name/backfill')
+  @HttpCode(200)
+  backfillStart(@CurrentUser() user: User, @Param('name') name: string, @Req() req: Request): { started: true } {
+    try {
+      this.service.startBackfill(name);
+    } catch (err) {
+      if (err instanceof BackfillTargetError) throw new HttpException({ error: err.message }, 404);
+      if (err instanceof BackfillBusyError) throw new HttpException({ error: err.message }, 409);
+      throw err;
+    }
+    this.audit.writeAudit({
+      userId: user.id,
+      action: 'admin.storage_backfill',
+      ip: getClientIp(req),
+      details: { backend: name },
+    });
+    return { started: true };
+  }
+
+  @Delete('backends/:name/backfill')
+  backfillCancel(@CurrentUser() user: User, @Param('name') name: string, @Req() req: Request): { cancelled: true } {
+    if (!this.service.cancelBackfill(name)) {
+      throw new HttpException({ error: `no active sync for '${name}'` }, 404);
+    }
+    this.audit.writeAudit({
+      userId: user.id,
+      action: 'admin.storage_backfill_cancel',
+      ip: getClientIp(req),
+      details: { backend: name },
+    });
+    return { cancelled: true };
+  }
+
+  @Post('stats/refresh')
+  @HttpCode(200)
+  async statsRefresh(@CurrentUser() user: User, @Req() req: Request): Promise<StorageUsage> {
+    let usage: StorageUsage;
+    try {
+      usage = await this.service.refreshStats();
+    } catch (err) {
+      if (err instanceof StatsBusyError) throw new HttpException({ error: err.message }, 409);
+      throw err;
+    }
+    this.audit.writeAudit({
+      userId: user.id,
+      action: 'admin.storage_stats_refresh',
+      ip: getClientIp(req),
+    });
+    return usage;
   }
 }

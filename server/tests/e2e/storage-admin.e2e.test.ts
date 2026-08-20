@@ -228,4 +228,60 @@ describe('Storage admin e2e (real auth + admin guard + managed guard + temp SQLi
     const audit = db.prepare("SELECT details FROM audit_log WHERE action = 'admin.storage_test'").get() as { details: string };
     expect(JSON.parse(audit.details)).toMatchObject({ backend: 'cand', type: 'local', ok: true });
   });
+
+  it('STORE2E-011 backfill guards: 401 anon, 404 non-mirror, 409 while running is covered by unit — here the 404', async () => {
+    expect((await request(server).post('/api/admin/storage/backends/x/backfill')).status).toBe(401);
+    const res = await request(server).post('/api/admin/storage/backends/uploads-local/backfill').set('Cookie', adminCookie);
+    expect(res.status).toBe(404);
+    expect(res.body.error).toContain('not a mirror');
+  });
+
+  it('STORE2E-012 backfill happy path copies pre-existing objects and surfaces in state until done', async () => {
+    // Route backups through a mirror with a local replica, then plant a
+    // pre-mirror object directly on the primary.
+    const nasRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'trek-e2e-nas-'));
+    // Override backups-local to a tmp root: WITHOUT this the built-in default
+    // is the repo's real server/data/backups directory — never write there.
+    const backupsRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'trek-e2e-backups-'));
+    const put = await request(server)
+      .put('/api/admin/storage')
+      .set('Cookie', adminCookie)
+      .send({
+        backends: [
+          { name: 'backups-local', type: 'local', options: { root: backupsRoot } },
+          { name: 'nas', type: 'local', options: { root: nasRoot } },
+          { name: 'm', type: 'mirror', options: { primary: 'backups-local', replicas: ['nas'] } },
+        ],
+        categories: { backups: 'm' },
+      });
+    expect(put.status).toBe(200);
+    fs.writeFileSync(path.join(backupsRoot, 'pre-mirror.zip'), 'oldbytes');
+
+    const start = await request(server).post('/api/admin/storage/backends/m/backfill').set('Cookie', adminCookie);
+    expect(start.status).toBe(200);
+    expect(start.body).toEqual({ started: true });
+
+    // Poll state until the job finishes (tiny local copy — a few ticks).
+    let status: { status: string } | undefined;
+    for (let i = 0; i < 50; i++) {
+      const state = await request(server).get('/api/admin/storage').set('Cookie', adminCookie);
+      status = (state.body.backfills as Array<{ backend: string; status: string }>).find((b) => b.backend === 'm');
+      if (status && status.status !== 'running') break;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    expect(status).toMatchObject({ status: 'done' });
+    expect(fs.existsSync(path.join(nasRoot, 'pre-mirror.zip'))).toBe(true);
+    const audit = db.prepare("SELECT details FROM audit_log WHERE action = 'admin.storage_backfill'").get() as { details: string };
+    expect(JSON.parse(audit.details)).toMatchObject({ backend: 'm' });
+  });
+
+  it('STORE2E-013 cancel 404s with no active run; stats refresh returns real numbers and audits', async () => {
+    expect((await request(server).delete('/api/admin/storage/backends/m/backfill').set('Cookie', adminCookie)).status).toBe(404);
+    const res = await request(server).post('/api/admin/storage/stats/refresh').set('Cookie', adminCookie);
+    expect(res.status).toBe(200);
+    expect(res.body.computedAt).toBeGreaterThan(0);
+    expect(res.body.categories.backups.objects).toBeGreaterThanOrEqual(1); // pre-mirror.zip at least
+    const audit = db.prepare("SELECT COUNT(*) AS n FROM audit_log WHERE action = 'admin.storage_stats_refresh'").get() as { n: number };
+    expect(audit.n).toBe(1);
+  });
 });

@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import { Injectable } from '@nestjs/common';
-import type { StorageAdminState, StorageBackend, StorageConfig, StorageTestResponse } from '@trek/shared';
+import type { StorageAdminState, StorageBackend, StorageConfig, StorageTestResponse, StorageUsage } from '@trek/shared';
 import { DatabaseService } from '../database/database.service';
 import { RuntimeEnvService } from '../app-config/runtime-env.service';
 import {
@@ -21,6 +21,8 @@ import {
 } from './storage-secrets';
 import { ephemeralDriverFor, probeDriver, type ProbeTargetResult } from './storage-probe';
 import { StorageBackendError } from './storage.types';
+import { StorageJobsService } from './storage-jobs.service';
+import { StorageStatsService } from './storage-stats.service';
 
 /**
  * Owner of the api/admin/storage read/write pipelines (spec:
@@ -37,6 +39,8 @@ export class StorageAdminService {
     private readonly registry: StorageRegistryService,
     private readonly storage: StorageService,
     private readonly env: RuntimeEnvService,
+    private readonly jobs: StorageJobsService,
+    private readonly stats: StorageStatsService,
   ) {}
 
   /** The effective world — secrets masked, categories cross-referenced per backend. */
@@ -57,10 +61,27 @@ export class StorageAdminService {
       health: { replicaFailures: this.storage.health().replicaFailures.map((f) => ({ ...f })) },
       encryptionReady: this.env.env().security.encryptionKeySet,
       seedFilePresent: fs.existsSync(SEED_CONFIG_PATH),
-      // Filled by the stats/jobs services — backfill/stats spec.
-      usage: null,
-      backfills: [],
+      usage: this.stats.readUsage(),
+      backfills: this.jobs.statuses(),
     };
+  }
+
+  /**
+   * Start a replica catch-up for a routed mirror. Delegates to the one-at-a-time
+   * job registry; throws BackfillTargetError (404) / BackfillBusyError (409).
+   */
+  startBackfill(mirrorName: string): void {
+    this.jobs.startBackfill(mirrorName);
+  }
+
+  /** True when an active run was cancelled; false when there was nothing to cancel. */
+  cancelBackfill(mirrorName: string): boolean {
+    return this.jobs.cancelBackfill(mirrorName);
+  }
+
+  /** Runs and persists a fresh usage scan. Throws StatsBusyError (409) if one is already running. */
+  refreshStats(): Promise<StorageUsage> {
+    return this.stats.scan();
   }
 
   /** Full-document replace of the two settings rows. Throws StorageBackendError on any refusal. */

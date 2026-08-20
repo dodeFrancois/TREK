@@ -21,6 +21,8 @@ import type { RuntimeEnvService } from '../../../../src/nest/app-config/runtime-
 import { encrypt_api_key } from '../../../../src/nest/common/crypto/apiKeyCrypto';
 import { StorageAdminService } from '../../../../src/nest/storage/storage-admin.service';
 import { StorageEventsService } from '../../../../src/nest/storage/storage-events.service';
+import { StorageJobsService } from '../../../../src/nest/storage/storage-jobs.service';
+import { StorageStatsService } from '../../../../src/nest/storage/storage-stats.service';
 import { StorageRegistryService, BACKENDS_KEY, CATEGORIES_KEY } from '../../../../src/nest/storage/storage-registry.service';
 import { StorageService } from '../../../../src/nest/storage/storage.service';
 
@@ -65,8 +67,11 @@ function makeService(opts: { encryptionKeySet?: boolean; uploadsRoot?: string } 
   } as unknown as RuntimeEnvService;
   const registry = new StorageRegistryService(db, env, new StorageEventsService());
   registry.onModuleInit();
-  const service = new StorageAdminService(db, registry, new StorageService(registry), env);
-  return { service, registry, uploadsRoot };
+  const storage = new StorageService(registry);
+  const jobs = new StorageJobsService(registry);
+  const stats = new StorageStatsService(storage, db);
+  const service = new StorageAdminService(db, registry, storage, env, jobs, stats);
+  return { service, registry, uploadsRoot, stats };
 }
 
 /** The settings-owned document the service persists (uploads override + extras). */
@@ -120,6 +125,15 @@ describe('StorageAdminService.state', () => {
     expect(service.state().health.replicaFailures).toEqual([
       { backend: 'nas', key: 'backup-1.zip', op: 'put', error: 'disk full', at: 123 },
     ]);
+  });
+
+  it('STORADM-026 state embeds usage (null until computed) and live backfill statuses', async () => {
+    const { service, stats } = makeService();
+    expect(service.state().usage).toBeNull();
+    expect(service.state().backfills).toEqual([]);
+    await stats.scan();
+    expect(service.state().usage).not.toBeNull();
+    expect(service.state().usage!.computedAt).toBeGreaterThan(0);
   });
 });
 
