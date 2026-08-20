@@ -10,6 +10,7 @@ import {
   Database,
   FileText,
   Github,
+  HardDrive,
   Map,
   Plug,
   Puzzle,
@@ -39,6 +40,7 @@ import MAdminPackingTemplateManager from './MAdminPackingTemplateManager'
 import MAdminNotificationsSection from './MAdminNotificationsSection'
 import MAdminSettingsSection from './MAdminSettingsSection'
 import MAdminSheets from './MAdminSheets'
+import MAdminStoragePanel from './MAdminStoragePanel'
 import MAdminUsersSection from './MAdminUsersSection'
 import { MAdminButton } from './MAdminUi'
 
@@ -86,6 +88,7 @@ export default function MAdmin() {
     { id: 'settings', label: t('admin.tabs.settings'), icon: SettingsIcon },
     { id: 'addons', label: t('admin.tabs.addons'), icon: Blocks },
     { id: 'plugins', label: t('admin.tabs.plugins'), icon: Puzzle },
+    ...(managed ? [] : [{ id: 'storage', label: t('admin.tabs.storage'), icon: HardDrive }]),
     { id: 'notifications', label: t('admin.tabs.notifications'), icon: Bell },
     ...(mcpEnabled ? [{ id: 'mcp-tokens', label: t('admin.tabs.mcpTokens'), icon: Plug }] : []),
     // Same two the desktop list drops: releases and backup schedule belong to
@@ -238,6 +241,7 @@ export default function MAdmin() {
         />
       )}
       {activeTab === 'plugins' && <MAdminPluginsPanel />}
+      {activeTab === 'storage' && <MAdminStoragePanel />}
       {activeTab === 'mcp-tokens' && <MAdminMcpTokensPanel />}
       {activeTab === 'github' && <MAdminGitHubPanel isPrerelease={updateInfo?.is_prerelease ?? false} />}
       {activeTab === 'backup' && <MAdminBackupPanel />}

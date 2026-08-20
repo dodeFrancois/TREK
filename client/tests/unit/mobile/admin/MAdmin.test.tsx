@@ -55,6 +55,9 @@ vi.mock('../../../../src/mobile/screens/admin/MAdminGitHubPanel', () => ({
     <div data-testid="github-panel">{String(isPrerelease)}</div>
   ),
 }));
+vi.mock('../../../../src/mobile/screens/admin/MAdminStoragePanel', () => ({
+  default: () => <div data-testid="m-admin-storage-panel" />,
+}));
 
 // The addon manager is reduced to the two controls MAdmin wires itself.
 vi.mock('../../../../src/mobile/screens/admin/MAdminAddonManager', () => ({
@@ -212,6 +215,9 @@ describe('MAdmin', () => {
 
     await openSection('Plugins');
     expect(screen.getByTestId('plugins-panel')).toBeInTheDocument();
+
+    await openSection('Storage');
+    expect(screen.getByTestId('m-admin-storage-panel')).toBeInTheDocument();
 
     await openSection('Notifications');
     expect(screen.getByTestId('notifications-section')).toBeInTheDocument();
@@ -379,5 +385,12 @@ describe('MAdmin', () => {
     const root = container.firstElementChild as HTMLElement;
     expect(root.className).not.toContain('h-full');
     expect(root.className).not.toContain('overflow-y-auto');
+  });
+
+  it('FE-MOB-ADMIN-STOR-001: managed mode hides the Storage section', async () => {
+    seedStore(useAuthStore, { isAuthenticated: true, user: buildAdmin(), managed: true });
+    renderAdmin();
+    fireEvent.click(await screen.findByRole('button', { name: 'Administration' }));
+    expect(screen.queryByRole('button', { name: 'Storage' })).not.toBeInTheDocument();
   });
 });
