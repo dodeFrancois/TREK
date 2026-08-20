@@ -50,6 +50,9 @@ const { db } = vi.hoisted(() => {
   tmp.exec(`CREATE TABLE trip_files (id INTEGER PRIMARY KEY AUTOINCREMENT, trip_id INTEGER NOT NULL,
     note_id INTEGER, filename TEXT NOT NULL, original_name TEXT NOT NULL, file_size INTEGER,
     mime_type TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);`);
+  // StorageRegistryService (behind StorageModule, now in this module chain) reads
+  // this at onModuleInit.
+  tmp.exec('CREATE TABLE app_settings (key TEXT PRIMARY KEY, value TEXT);');
   return { db: tmp };
 });
 

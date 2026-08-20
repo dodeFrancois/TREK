@@ -38,6 +38,9 @@ const { db } = vi.hoisted(() => {
     UNIQUE(assignment_id, user_id));`);
   tmp.exec(`CREATE TABLE tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, color TEXT, created_at TEXT);`);
   tmp.exec(`CREATE TABLE place_tags (place_id INTEGER NOT NULL, tag_id INTEGER NOT NULL);`);
+  // StorageRegistryService (behind StorageModule, now in this module chain) reads
+  // this at onModuleInit.
+  tmp.exec('CREATE TABLE app_settings (key TEXT PRIMARY KEY, value TEXT);');
   return { db: tmp };
 });
 

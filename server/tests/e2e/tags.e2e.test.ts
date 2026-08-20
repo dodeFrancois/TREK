@@ -26,6 +26,9 @@ const { db } = vi.hoisted(() => {
     color TEXT DEFAULT '#10b981',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );`);
+  // StorageRegistryService (behind StorageModule, now in this module chain) reads
+  // this at onModuleInit.
+  tmp.exec('CREATE TABLE app_settings (key TEXT PRIMARY KEY, value TEXT);');
   return { db: tmp };
 });
 

@@ -22,11 +22,15 @@ vi.mock('../../src/app-config', async (importOriginal) => {
 const { db } = vi.hoisted(() => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const Database = require('better-sqlite3');
-  // Bare :memory: db — nothing in these flows queries it (the db-touching
-  // OidcService methods and the toggles are stubbed on the container
-  // instances below), the container just needs a connection to construct the
-  // oidc/auth/permissions/atlas providers.
-  return { db: new Database(':memory:') };
+  const tmp = new Database(':memory:');
+  // Otherwise-bare :memory: db — nothing in these flows queries it (the
+  // db-touching OidcService methods and the toggles are stubbed on the
+  // container instances below), the container just needs a connection to
+  // construct the oidc/auth/permissions/atlas providers. app_settings is the
+  // one real exception: StorageRegistryService (behind AuthModule →
+  // StorageModule) reads it at onModuleInit.
+  tmp.exec('CREATE TABLE app_settings (key TEXT PRIMARY KEY, value TEXT);');
+  return { db: tmp };
 });
 vi.mock('../../src/db/database', () => ({
   db,

@@ -91,6 +91,9 @@ const { db } = vi.hoisted(() => {
     name TEXT NOT NULL,
     sort_order INTEGER NOT NULL DEFAULT 0
   );`);
+  // StorageRegistryService (behind StorageModule, now in this module chain) reads
+  // this at onModuleInit.
+  tmp.exec('CREATE TABLE app_settings (key TEXT PRIMARY KEY, value TEXT);');
   return { db: tmp };
 });
 

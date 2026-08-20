@@ -64,6 +64,9 @@ const { db } = vi.hoisted(() => {
     user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     year_type TEXT NOT NULL DEFAULT 'calendar', year_start_month INTEGER NOT NULL DEFAULT 1,
     year_start_day INTEGER NOT NULL DEFAULT 1, hire_date TEXT);`);
+  // StorageRegistryService (behind StorageModule, now in this module chain) reads
+  // this at onModuleInit.
+  tmp.exec('CREATE TABLE app_settings (key TEXT PRIMARY KEY, value TEXT);');
   return { db: tmp };
 });
 

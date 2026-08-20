@@ -43,6 +43,9 @@ const { db } = vi.hoisted(() => {
     user_id INTEGER NOT NULL,
     UNIQUE(trip_id, category_name, user_id)
   );`);
+  // StorageRegistryService (behind StorageModule, now in this module chain) reads
+  // this at onModuleInit.
+  tmp.exec('CREATE TABLE app_settings (key TEXT PRIMARY KEY, value TEXT);');
   return { db: tmp };
 });
 

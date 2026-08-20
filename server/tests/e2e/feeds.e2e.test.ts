@@ -31,6 +31,9 @@ const { db } = vi.hoisted(() => {
   tmp.exec(`CREATE TABLE trips (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
     title TEXT, is_archived INTEGER NOT NULL DEFAULT 0, start_date TEXT, end_date TEXT, feed_token TEXT);`);
   tmp.exec(`CREATE TABLE trip_members (trip_id INTEGER NOT NULL, user_id INTEGER NOT NULL);`);
+  // StorageRegistryService (behind StorageModule, now in this module chain) reads
+  // this at onModuleInit.
+  tmp.exec('CREATE TABLE app_settings (key TEXT PRIMARY KEY, value TEXT);');
   return { db: tmp };
 });
 

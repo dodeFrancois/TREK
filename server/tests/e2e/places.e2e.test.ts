@@ -50,6 +50,9 @@ const { db } = vi.hoisted(() => {
   // Deleting a place takes its linked expense with it (#1298).
   tmp.exec(`CREATE TABLE budget_items (id INTEGER PRIMARY KEY AUTOINCREMENT, trip_id INTEGER NOT NULL,
     name TEXT, total_price REAL DEFAULT 0, place_id INTEGER, reservation_id INTEGER);`);
+  // StorageRegistryService (behind StorageModule, now in this module chain) reads
+  // this at onModuleInit.
+  tmp.exec('CREATE TABLE app_settings (key TEXT PRIMARY KEY, value TEXT);');
   return { db: tmp };
 });
 

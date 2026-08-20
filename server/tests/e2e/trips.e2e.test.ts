@@ -96,6 +96,9 @@ const { db } = vi.hoisted(() => {
   tmp.exec(`CREATE TABLE audit_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     user_id INTEGER, action TEXT NOT NULL, resource TEXT, details TEXT, ip TEXT);`);
+  // StorageRegistryService (behind StorageModule, now in this module chain) reads
+  // this at onModuleInit.
+  tmp.exec('CREATE TABLE app_settings (key TEXT PRIMARY KEY, value TEXT);');
   return { db: tmp };
 });
 
