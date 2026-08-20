@@ -275,6 +275,13 @@ To get a key: create a free account at [unsplash.com/developers](https://unsplas
 
 ## Storage & Paths
 
+Storage backends and category assignment are configured in
+[[Admin: Storage|Admin-Storage]] (or a seed-once `storage-config.json`), not
+through environment variables. The former `TREK_S3_*` and `TREK_UPLOADS_DIR`
+variables were removed in v4 — a server started with any of them set refuses
+to boot and names the offending variable. `TREK_PLACE_PHOTO_DIR` below is
+unaffected.
+
 | Variable                 | Description                                                                                                                                                                                                                                            | Default                 |
 |--------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------|
 | `TREK_PLACE_PHOTO_DIR`   | Directory where cached Google place photos are stored. Created recursively on boot. Set this to point photo storage at a dedicated mounted volume.                                                                                                     | `uploads/photos/google` |

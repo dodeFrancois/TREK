@@ -1,6 +1,6 @@
 # Backups
 
-TREK stores all data in a single SQLite database (`travel.db`) plus an `uploads/` directory of attachments, cover photos, and avatars. The Backup panel lets you create, download, restore, and schedule backups of both.
+TREK stores all data in a single SQLite database (`travel.db`) plus an `uploads/` directory of attachments, cover photos, and avatars — by default; storage backends and replication are configured in [[Admin: Storage|Admin-Storage]]. The Backup panel lets you create, download, restore, and schedule backups of both.
 
 ## Where to find it
 
@@ -15,7 +15,7 @@ A backup is a ZIP archive with these entries:
 | Entry | Contents |
 |---|---|
 | `travel.db` | The full SQLite database |
-| `uploads/` | All uploaded attachments, covers, and avatars |
+| `uploads/` | All uploaded attachments, covers, and avatars (default location — see [[Admin: Storage|Admin-Storage]]) |
 | `plugins-data/` | Each installed plugin's own database + files (present only if plugins are installed) |
 | `plugins-code/` | The installed plugin code, so a restore is self-contained (dev-linked plugins are skipped) |
 
@@ -84,6 +84,7 @@ The following actions are recorded in the [Audit-Log](Audit-Log):
 
 ## See also
 
+- [[Admin: Storage|Admin-Storage]] — replicate backups to S3-compatible storage
 - [Encryption-Key-Rotation](Encryption-Key-Rotation)
 - [Admin-Panel-Overview](Admin-Panel-Overview)
 - [Security-Hardening](Security-Hardening)

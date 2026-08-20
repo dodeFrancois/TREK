@@ -145,6 +145,16 @@ sudo chown -R 1000:1000 ./data ./uploads
 
 ---
 
+## Server refuses to start after updating: "TREK_S3_ENDPOINT was removed"
+
+Storage is no longer configured through environment variables (v4). Remove
+every `TREK_S3_*` variable and `TREK_UPLOADS_DIR` from your run command or
+compose file, start the server, and configure the equivalent in
+[[Admin: Storage|Admin-Storage]] or via a seed-once `storage-config.json`.
+The boot report lists each offending variable by name.
+
+---
+
 ## Container won't start: "exec /usr/bin/dumb-init: operation not permitted"
 
 **Symptoms:** The container restarts in a loop and the logs show nothing but:
