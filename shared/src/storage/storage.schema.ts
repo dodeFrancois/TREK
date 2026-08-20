@@ -212,6 +212,33 @@ export const storageReplicaFailureSchema = z.object({
   at: z.number(),
 });
 
+// ── Backfill + usage (backfill/stats/notifications spec) ─────────────────────
+
+export const storageBackfillStatusSchema = z.object({
+  /** The mirror's wire name — user-facing copy says "Sync", never this. */
+  backend: z.string(),
+  status: z.enum(['running', 'done', 'error', 'cancelled']),
+  /** Objects examined in the copy phase; total is 0 while enumerating. */
+  done: z.number(),
+  total: z.number(),
+  copied: z.number(),
+  skipped: z.number(),
+  failed: z.number(),
+  startedAt: z.number(),
+  finishedAt: z.number().optional(),
+  /** status 'error' only: the aborting (primary-side) error. */
+  error: z.string().optional(),
+});
+export type StorageBackfillStatus = z.infer<typeof storageBackfillStatusSchema>;
+
+export const storageUsageSchema = z.object({
+  computedAt: z.number(),
+  categories: z.record(storageCategorySchema, z.object({ objects: z.number(), bytes: z.number() })),
+  /** The served-legacy photos directory — attributed to whatever backend `photos` resolves to. */
+  legacyPhotos: z.object({ objects: z.number(), bytes: z.number() }),
+});
+export type StorageUsage = z.infer<typeof storageUsageSchema>;
+
 export const storageAdminStateSchema = z.object({
   backends: z.array(
     z.object({
@@ -231,6 +258,8 @@ export const storageAdminStateSchema = z.object({
   health: z.object({ replicaFailures: z.array(storageReplicaFailureSchema) }),
   encryptionReady: z.boolean(),
   seedFilePresent: z.boolean(),
+  usage: storageUsageSchema.nullable(),
+  backfills: z.array(storageBackfillStatusSchema),
 });
 export type StorageAdminState = z.infer<typeof storageAdminStateSchema>;
 

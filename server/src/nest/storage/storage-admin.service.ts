@@ -57,6 +57,9 @@ export class StorageAdminService {
       health: { replicaFailures: this.storage.health().replicaFailures.map((f) => ({ ...f })) },
       encryptionReady: this.env.env().security.encryptionKeySet,
       seedFilePresent: fs.existsSync(SEED_CONFIG_PATH),
+      // Filled by the stats/jobs services — backfill/stats spec.
+      usage: null,
+      backfills: [],
     };
   }
 

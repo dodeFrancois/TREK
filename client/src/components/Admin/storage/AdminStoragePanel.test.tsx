@@ -32,6 +32,8 @@ function baseState(overrides: Partial<StorageAdminState> = {}): StorageAdminStat
     health: { replicaFailures: [] },
     encryptionReady: true,
     seedFilePresent: false,
+    usage: null,
+    backfills: [],
     ...overrides,
   };
 }

@@ -48,6 +48,8 @@ const STATE: StorageAdminState = {
   health: { replicaFailures: [] },
   encryptionReady: true,
   seedFilePresent: false,
+  usage: null,
+  backfills: [],
 };
 
 describe('settingsDocumentOf', () => {

@@ -2,8 +2,11 @@ import {
   STORAGE_BACKEND_TYPES,
   STORAGE_BACKEND_TYPE_IDS,
   STORAGE_CATEGORIES,
+  storageAdminStateSchema,
+  storageBackfillStatusSchema,
   storageConfigSchema,
   storageSecretFields,
+  storageUsageSchema,
   type StorageBackendTypeId,
 } from './storage.schema';
 
@@ -143,5 +146,39 @@ describe('storageConfigSchema wire compatibility', () => {
   it('rejects the retired photos category in a config document', () => {
     const result = storageConfigSchema.safeParse({ backends: [], categories: { photos: 'uploads-local' } });
     expect(result.success).toBe(false);
+  });
+});
+
+describe('backfill + usage wire shapes', () => {
+  it('storageBackfillStatusSchema round-trips a running and a finished status', () => {
+    const running = {
+      backend: 'backups-local-mirror',
+      status: 'running',
+      done: 3,
+      total: 10,
+      copied: 2,
+      skipped: 1,
+      failed: 0,
+      startedAt: 1_700_000_000_000,
+    };
+    expect(storageBackfillStatusSchema.parse(running)).toEqual(running);
+    const done = { ...running, status: 'done', done: 10, finishedAt: 1_700_000_100_000 };
+    expect(storageBackfillStatusSchema.parse(done)).toEqual(done);
+    expect(storageBackfillStatusSchema.safeParse({ ...running, status: 'paused' }).success).toBe(false);
+  });
+
+  it('storageUsageSchema carries all configurable categories plus the legacy photos bucket', () => {
+    const perCategory = { objects: 1, bytes: 2 };
+    const usage = {
+      computedAt: 1_700_000_000_000,
+      categories: Object.fromEntries(STORAGE_CATEGORIES.map((c) => [c, perCategory])),
+      legacyPhotos: { objects: 0, bytes: 0 },
+    };
+    expect(storageUsageSchema.parse(usage)).toEqual(usage);
+  });
+
+  it('the admin state embeds usage (nullable) and backfills', () => {
+    const stateShape = storageAdminStateSchema.pick({ usage: true, backfills: true });
+    expect(stateShape.parse({ usage: null, backfills: [] })).toEqual({ usage: null, backfills: [] });
   });
 });
