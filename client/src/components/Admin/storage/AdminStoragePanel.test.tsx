@@ -335,4 +335,110 @@ describe('AdminStoragePanel', () => {
     expect(within(categoryRow('photos-google')).getByText(/re-fetchable, safe to lose/)).toBeInTheDocument();
     expect(screen.queryByTestId('storage-category-photos')).not.toBeInTheDocument();
   });
+
+  it('FE-ADMIN-STOR-018: usage renders on the header, backend rows, and category rows; never-computed degrades', async () => {
+    const usage = {
+      computedAt: Date.now() - 3_600_000,
+      categories: Object.fromEntries(
+        (['files', 'journey', 'covers', 'avatars', 'places', 'photos-google', 'photos-trek', 'backups'] as const).map(
+          (c) => [c, { objects: 2, bytes: 1024 * 1024 }],
+        ),
+      ),
+      legacyPhotos: { objects: 0, bytes: 0 },
+    };
+    await renderPanel({ ...baseState(), usage } as StorageAdminState);
+    expect(screen.getByText(/Usage computed .*hour/)).toBeInTheDocument();
+    expect(within(backendRow('backups-local')).getByText(/2 objects · 1\.0 MB/)).toBeInTheDocument();
+    expect(within(categoryRow('files')).getByText(/2 objects · 1\.0 MB/)).toBeInTheDocument();
+  });
+
+  it('FE-ADMIN-STOR-019: never-computed shows the compute prompt; Refresh triggers the scan and re-renders', async () => {
+    await renderPanel();
+    expect(screen.getByText('Usage not computed yet')).toBeInTheDocument();
+    server.use(
+      http.post('/api/admin/storage/stats/refresh', () =>
+        HttpResponse.json({
+          computedAt: Date.now(),
+          categories: Object.fromEntries(
+            (['files', 'journey', 'covers', 'avatars', 'places', 'photos-google', 'photos-trek', 'backups'] as const).map(
+              (c) => [c, { objects: 1, bytes: 2048 }],
+            ),
+          ),
+          legacyPhotos: { objects: 0, bytes: 0 },
+        }),
+      ),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Compute now' }));
+    await screen.findByText(/Usage computed/);
+    expect(within(categoryRow('files')).getByText(/1 objects · 2\.0 KB/)).toBeInTheDocument();
+  });
+
+  it('FE-ADMIN-STOR-020: Sync now runs the backfill — running line with counts, then the done line (50ms test poll)', async () => {
+    let polls = 0;
+    await renderPanel(mirroredState());
+    server.use(
+      http.post('/api/admin/storage/backends/mirror/backfill', () => HttpResponse.json({ started: true })),
+      http.get('/api/admin/storage', () => {
+        polls += 1;
+        const state = mirroredState();
+        (state as StorageAdminState).backfills =
+          polls < 3
+            ? [{ backend: 'mirror', status: 'running', done: 3, total: 10, copied: 2, skipped: 1, failed: 0, startedAt: 1 }]
+            : [{ backend: 'mirror', status: 'done', done: 10, total: 10, copied: 8, skipped: 2, failed: 0, startedAt: 1, finishedAt: 2 }];
+        return HttpResponse.json(state);
+      }),
+    );
+    fireEvent.click(within(backendRow('backups-local')).getByRole('button', { name: 'Sync now' }));
+    await within(backendRow('backups-local')).findByText(/Syncing… 3\/10/);
+    expect(within(backendRow('backups-local')).getByText(/2 copied · 1 skipped · 0 failed/)).toBeInTheDocument();
+    await within(backendRow('backups-local')).findByText(/Sync finished: 8 copied, 0 failed/);
+  });
+
+  it('FE-ADMIN-STOR-021: Cancel sync calls the DELETE endpoint', async () => {
+    let cancelled = false;
+    const state = mirroredState();
+    (state as StorageAdminState).backfills = [
+      { backend: 'mirror', status: 'running', done: 1, total: 10, copied: 1, skipped: 0, failed: 0, startedAt: 1 },
+    ];
+    await renderPanel(state);
+    server.use(
+      http.delete('/api/admin/storage/backends/mirror/backfill', () => {
+        cancelled = true;
+        return HttpResponse.json({ cancelled: true });
+      }),
+    );
+    fireEvent.click(within(backendRow('backups-local')).getByRole('button', { name: 'Cancel sync' }));
+    await waitFor(() => expect(cancelled).toBe(true));
+  });
+
+  it('FE-ADMIN-STOR-022: a save that ADDED mirror targets raises the sync prompt on that row; dismiss clears it', async () => {
+    await renderPanel(); // no mirror yet
+    server.use(
+      http.put('/api/admin/storage', async () => HttpResponse.json(mirroredState())),
+    );
+    fireEvent.click(within(backendRow('backups-local')).getByRole('button', { name: 'Edit' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'off-box' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    await within(backendRow('backups-local')).findByText(/Existing objects are not replicated yet/);
+    fireEvent.click(within(backendRow('backups-local')).getByRole('button', { name: 'Dismiss' }));
+    expect(screen.queryByText(/Existing objects are not replicated yet/)).not.toBeInTheDocument();
+  });
+
+  it('FE-ADMIN-STOR-023: the poll never clobbers a dirty draft', async () => {
+    const state = mirroredState();
+    (state as StorageAdminState).backfills = [
+      { backend: 'mirror', status: 'running', done: 1, total: 5, copied: 1, skipped: 0, failed: 0, startedAt: 1 },
+    ];
+    await renderPanel(state);
+    // Dirty the draft: reassign files.
+    fireEvent.click(within(categoryRow('files')).getByText('uploads-local (default)'));
+    const choices = screen.getAllByText('off-box');
+    fireEvent.click(choices[choices.length - 1]!);
+    expect(screen.getByText('Unsaved changes')).toBeInTheDocument();
+    // Let several polls elapse (50ms test poll): the dirty marker must survive.
+    await new Promise((r) => setTimeout(r, 300));
+    expect(screen.getByText('Unsaved changes')).toBeInTheDocument();
+    expect(within(categoryRow('files')).getByText(/Existing objects do not move/)).toBeInTheDocument();
+  });
 });

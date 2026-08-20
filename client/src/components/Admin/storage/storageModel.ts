@@ -298,3 +298,31 @@ export function primaryNameOf(state: StorageAdminState, draft: StorageConfig, ba
   if (stateMirror) return String((stateMirror.options as Record<string, unknown>).primary)
   return backendName
 }
+
+/**
+ * Usage sums per VISIBLE backend row: each category's numbers land on the row
+ * that serves it (a mirror-routed category on the mirror's PRIMARY row), and
+ * the legacy photos directory lands on uploads-local — the only backend the
+ * served-legacy `photos` category ever resolves to.
+ */
+export function usageByBackend(
+  state: StorageAdminState,
+  draft: StorageConfig,
+): Record<string, { objects: number; bytes: number }> | null {
+  if (!state.usage) return null
+  const sums: Record<string, { objects: number; bytes: number }> = {}
+  const add = (row: string, entry: { objects: number; bytes: number }) => {
+    const current = (sums[row] ??= { objects: 0, bytes: 0 })
+    current.objects += entry.objects
+    current.bytes += entry.bytes
+  }
+  const effective = effectiveCategoryMap(state, draft)
+  for (const category of STORAGE_CATEGORIES) {
+    const entry = state.usage.categories[category]
+    if (entry) add(primaryNameOf(state, draft, effective[category]), entry)
+  }
+  // The served-legacy `photos` directory always resolves to uploads-local —
+  // hardcoded, not derived, because it is not one of the configurable categories.
+  add(primaryNameOf(state, draft, 'uploads-local'), state.usage.legacyPhotos)
+  return sums
+}

@@ -1,7 +1,8 @@
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Activity, FolderTree, HardDrive } from 'lucide-react'
 import { STORAGE_CATEGORIES, type StorageBackend, type StorageCategory, type StorageTestResponse } from '@trek/shared'
 import { useTranslation } from '../../../i18n'
+import { formatBytes } from '../../../utils/formatBytes'
 import { relativeTime } from '../../../utils/relativeTime'
 import ConfirmDialog from '../../shared/ConfirmDialog'
 import CustomSelect from '../../shared/CustomSelect'
@@ -18,8 +19,10 @@ import {
   removeBackendAndMirrors,
   renameBackendRefs,
   replicaOfPrimaries,
+  settingsDocumentOf,
   setMirrorTargets,
   upsertBackend,
+  usageByBackend,
   type FoldedBackendRow,
 } from './storageModel'
 import { useStorageAdmin } from './useStorageAdmin'
@@ -59,6 +62,21 @@ export default function AdminStoragePanel(): React.ReactElement {
     mirror: BackendFormMirrorProps
   } | null>(null)
   const [confirmRemove, setConfirmRemove] = useState<{ name: string; degenerate: boolean } | null>(null)
+  const [syncPrompt, setSyncPrompt] = useState<string | null>(null)
+  // Set by `save` right before it calls admin.save(): the pre-save mirror
+  // target count per row name. Consumed (and cleared) by the effect below the
+  // first time `admin.state` changes afterward — never touched otherwise, so
+  // unrelated state changes (the backfill poll included) are no-ops here.
+  const pendingPromptCheck = useRef<Map<string, number> | null>(null)
+
+  useEffect(() => {
+    if (!pendingPromptCheck.current || !admin.state) return
+    const before = pendingPromptCheck.current
+    pendingPromptCheck.current = null
+    const { rows: afterRows } = foldBackends(admin.state, settingsDocumentOf(admin.state))
+    const grown = afterRows.find((r) => r.mirrorTargets.length > (before.get(r.name) ?? 0))
+    if (grown) setSyncPrompt(grown.name)
+  }, [admin.state])
 
   if (admin.loading) {
     return <p className="text-sm italic p-4 text-content-faint">{t('storage.loading')}</p>
@@ -77,6 +95,7 @@ export default function AdminStoragePanel(): React.ReactElement {
   const backendNames = [...new Set([...state.backends.map((b) => b.name), ...draft.backends.map((b) => b.name)])]
   const { rows, degenerate } = foldBackends(state, draft)
   const effective = effectiveCategoryMap(state, draft)
+  const usageSums = usageByBackend(state, draft)
 
   const startEdit = (row: FoldedBackendRow) => {
     // Editing a built-in creates a settings override row bearing its name —
@@ -132,10 +151,35 @@ export default function AdminStoragePanel(): React.ReactElement {
   }
 
   const save = async () => {
+    // Snapshot the LAST-CONFIRMED (pre-save `state`'s own fold, not the
+    // in-progress `draft`) mirror target counts; the effect above compares
+    // them against the fresh post-save state to detect newly-added
+    // replicas. Folding `draft` here would already include the unsaved
+    // edit and mask the very growth this is meant to detect.
+    const { rows: beforeRows } = foldBackends(state, settingsDocumentOf(state))
+    pendingPromptCheck.current = new Map(beforeRows.map((r) => [r.name, r.mirrorTargets.length]))
     if (await admin.save()) toast.success(t('storage.saved'))
   }
 
   const testResultFor = (key: string): StorageTestResponse | 'running' | undefined => admin.testResults[key]
+
+  const handleRefreshStats = async () => {
+    const error = await admin.refreshStats()
+    if (error) toast.error(error)
+  }
+
+  const handleStartBackfill = async (row: FoldedBackendRow) => {
+    if (!row.mirrorName) return
+    setSyncPrompt((prev) => (prev === row.name ? null : prev))
+    const error = await admin.startBackfill(row.mirrorName)
+    if (error) toast.error(error)
+  }
+
+  const handleCancelBackfill = async (row: FoldedBackendRow) => {
+    if (!row.mirrorName) return
+    const error = await admin.cancelBackfill(row.mirrorName)
+    if (error) toast.error(error)
+  }
 
   return (
     <div>
@@ -162,6 +206,15 @@ export default function AdminStoragePanel(): React.ReactElement {
 
       <Section title={t('storage.backends.title')} icon={HardDrive}>
         <p className="text-sm text-content-faint" style={{ marginTop: -8 }}>{t('storage.description')}</p>
+        <p className="text-xs mb-2 text-content-faint">
+          {state.usage
+            ? t('storage.usage.computed', { age: relativeTime(state.usage.computedAt, locale) })
+            : t('storage.usage.never')}
+          {' '}
+          <button className="text-xs underline text-content-secondary" style={LINK_BUTTON_STYLE} onClick={handleRefreshStats}>
+            {state.usage ? t('storage.usage.refresh') : t('storage.usage.compute')}
+          </button>
+        </p>
         <div className="space-y-3">
           {rows.map((row) => {
             const resultKey = row.mirrorName ?? row.name
@@ -171,6 +224,8 @@ export default function AdminStoragePanel(): React.ReactElement {
             const testCandidate = row.mirrorName
               ? draft.backends.find((b) => b.name === row.mirrorName)!
               : row.backend
+            const rowUsage = usageSums?.[row.name]
+            const backfill = row.mirrorName ? state.backfills.find((b) => b.backend === row.mirrorName) : undefined
             return (
               <div key={row.name} data-testid={`storage-backend-${row.name}`} className="rounded-xl border p-4 border-edge-secondary">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -201,6 +256,14 @@ export default function AdminStoragePanel(): React.ReactElement {
                     ? t('storage.backends.usedBy', { categories: categoryNames(t, row.categories) })
                     : t('storage.backends.unused')}
                 </p>
+                {rowUsage && (
+                  <p className="text-xs mt-1 text-content-faint">
+                    {t('storage.usage.line', { objects: String(rowUsage.objects), size: formatBytes(rowUsage.bytes) })}
+                    {row.name === 'uploads-local' && state.usage!.legacyPhotos.objects > 0
+                      ? ` (${t('storage.usage.legacyNote')})`
+                      : ''}
+                  </p>
+                )}
                 {row.mirrorTargets.length > 0 && (
                   <p className="text-xs mt-1 text-content-faint">
                     {t('storage.mirror.mirroredTo', { targets: row.mirrorTargets.join(', ') })}
@@ -220,6 +283,70 @@ export default function AdminStoragePanel(): React.ReactElement {
                     okLabel={t('storage.test.ok')}
                     failedLabel={t('storage.test.failed')}
                   />
+                )}
+                {row.mirrorTargets.length > 0 && (
+                  <div className="mt-2">
+                    {backfill?.status === 'running' ? (
+                      <>
+                        <p className="text-xs text-content-faint">
+                          {t('storage.sync.running', { done: String(backfill.done), total: String(backfill.total) })}
+                        </p>
+                        <p className="text-xs text-content-faint">
+                          {t('storage.sync.counts', {
+                            copied: String(backfill.copied),
+                            skipped: String(backfill.skipped),
+                            failed: String(backfill.failed),
+                          })}
+                        </p>
+                        <button
+                          className="text-xs underline text-content-secondary mt-1"
+                          style={LINK_BUTTON_STYLE}
+                          onClick={() => handleCancelBackfill(row)}
+                        >
+                          {t('storage.sync.cancel')}
+                        </button>
+                      </>
+                    ) : backfill?.status === 'done' ? (
+                      <p className="text-xs text-content-faint">
+                        {t('storage.sync.done', { copied: String(backfill.copied), failed: String(backfill.failed) })}
+                      </p>
+                    ) : backfill?.status === 'cancelled' ? (
+                      <p className="text-xs text-content-faint">{t('storage.sync.cancelled')}</p>
+                    ) : backfill?.status === 'error' ? (
+                      <p className="text-xs text-content-faint">
+                        {t('storage.sync.error', { error: backfill.error ?? '' })}
+                      </p>
+                    ) : syncPrompt !== row.name ? (
+                      <button
+                        className="text-xs underline text-content-secondary"
+                        style={LINK_BUTTON_STYLE}
+                        onClick={() => handleStartBackfill(row)}
+                      >
+                        {t('storage.sync.now')}
+                      </button>
+                    ) : null}
+                  </div>
+                )}
+                {syncPrompt === row.name && (
+                  <div className="mt-2 rounded-lg border p-2 border-edge-secondary">
+                    <p className="text-xs text-content">{t('storage.sync.prompt')}</p>
+                    <div className="flex items-center gap-3 mt-1">
+                      <button
+                        className="text-xs underline text-content-secondary"
+                        style={LINK_BUTTON_STYLE}
+                        onClick={() => handleStartBackfill(row)}
+                      >
+                        {t('storage.sync.now')}
+                      </button>
+                      <button
+                        className="text-xs underline text-content-secondary"
+                        style={LINK_BUTTON_STYLE}
+                        onClick={() => setSyncPrompt(null)}
+                      >
+                        {t('storage.sync.dismiss')}
+                      </button>
+                    </div>
+                  </div>
                 )}
               </div>
             )
@@ -304,6 +431,14 @@ export default function AdminStoragePanel(): React.ReactElement {
                   </span>
                 </label>
                 <p className="text-xs mb-1.5 text-content-faint">{t(`storage.categoryDesc.${category}`)}</p>
+                {state.usage?.categories[category] && (
+                  <p className="text-xs mb-1.5 text-content-faint">
+                    {t('storage.usage.line', {
+                      objects: String(state.usage.categories[category]!.objects),
+                      size: formatBytes(state.usage.categories[category]!.bytes),
+                    })}
+                  </p>
+                )}
                 <CustomSelect
                   value={selectedPrimary}
                   onChange={(value) => setCategory(category, String(value))}

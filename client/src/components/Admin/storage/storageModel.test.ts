@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   MASKED_SETTING_VALUE,
+  STORAGE_CATEGORIES,
   type StorageAdminState,
   type StorageBackend,
+  type StorageCategory,
   type StorageConfig,
 } from '@trek/shared';
 import {
@@ -18,6 +20,7 @@ import {
   setMirrorTargets,
   settingsDocumentOf,
   upsertBackend,
+  usageByBackend,
 } from './storageModel';
 
 const STATE: StorageAdminState = {
@@ -115,21 +118,24 @@ describe('draft edits', () => {
   });
 });
 
-describe('mirror fold/synthesize (replicas-on-primary)', () => {
-  const MIRRORED_STATE: StorageAdminState = {
-    ...STATE,
-    backends: [
-      ...STATE.backends,
-      {
-        name: 'mirror', type: 'mirror', source: 'settings',
-        options: { primary: 'backups-local', replicas: ['off-box'] }, categories: ['backups'],
-      },
-      { name: 'backups-local', type: 'local', source: 'built-in', options: { root: '/data/backups' }, categories: [] },
-    ],
-    categories: { ...STATE.categories, backups: { backend: 'mirror', source: 'settings' } },
-  };
-  const mirroredDraft = (): StorageConfig => settingsDocumentOf(MIRRORED_STATE);
+// Hoisted to module scope (not just the mirror-fold describe below) so the
+// usageByBackend suite can reuse the same mirrored fixture the brief's test
+// snippet assumes is in scope.
+const MIRRORED_STATE: StorageAdminState = {
+  ...STATE,
+  backends: [
+    ...STATE.backends,
+    {
+      name: 'mirror', type: 'mirror', source: 'settings',
+      options: { primary: 'backups-local', replicas: ['off-box'] }, categories: ['backups'],
+    },
+    { name: 'backups-local', type: 'local', source: 'built-in', options: { root: '/data/backups' }, categories: [] },
+  ],
+  categories: { ...STATE.categories, backups: { backend: 'mirror', source: 'settings' } },
+};
+const mirroredDraft = (): StorageConfig => settingsDocumentOf(MIRRORED_STATE);
 
+describe('mirror fold/synthesize (replicas-on-primary)', () => {
   it('FE-ADMIN-STORM-007: foldBackends hides the mirror, decorates primary and replica, unions categories', () => {
     const { rows, degenerate } = foldBackends(MIRRORED_STATE, mirroredDraft());
     expect(degenerate).toEqual([]);
@@ -235,5 +241,33 @@ describe('mirror fold/synthesize (replicas-on-primary)', () => {
     expect(primaryNameOf(MIRRORED_STATE, mirroredDraft(), 'mirror')).toBe('backups-local');
     expect(primaryNameOf(MIRRORED_STATE, { backends: [], categories: {} }, 'mirror')).toBe('backups-local'); // state fallback
     expect(primaryNameOf(STATE, settingsDocumentOf(STATE), 'uploads-local')).toBe('uploads-local');
+  });
+});
+
+describe('usageByBackend', () => {
+  it('FE-ADMIN-STORM-016: sums categories onto their effective backend rows, mirrors onto the primary, legacy onto uploads-local', () => {
+    const usage = {
+      computedAt: 1,
+      categories: Object.fromEntries(
+        STORAGE_CATEGORIES.map((c) => [c, { objects: 1, bytes: 10 }]),
+      ) as Record<StorageCategory, { objects: number; bytes: number }>,
+      legacyPhotos: { objects: 5, bytes: 50 },
+    };
+    const state = { ...MIRRORED_STATE, usage };
+    const sums = usageByBackend(state, mirroredDraft())!;
+    // backups routes via the mirror → attributed to backups-local (the primary row).
+    expect(sums['backups-local']).toEqual({ objects: 1, bytes: 10 });
+    // uploads-local serves 4 direct categories (files, journey, avatars, photos-trek —
+    // this fixture's `places` and `photos-google` default to the env-sourced
+    // place-photos-local backend, not uploads-local) + legacy photos.
+    expect(sums['uploads-local']).toEqual({ objects: 4 + 5, bytes: 40 + 50 });
+    // places + photos-google both default to place-photos-local.
+    expect(sums['place-photos-local']).toEqual({ objects: 2, bytes: 20 });
+    // covers routes to off-box directly.
+    expect(sums['off-box']).toEqual({ objects: 1, bytes: 10 });
+  });
+
+  it('FE-ADMIN-STORM-017: null usage yields null', () => {
+    expect(usageByBackend({ ...STATE, usage: null }, settingsDocumentOf(STATE))).toBeNull();
   });
 });
