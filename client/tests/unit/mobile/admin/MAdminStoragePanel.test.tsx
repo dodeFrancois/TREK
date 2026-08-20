@@ -183,9 +183,12 @@ describe('MAdminStoragePanel', () => {
       ),
       legacyPhotos: { objects: 0, bytes: 0 },
     };
+    usage.categories.files = { objects: 3, bytes: 2048 };
     await renderPanel({ ...baseState(), usage } as StorageAdminState);
     expect(screen.getByText(/Usage computed/)).toBeInTheDocument();
     expect(within(screen.getByTestId('m-storage-backend-backups-local')).getByText(/2 objects · 1\.0 MB/)).toBeInTheDocument();
+    // Per-category usage line (the testid wraps only the select row, so assert by text).
+    expect(screen.getByText('3 objects · 2.0 KB')).toBeInTheDocument();
   });
 
   it('FE-MOB-MSTOR-011: Sync now → running → done via the test poll', async () => {

@@ -646,6 +646,14 @@ export default function MAdminStoragePanel(): React.ReactElement {
                 }
                 hint={t(`storage.categoryDesc.${category}`)}
               >
+                {state.usage?.categories[category] && (
+                  <p className="mb-1 font-geist text-[0.625rem] text-m-muted">
+                    {t('storage.usage.line', {
+                      objects: String(state.usage.categories[category]!.objects),
+                      size: formatBytes(state.usage.categories[category]!.bytes),
+                    })}
+                  </p>
+                )}
                 <div data-testid={`m-storage-category-${category}`} className="contents">
                   <MSetSelectRow
                     label={
