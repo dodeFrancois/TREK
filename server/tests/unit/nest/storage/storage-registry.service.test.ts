@@ -589,6 +589,33 @@ describe('seed-once storage-config.json import', () => {
     expect(readRow('storage.backends')).toBe(firstRow);
     expect(second.resolve('backups').backendName).toBe('nas');
   });
+
+  it('SEED-010 an all-encrypted seed imports without ENCRYPTION_KEY (the gate is plaintext-only)', () => {
+    const cipher = encrypt_api_key('sk-seed');
+    writeSeed(
+      JSON.stringify({
+        backends: [
+          {
+            name: 'off-box',
+            type: 's3',
+            options: {
+              endpoint: 'http://127.0.0.1:9000',
+              bucket: 'trek',
+              accessKeyId: 'ak',
+              secretAccessKey: cipher,
+            },
+          },
+        ],
+        categories: { backups: 'off-box' },
+      }),
+    );
+    const registry = makeUnseededRegistry({ encryptionKeySet: false });
+    registry.onModuleInit();
+    // enc:v1: values are not "plaintext secrets" — the key-presence gate must
+    // not fire, and the ciphertext must persist byte-for-byte (idempotent encrypt).
+    expect(registry.resolve('backups').driver).toBeInstanceOf(S3Driver);
+    expect(readRow('storage.backends')).toContain(cipher);
+  });
 });
 
 // ── snapshot() — effective world with provenance ──────────────────────────────

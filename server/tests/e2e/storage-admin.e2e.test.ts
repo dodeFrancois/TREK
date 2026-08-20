@@ -109,6 +109,9 @@ describe('Storage admin e2e (real auth + admin guard + managed guard + temp SQLi
     // class-level (JwtAuthGuard + AdminGuard on the controller), not re-added
     // per handler where a future handler could forget them.
     expect((await request(server).put('/api/admin/storage').send({ backends: [], categories: {} })).status).toBe(401);
+    expect(
+      (await request(server).post('/api/admin/storage/test').send({ backend: { name: 'x', type: 'local', options: { root: '/tmp' } } })).status,
+    ).toBe(401);
   });
 
   it('STORE2E-002 403 for a non-admin', async () => {

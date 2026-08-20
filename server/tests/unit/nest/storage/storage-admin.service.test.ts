@@ -320,4 +320,36 @@ describe('StorageAdminService.testBackend', () => {
       }),
     ).rejects.toThrow("re-enter the secret 'secretAccessKey' for 'ghost'");
   });
+
+  it('STORADM-025 a mirror with a stored s3 replica decrypts the enc:v1: secret for the probe', async () => {
+    const goodRoot = makeTmpDir();
+    const { service, uploadsRoot } = makeService();
+    service.applyConfig(configWith(uploadsRoot, {
+      backends: [
+        { name: 'good-local', type: 'local', options: { root: goodRoot } },
+        {
+          name: 'off-box',
+          type: 's3',
+          options: { ...S3_OPTIONS, endpoint: 'http://127.0.0.1:1', retries: 0, timeoutMs: 200 },
+        },
+      ],
+      categories: {},
+    }));
+    // applyConfig encrypted the secret at rest — the snapshot the mirror
+    // expansion reads holds ciphertext, so this probe exercises the full
+    // snapshot → decryptBackendSecrets → ephemeral S3Driver chain.
+    expect(readRow(BACKENDS_KEY)).toContain('enc:v1:');
+    const result = await service.testBackend({
+      name: 'cand-mirror',
+      type: 'mirror',
+      options: { primary: 'good-local', replicas: ['off-box'] },
+    });
+    expect(result.targets).toEqual([
+      { name: 'good-local', ok: true },
+      expect.objectContaining({ name: 'off-box', ok: false }),
+    ]);
+    // Decrypt succeeded: the replica failed on the network. A decrypt failure
+    // would reject the whole call (decryptBackendSecrets throws), not mark a target.
+    expect(result.targets[1]!.error).not.toContain('could not decrypt');
+  });
 });
