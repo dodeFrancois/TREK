@@ -62,7 +62,7 @@ export default function BackendForm({
     if (field.kind === 'backend-ref-list') return Array.isArray(value) && value.length > 0
     return typeof value === 'string' && value.trim() !== ''
   }
-  const duplicate = initial === null && backendNames.includes(name.trim())
+  const duplicate = name.trim() !== (initial?.name ?? '') && backendNames.includes(name.trim())
   const blocked = hasPlaintextSecret({ type, options: values }) && !encryptionReady
   const canApply =
     name.trim() !== '' && !duplicate && fields.every((f) => !f.required || filled(f))

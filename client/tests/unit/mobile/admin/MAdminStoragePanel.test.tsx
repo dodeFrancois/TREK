@@ -90,4 +90,13 @@ describe('MAdminStoragePanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
     expect(await screen.findByText('registry says no')).toBeInTheDocument();
   });
+
+  it('FE-MOB-MSTOR-005: renaming onto another existing backend warns and blocks Apply', async () => {
+    await renderPanel();
+    fireEvent.click(within(screen.getByTestId('m-storage-backend-off-box')).getByRole('button', { name: 'Edit' }));
+    const nameInput = screen.getByDisplayValue('off-box');
+    fireEvent.change(nameInput, { target: { value: 'uploads-local' } });
+    expect(screen.getByText(/A backend named uploads-local already exists/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Apply' })).toBeDisabled();
+  });
 });

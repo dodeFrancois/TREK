@@ -120,4 +120,15 @@ describe('BackendForm', () => {
     });
     expect(committed.options).not.toHaveProperty('region');
   });
+
+  it('FE-ADMIN-STORF-009: renaming onto another existing backend warns and blocks Apply', () => {
+    renderForm({ initial: S3_INITIAL });
+    expect(screen.getByRole('button', { name: 'Apply' })).toBeEnabled();
+    fireEvent.change(screen.getByLabelText(/Name/), { target: { value: 'uploads-local' } });
+    expect(screen.getByText(/A backend named uploads-local already exists/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Apply' })).toBeDisabled();
+    // Keeping the original name stays allowed.
+    fireEvent.change(screen.getByLabelText(/Name/), { target: { value: 'off-box' } });
+    expect(screen.getByRole('button', { name: 'Apply' })).toBeEnabled();
+  });
 });
