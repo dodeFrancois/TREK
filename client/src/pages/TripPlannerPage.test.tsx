@@ -11,6 +11,8 @@ import { useSettingsStore } from '../store/settingsStore';
 import TripPlannerPage from './TripPlannerPage';
 import { server } from '../../tests/helpers/msw/server';
 import { http, HttpResponse } from 'msw';
+import userEvent from '@testing-library/user-event';
+import { within } from '@testing-library/react';
 
 // Mock Leaflet-dependent components
 const capturedMapViewProps: { current: Record<string, any> } = { current: {} };
@@ -1702,3 +1704,156 @@ describe('TripPlannerPage', () => {
     });
   });
 });
+
+describe('TripPlannerPage — searching a place on the map', () => {
+  const suggestion = { placeId: 'way/123', mainText: 'Sagrada Família', secondaryText: 'Barcelona, Spain' }
+  let placeCreations = 0
+
+  function stubMapsProvider() {
+    placeCreations = 0
+    server.use(
+      http.post('/api/maps/autocomplete', () => HttpResponse.json({ suggestions: [suggestion], source: 'openstreetmap' })),
+      http.get('/api/maps/details/:placeId', () => HttpResponse.json({
+        place: {
+          name: 'Sagrada Família',
+          address: 'Carrer de Mallorca 401, Barcelona',
+          lat: 41.4036,
+          lng: 2.1744,
+          website: 'https://sagradafamilia.org',
+          phone: '+34 932 08 04 14',
+          opening_hours: null,
+          open_now: null,
+          osm_id: 'way/123',
+          source: 'openstreetmap',
+        },
+      })),
+      http.get('/api/maps/place-photo/:placeId', () => HttpResponse.json({ photoUrl: null })),
+      http.post('/api/trips/:id/places', () => {
+        placeCreations += 1
+        return HttpResponse.json({ place: buildPlace({ trip_id: 42 }) })
+      }),
+    )
+  }
+
+  // The planner opens behind a timed splash; skip it on fake timers, then hand the
+  // test back real ones so userEvent can drive the debounced search.
+  function mountPlanner(id = 42) {
+    vi.useFakeTimers()
+    seedTripStore({ id })
+    renderPlannerPage(id)
+    act(() => { vi.runAllTimers() })
+    vi.useRealTimers()
+  }
+
+  async function searchAndPreview() {
+    stubMapsProvider()
+    mountPlanner()
+    await waitFor(() => expect(screen.getByTestId('day-plan-sidebar')).toBeInTheDocument())
+
+    const user = userEvent.setup()
+    await user.type(screen.getByPlaceholderText(/search a place/i), 'sagrada')
+    const hit = await screen.findByText('Sagrada Família', {}, { timeout: 3000 })
+    await user.click(hit)
+    return user
+  }
+
+  it('offers a place search over the map', async () => {
+    stubMapsProvider()
+    mountPlanner()
+    await waitFor(() => expect(screen.getByTestId('day-plan-sidebar')).toBeInTheDocument())
+
+    expect(screen.getByPlaceholderText(/search a place/i)).toBeInTheDocument()
+  })
+
+  it('puts a searched place on the map without adding it to the trip', async () => {
+    await searchAndPreview()
+
+    await waitFor(() => {
+      expect(capturedMapViewProps.current.previewPlace).toMatchObject({ lat: 41.4036, lng: 2.1744 })
+    }, { timeout: 3000 })
+    // The whole point: it is on the map, and the trip does not own it yet.
+    expect(placeCreations).toBe(0)
+    expect(capturedPlaceFormModalProps.current.isOpen).not.toBe(true)
+  })
+
+  it('adding from the preview opens the place form pre-filled, creating nothing yet', async () => {
+    const user = await searchAndPreview()
+
+    await user.click(await screen.findByRole('button', { name: /add to trip/i }, { timeout: 3000 }))
+
+    expect(capturedPlaceFormModalProps.current.isOpen).toBe(true)
+    expect(capturedPlaceFormModalProps.current.prefillCoords).toMatchObject({
+      lat: 41.4036,
+      lng: 2.1744,
+      name: 'Sagrada Família',
+      website: 'https://sagradafamilia.org',
+      osm_id: 'way/123',
+    })
+    expect(placeCreations).toBe(0)
+  })
+
+  it('dismissing the preview leaves no pin behind', async () => {
+    const user = await searchAndPreview()
+    await waitFor(() => expect(capturedMapViewProps.current.previewPlace).toBeTruthy(), { timeout: 3000 })
+
+    const card = screen.getByTestId('place-preview-card')
+    await user.click(within(card).getByRole('button', { name: /close/i }))
+
+    await waitFor(() => expect(capturedMapViewProps.current.previewPlace).toBeNull())
+  })
+
+  it('keeps the search reachable on a narrow viewport, and only once', async () => {
+    const original = window.innerWidth
+    Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: 500 })
+    try {
+      stubMapsProvider()
+      mountPlanner()
+      await waitFor(() => expect(screen.getByTestId('day-plan-sidebar')).toBeInTheDocument())
+
+      expect(screen.getByTestId('mobile-map-search')).toBeInTheDocument()
+      // getBy* throws on duplicates: the field must exist exactly once, or every
+      // query against it becomes ambiguous.
+      expect(screen.getByPlaceholderText(/search a place/i)).toBeInTheDocument()
+    } finally {
+      Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: original })
+    }
+  })
+
+  it('carries the Google place id into the form when Google found the place', async () => {
+    const user = userEvent.setup()
+    placeCreations = 0
+    server.use(
+      http.post('/api/maps/autocomplete', () => HttpResponse.json({
+        suggestions: [{ placeId: 'ChIJk_s92NyipBIRUMnDG8Kq2Js', mainText: 'Sagrada Família', secondaryText: 'Barcelona' }],
+        source: 'google',
+      })),
+      http.get('/api/maps/details/:placeId', () => HttpResponse.json({
+        place: {
+          name: 'Sagrada Família',
+          address: 'Carrer de Mallorca 401, Barcelona',
+          lat: 41.4036,
+          lng: 2.1744,
+          google_place_id: 'ChIJk_s92NyipBIRUMnDG8Kq2Js',
+          source: 'google',
+        },
+      })),
+      http.get('/api/maps/place-photo/:placeId', () => HttpResponse.json({ photoUrl: null })),
+      http.post('/api/trips/:id/places', () => {
+        placeCreations += 1
+        return HttpResponse.json({ place: buildPlace({ trip_id: 42 }) })
+      }),
+    )
+    mountPlanner()
+    await waitFor(() => expect(screen.getByTestId('day-plan-sidebar')).toBeInTheDocument())
+    await user.type(screen.getByPlaceholderText(/search a place/i), 'sagrada')
+    await user.click(await screen.findByText('Sagrada Família', {}, { timeout: 3000 }))
+
+    await user.click(await screen.findByRole('button', { name: /add to trip/i }, { timeout: 3000 }))
+
+    expect(capturedPlaceFormModalProps.current.prefillCoords).toMatchObject({
+      google_place_id: 'ChIJk_s92NyipBIRUMnDG8Kq2Js',
+    })
+    expect(capturedPlaceFormModalProps.current.prefillCoords.osm_id).toBeUndefined()
+    expect(placeCreations).toBe(0)
+  })
+})

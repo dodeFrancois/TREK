@@ -94,6 +94,8 @@ interface Props {
   onReservationClick?: (reservationId: number) => void
   pois?: Poi[]
   onPoiClick?: (poi: Poi) => void
+  /** a searched place shown before any decision — never persisted */
+  previewPlace?: { lat: number; lng: number; name?: string } | null
   onViewportChange?: (bbox: { south: number; west: number; north: number; east: number }) => void
   glProvider?: GlMapProvider
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -188,6 +190,18 @@ function createPoiMarkerElement(category: string): HTMLDivElement {
   return el
 }
 
+/** The pin for a place under consideration: dashed and hollow, unlike a planned one. */
+function createPreviewMarkerElement(): HTMLDivElement {
+  const el = document.createElement('div')
+  el.className = 'map-preview-marker'
+  el.style.cssText = 'width:30px;height:30px;'
+  el.innerHTML = '<div style="width:30px;height:30px;border-radius:50%;background:rgba(79,70,229,0.22);'
+    + 'border:2.5px dashed #4F46E5;box-shadow:0 1px 6px rgba(0,0,0,0.28);display:flex;align-items:center;'
+    + 'justify-content:center;box-sizing:border-box;">'
+    + '<div style="width:9px;height:9px;border-radius:50%;background:#4F46E5;"></div></div>'
+  return el
+}
+
 export function MapViewGL({
   places = [],
   dayPlaces = [],
@@ -213,6 +227,7 @@ export function MapViewGL({
   onReservationClick,
   pois = [],
   onPoiClick,
+  previewPlace = null,
   onViewportChange,
   glProvider = 'mapbox-gl',
   onMapReady,
@@ -265,6 +280,8 @@ export function MapViewGL({
   onReservationClickRef.current = onReservationClick
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const poiMarkersRef = useRef<any[]>([])
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const previewMarkerRef = useRef<any | null>(null)
   // Single reusable hover popup for POI markers. Planned places use the
   // cursor-following React tooltip below so they match the Leaflet map.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -881,6 +898,24 @@ export function MapViewGL({
       poiMarkersRef.current.push(m)
     }
   }, [pois, mapReady, glProvider])
+
+  // Reconcile the single search-preview marker and bring it into view. Kept apart
+  // from both the planned places and the POI layer: it belongs to no day, joins no
+  // cluster, and vanishes without trace the moment the preview is dropped.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !mapReady) return
+    previewMarkerRef.current?.remove()
+    previewMarkerRef.current = null
+    if (!previewPlace) return
+    const el = createPreviewMarkerElement()
+    previewMarkerRef.current = new gl.Marker({ element: el, anchor: 'center' })
+      .setLngLat([previewPlace.lng, previewPlace.lat])
+      .addTo(map)
+    try {
+      map.flyTo({ center: [previewPlace.lng, previewPlace.lat], zoom: Math.max(map.getZoom(), 16) })
+    } catch { /* noop */ }
+  }, [previewPlace, mapReady, glProvider])
 
   // Update route geojson
   useEffect(() => {

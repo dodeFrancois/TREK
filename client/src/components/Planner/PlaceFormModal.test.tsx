@@ -563,4 +563,34 @@ describe('PlaceFormModal', () => {
     expect(screen.getByDisplayValue('48.8566')).toBeInTheDocument();
     expect(screen.getByDisplayValue('2.3522')).toBeInTheDocument();
   });
+
+  it('FE-COMP-PLACEFORM-037: a prefill keeps its OpenStreetMap id on save', async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(<PlaceFormModal {...defaultProps} onSave={onSave} prefillCoords={{
+      lat: 41.4036, lng: 2.1744, name: 'Sagrada Família', osm_id: 'way/123',
+    }} />);
+
+    await user.click(screen.getByRole('button', { name: /^Add$/i }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ osm_id: 'way/123' }));
+  });
+
+  it('FE-COMP-PLACEFORM-038: a prefill keeps its Google place id on save', async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(<PlaceFormModal {...defaultProps} onSave={onSave} prefillCoords={{
+      lat: 41.4036, lng: 2.1744, name: 'Sagrada Família', google_place_id: 'ChIJk_s92NyipBIRUMnDG8Kq2Js',
+    }} />);
+
+    await user.click(screen.getByRole('button', { name: /^Add$/i }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    // Dropped here, the created place has no provider handle and can never be
+    // enriched with ratings, photos or hours afterwards.
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      google_place_id: 'ChIJk_s92NyipBIRUMnDG8Kq2Js',
+    }));
+  });
 });

@@ -1,14 +1,9 @@
 import { useState, useRef, useCallback, useMemo } from 'react'
 import { mapsApi } from '../../api/client'
 import type { Poi } from './poiCategories'
+import { isAbortError } from './abortError'
 
 export interface Bbox { south: number; west: number; north: number; east: number }
-
-// A request we cancelled on purpose (newer search superseded it) — not a failure.
-function isAbortError(err: unknown): boolean {
-  const e = err as { name?: string; code?: string } | null
-  return e?.name === 'CanceledError' || e?.code === 'ERR_CANCELED' || e?.name === 'AbortError'
-}
 
 /**
  * State for the map POI "explore" pill. Toggling a category fetches its OSM POIs

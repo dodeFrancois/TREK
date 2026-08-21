@@ -169,7 +169,7 @@ export function useTripPlanner() {
   const [dayDetailCollapsed, setDayDetailCollapsed] = useState(false)
   const [showPlaceForm, setShowPlaceForm] = useState<boolean>(false)
   const [editingPlace, setEditingPlace] = useState<Place | null>(null)
-  const [prefillCoords, setPrefillCoords] = useState<{ lat: number; lng: number; name?: string; address?: string; website?: string; phone?: string; osm_id?: string } | null>(null)
+  const [prefillCoords, setPrefillCoords] = useState<{ lat: number; lng: number; name?: string; address?: string; website?: string; phone?: string; osm_id?: string; google_place_id?: string } | null>(null)
   const [editingAssignmentId, setEditingAssignmentId] = useState<number | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
 
@@ -465,7 +465,7 @@ export function useTripPlanner() {
 
   // Open the Add-Place form pre-filled from an OSM "explore" POI marker — all the
   // data already comes from the POI, so no reverse-geocode is needed.
-  const openAddPlaceFromPoi = useCallback((poi: { lat: number; lng: number; name: string; address: string | null; website: string | null; phone: string | null; osm_id: string }) => {
+  const openAddPlaceFromPoi = useCallback((poi: { lat: number; lng: number; name: string; address: string | null; website: string | null; phone: string | null; osm_id?: string; google_place_id?: string }) => {
     if (!can('place_edit', trip)) return
     setPrefillCoords({
       lat: poi.lat,
@@ -475,6 +475,7 @@ export function useTripPlanner() {
       website: poi.website || undefined,
       phone: poi.phone || undefined,
       osm_id: poi.osm_id,
+      google_place_id: poi.google_place_id,
     })
     setEditingPlace(null)
     setEditingAssignmentId(null)

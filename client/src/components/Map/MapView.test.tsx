@@ -377,4 +377,33 @@ describe('MapView', () => {
     render(<MapView reservations={[reservation]} visibleConnectionIds={[42]} />)
     expect(screen.getAllByTestId('polyline').length).toBeGreaterThan(0)
   })
+
+  it('FE-COMP-MAPVIEW-025: a previewed place is pinned without being one of the trip places', () => {
+    render(<MapView places={[]} previewPlace={{ lat: 41.4036, lng: 2.1744, name: 'Sagrada Família' }} />)
+
+    const markers = screen.getAllByTestId('marker')
+    expect(markers).toHaveLength(1)
+    expect(markers[0]).toHaveAttribute('data-lat', '41.4036')
+  })
+
+  it('FE-COMP-MAPVIEW-026: the camera moves to the previewed place', () => {
+    render(<MapView places={[]} previewPlace={{ lat: 41.4036, lng: 2.1744, name: 'Sagrada Família' }} />)
+
+    expect(mapMock.setView).toHaveBeenCalledWith(
+      [41.4036, 2.1744],
+      expect.any(Number),
+      expect.objectContaining({ animate: true }),
+    )
+  })
+
+  it('FE-COMP-MAPVIEW-027: dropping the preview takes its pin off the map', () => {
+    const { rerender } = render(
+      <MapView places={[]} previewPlace={{ lat: 41.4036, lng: 2.1744, name: 'Sagrada Família' }} />,
+    )
+    expect(screen.getAllByTestId('marker')).toHaveLength(1)
+
+    rerender(<MapView places={[]} previewPlace={null} />)
+
+    expect(screen.queryByTestId('marker')).toBeNull()
+  })
 })

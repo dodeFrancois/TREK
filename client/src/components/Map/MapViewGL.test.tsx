@@ -676,4 +676,52 @@ describe('MapViewGL', () => {
 
     expect(glMap.fitBounds.mock.calls.length).toBe(afterDayFit)
   })
+
+  describe('search preview', () => {
+    const preview = { lat: 41.4036, lng: 2.1744, name: 'Sagrada Família' }
+
+    function loadStyle() {
+      glMap.on.mockImplementation((event: string, handlerOrLayer: unknown) => {
+        if (event === 'load' && typeof handlerOrLayer === 'function') (handlerOrLayer as () => void)()
+        return glMap
+      })
+    }
+
+    it('FE-COMP-MAPVIEWGL-020: a previewed place gets a marker of its own', async () => {
+      loadStyle()
+      const gl = (await import('maplibre-gl')).default
+      render(<MapViewGL places={[]} previewPlace={preview} glProvider="maplibre-gl" />)
+      await act(async () => {})
+
+      const call = (gl.Marker as unknown as ReturnType<typeof vi.fn>).mock.calls
+        .find(c => (c[0]?.element as HTMLElement | undefined)?.classList.contains('map-preview-marker'))
+      expect(call).toBeTruthy()
+    })
+
+    it('FE-COMP-MAPVIEWGL-021: the camera flies to the previewed place', async () => {
+      loadStyle()
+      render(<MapViewGL places={[]} previewPlace={preview} glProvider="maplibre-gl" />)
+      await act(async () => {})
+
+      expect(glMap.flyTo).toHaveBeenCalledWith(expect.objectContaining({ center: [2.1744, 41.4036] }))
+    })
+
+    it('FE-COMP-MAPVIEWGL-022: dropping the preview takes its marker off the map', async () => {
+      loadStyle()
+      const gl = (await import('maplibre-gl')).default
+      const { rerender } = render(<MapViewGL places={[]} previewPlace={preview} glProvider="maplibre-gl" />)
+      await act(async () => {})
+
+      const MarkerMock = gl.Marker as unknown as ReturnType<typeof vi.fn>
+      const index = MarkerMock.mock.calls
+        .findIndex(c => (c[0]?.element as HTMLElement | undefined)?.classList.contains('map-preview-marker'))
+      expect(index).toBeGreaterThanOrEqual(0)
+      const instance = MarkerMock.mock.results[index].value as { remove: ReturnType<typeof vi.fn> }
+
+      rerender(<MapViewGL places={[]} previewPlace={null} glProvider="maplibre-gl" />)
+      await act(async () => {})
+
+      expect(instance.remove).toHaveBeenCalled()
+    })
+  })
 })

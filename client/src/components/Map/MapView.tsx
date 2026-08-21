@@ -144,6 +144,49 @@ function createPoiIcon(category: string) {
   return icon
 }
 
+/** A place the user is only looking at: hollow and dashed, so it reads as "not yours yet". */
+let previewIconCache: L.DivIcon | null = null
+function createPreviewIcon() {
+  if (previewIconCache) return previewIconCache
+  previewIconCache = L.divIcon({
+    className: '',
+    html: '<div style="width:30px;height:30px;border-radius:50%;background:rgba(79,70,229,0.22);'
+      + 'border:2.5px dashed #4F46E5;box-shadow:0 1px 6px rgba(0,0,0,0.28);'
+      + 'display:flex;align-items:center;justify-content:center;">'
+      + '<div style="width:9px;height:9px;border-radius:50%;background:#4F46E5;"></div></div>',
+    iconSize: [30, 30],
+    iconAnchor: [15, 15],
+    tooltipAnchor: [0, -16],
+  })
+  return previewIconCache
+}
+
+// The pin for a searched place, plus the camera move that brings it into view.
+// Purely visual and never persisted: when previewPlace goes null the pin is gone
+// and the trip is exactly as it was.
+function PreviewLayer({ previewPlace }: { previewPlace: { lat: number; lng: number; name?: string } | null }) {
+  const map = useMap()
+
+  useEffect(() => {
+    if (!previewPlace) return
+    // Same easing the location layer uses, so navigating to a search result feels
+    // like the rest of the map rather than a jump cut.
+    try {
+      map.setView([previewPlace.lat, previewPlace.lng], Math.max(map.getZoom(), 16), { animate: true, duration: 0.4 })
+    } catch { /* noop */ }
+  }, [previewPlace, map])
+
+  if (!previewPlace) return null
+
+  return (
+    <Marker position={[previewPlace.lat, previewPlace.lng]} icon={createPreviewIcon()} zIndexOffset={900}>
+      {previewPlace.name && (
+        <Tooltip direction="top" offset={[0, -12]} opacity={1} className="map-tooltip">{previewPlace.name}</Tooltip>
+      )}
+    </Marker>
+  )
+}
+
 // Clears the hover tooltip the moment the camera starts moving and suppresses
 // re-showing it until the move ends: after a click-recenter the marker slides
 // away under a stationary cursor, so the browser never fires mouseout — and
@@ -466,6 +509,7 @@ export const MapView = memo(function MapView({
   pois = [] as Poi[],
   onPoiClick,
   onViewportChange,
+  previewPlace = null,
   tripId,
 }: any) {
   const poiMarkers = useMemo(() => (pois as Poi[]).map((poi: Poi) => (
@@ -753,6 +797,7 @@ export const MapView = memo(function MapView({
       />
 
       {poiMarkers}
+      <PreviewLayer previewPlace={previewPlace} />
       <PluginMapMarkers tripId={tripId} />
     </MapContainer>
     {isMobile && <LocationButton

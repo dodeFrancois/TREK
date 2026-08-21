@@ -48,8 +48,11 @@ import { usePlannerHistory } from '../hooks/usePlannerHistory'
 import type { Accommodation, TripMember, Day, Place, Reservation, PackingItem, TodoItem } from '../types'
 import { ListTodo, Upload, Plus, Trash2, FolderPlus } from 'lucide-react'
 import { useTripPlanner } from './tripPlanner/useTripPlanner'
-import { usePoiExplore } from '../components/Map/usePoiExplore'
+import { usePoiExplore, type Bbox } from '../components/Map/usePoiExplore'
 import PoiCategoryPill from '../components/Map/PoiCategoryPill'
+import { useMapPlaceSearch } from '../components/Map/useMapPlaceSearch'
+import MapSearchPill from '../components/Map/MapSearchPill'
+import PlacePreviewCard from '../components/Map/PlacePreviewCard'
 
 function ListsContainer({ tripId, packingItems, todoItems }: { tripId: number; packingItems: PackingItem[]; todoItems: TodoItem[] }) {
   const [subTab, setSubTab] = useState<'packing' | 'todo'>(() => {
@@ -217,6 +220,35 @@ export default function TripPlannerPage(): React.ReactElement | null {
   } = useTripPlanner()
 
   const poi = usePoiExplore()
+  // The viewport is tracked here (rather than read out of usePoiExplore) so the
+  // search can bias its results towards what the user is currently looking at.
+  const viewportRef = React.useRef<Bbox | null>(null)
+  const handleViewportChange = React.useCallback((bbox: Bbox) => {
+    viewportRef.current = bbox
+    poi.onViewportChange(bbox)
+  }, [poi])
+  const mapSearch = useMapPlaceSearch({
+    language,
+    getViewportBounds: () => viewportRef.current,
+  })
+  // Hand the found place to the ordinary add-place form: the user still picks the
+  // day, the category and the notes, and nothing exists until they save.
+  const addPreviewedPlace = React.useCallback((place: typeof mapSearch.preview) => {
+    if (!place) return
+    openAddPlaceFromPoi({
+      lat: place.lat,
+      lng: place.lng,
+      name: place.name,
+      address: place.address || null,
+      website: place.website,
+      phone: place.phone,
+      // Whichever provider found it keeps its handle on it, so the place can be
+      // enriched later with ratings, photos and hours.
+      osm_id: place.osm_id ?? undefined,
+      google_place_id: place.google_place_id ?? undefined,
+    })
+    mapSearch.clear()
+  }, [openAddPlaceFromPoi, mapSearch])
   const [glMap, setGlMap] = useState<CompassMap | null>(null)
   const poiPillEnabled = useSettingsStore(s => s.settings.map_poi_pill_enabled) !== false
 
@@ -340,9 +372,75 @@ export default function TripPlannerPage(): React.ReactElement | null {
               }}
               pois={poi.pois}
               onPoiClick={openAddPlaceFromPoi}
-              onViewportChange={poi.onViewportChange}
+              onViewportChange={handleViewportChange}
+              previewPlace={mapSearch.preview}
               onMapReady={setGlMap}
             />
+
+            {/* Search-then-decide. Rendered ONCE — placed differently on a phone,
+                never duplicated, so the field is never ambiguous to reach. On mobile
+                it goes through a portal like the POI pill, or map touch handlers
+                swallow the taps; the preview then grows upwards from the field. */}
+            {isMobile
+              ? (!mobileSidebarOpen && !showPlaceForm && !showMembersModal && !showReservationModal && ReactDOM.createPortal(
+                <div
+                  data-testid="mobile-map-search"
+                  style={{
+                    position: 'fixed', left: 12, right: 12,
+                    bottom: 'calc(var(--bottom-nav-h, 0px) + 64px)',
+                    zIndex: 100, pointerEvents: 'none',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+                  }}
+                >
+                  {mapSearch.preview && (
+                    <PlacePreviewCard
+                      place={mapSearch.preview}
+                      photoUrl={mapSearch.photoUrl}
+                      canAdd={can('place_edit', trip)}
+                      onAdd={addPreviewedPlace}
+                      onClose={mapSearch.clear}
+                    />
+                  )}
+                  <MapSearchPill
+                    query={mapSearch.query}
+                    onQueryChange={mapSearch.setQuery}
+                    suggestions={mapSearch.suggestions}
+                    loading={mapSearch.loading}
+                    error={mapSearch.error}
+                    onSelect={mapSearch.select}
+                    onClear={mapSearch.clear}
+                  />
+                </div>,
+                document.body,
+              ))
+              : (
+                <div
+                  style={{
+                    position: 'absolute', top: 14, left: (leftCollapsed ? 0 : leftWidth) + 16,
+                    zIndex: 26, pointerEvents: 'none',
+                    display: 'flex', flexDirection: 'column', gap: 8,
+                  }}
+                >
+                  <MapSearchPill
+                    query={mapSearch.query}
+                    onQueryChange={mapSearch.setQuery}
+                    suggestions={mapSearch.suggestions}
+                    loading={mapSearch.loading}
+                    error={mapSearch.error}
+                    onSelect={mapSearch.select}
+                    onClear={mapSearch.clear}
+                  />
+                  {mapSearch.preview && (
+                    <PlacePreviewCard
+                      place={mapSearch.preview}
+                      photoUrl={mapSearch.photoUrl}
+                      canAdd={can('place_edit', trip)}
+                      onAdd={addPreviewedPlace}
+                      onClose={mapSearch.clear}
+                    />
+                  )}
+                </div>
+              )}
 
             {(poiPillEnabled || glMap) && (
               <div className="hidden md:flex" style={{ position: 'absolute', top: 14, left: '50%', transform: 'translateX(-50%)', zIndex: 25, pointerEvents: 'none', alignItems: 'flex-start', gap: 8 }}>
