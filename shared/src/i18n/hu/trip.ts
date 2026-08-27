@@ -70,6 +70,7 @@ const trip: TranslationStrings = {
   'transit.addToDay': 'Hozzáadás a naphoz',
   'transit.itinerary': 'Útiterv',
   'transit.attribution': 'Útvonaladatok innen:',
+  'transit.estimatedTimes': 'Becsült időpontok — ellenőrizd őket a közlekedési szolgáltatónál.',
   'transport.modeManual': 'Kézi közlekedés',
   'transport.modeAutomated': 'Automatikus közlekedés',
   'transit.sectionTitle': 'Automatikus tömegközlekedés',
@@ -81,7 +82,6 @@ const trip: TranslationStrings = {
   'transit.durationLabel': 'Időtartam',
   'transit.transfersLabel': 'Átszállások',
   'transit.walkLabel': 'Gyaloglás',
-  'transit.searchHint':
-    'Keress valós összeköttetéseket, és add hozzá őket közvetlenül a naphoz – adatok a Transitous révén.',
+  'transit.searchHint': 'Keress valós összeköttetéseket, és add hozzá őket közvetlenül a naphoz.',
 };
 export default trip;

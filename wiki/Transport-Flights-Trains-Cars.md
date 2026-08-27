@@ -10,16 +10,26 @@ Open the **Transports** tab in the trip planner and click **Add**, or open the p
 
 ## Public transit search
 
-The **Add transport** dialog has two modes: **Manual transport** (the classic form) and **Automated transport** — a public-transit route search powered by [Transitous](https://transitous.org/), free open data with no API key or paid provider. The **transit button** (tram icon) on each day header opens the dialog straight in the Automated mode. (The rename pencil this button replaced moved next to the day name in the day detail panel.)
+The **Add transport** dialog has two modes: **Manual transport** (the classic form) and **Automated transport** — a public-transit route search. [Transitous](https://transitous.org/) is the default provider and needs no API key. An administrator can optionally switch route planning to [NAVITIME Route (totalnavi)](https://rapidapi.com/navitimejapan-navitimejapan-default/api/navitime-route-totalnavi) through RapidAPI. Stop/station search always remains on Transitous. The **transit button** (tram icon) on each day header opens the dialog straight in the Automated mode. (The rename pencil this button replaced moved next to the day name in the day detail panel.)
 
 The mode switch only appears when the trip has a **start date and an end date** — a transit search needs real dates to depart against. On a trip without dates the dialog opens directly on the manual form; add dates in the trip settings to get the Automated mode back.
 
 - Pick **from** and **to** (stop/station search; the day's own places and hotels appear as quick picks), a **depart/arrive** time, and filter by mode: train, subway, tram, bus, ferry, cable car.
 - Rank the results by **best route**, **fewer transfers**, or **less walking**.
-- Each result shows local departure/arrival times, duration, transfers, walking time and the line badges in their official colors; expand it for the stop-by-stop breakdown.
+- Each result shows local departure/arrival times, duration, transfers, walking time, optional fare, and the line badges in their official colors; expand it for the stop-by-stop breakdown. NAVITIME RapidAPI responses are marked as estimated when the returned links are not timetable-backed.
 - **Add to day** saves the chosen connection as a first-class **transit** entry. It slots into the day timeline at its departure time and shows its line badges, transfers and walking time right in the plan. Clicking it opens the **journey view**: the full stop-by-stop itinerary together with the editable booking fields (title, status, confirmation code, notes), a **Change route** action that re-runs the search and replaces the itinerary, and delete. In the Transports tab these journeys appear in their own **Automated public transit** section.
 
-Self-hosters can point the `TRANSIT_API_URL` environment variable at their own MOTIS instance.
+### Choosing NAVITIME
+
+1. Subscribe to **NAVITIME Route (totalnavi)** on RapidAPI and obtain the RapidAPI application key.
+2. Open **Admin → Settings → Public transit provider**.
+3. Paste the **NAVITIME RapidAPI key**, select **NAVITIME**, and save.
+
+The key is encrypted at rest with TREK's existing secret-storage mechanism. Key resolution mirrors Google Maps: the current user's key is used first; if absent, TREK falls back to the first administrator key. The Admin screen configures the administrator fallback key. Provider selection and NAVITIME credentials are database-only settings and deliberately have no environment-variable override.
+
+TREK caches normalized NAVITIME results in memory for five minutes, scoped by user and query. Nothing is written to a disk cache. Transitous keeps its existing 60-second cache. Changing the selected provider or the effective NAVITIME key invalidates the corresponding cache entries.
+
+Self-hosters can still point the `TRANSIT_API_URL` environment variable at their own MOTIS instance for Transitous routing and stop search.
 
 ## Transport types
 

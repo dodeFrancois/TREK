@@ -7,6 +7,7 @@ export interface User {
   role: 'admin' | 'user';
   password_hash?: string;
   maps_api_key?: string | null;
+  navitime_rapidapi_key?: string | null;
   unsplash_api_key?: string | null;
   openweather_api_key?: string | null;
   avatar?: string | null;

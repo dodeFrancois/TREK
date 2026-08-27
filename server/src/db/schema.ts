@@ -9,6 +9,7 @@ function createTables(db: Database.Database): void {
       password_hash TEXT NOT NULL,
       role TEXT NOT NULL DEFAULT 'user',
       maps_api_key TEXT,
+      navitime_rapidapi_key TEXT,
       unsplash_api_key TEXT,
       openweather_api_key TEXT,
       avatar TEXT,

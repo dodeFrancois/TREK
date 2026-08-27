@@ -72,7 +72,7 @@ describe('Transit proxy e2e (real auth guard + temp SQLite)', () => {
       .get('/api/transit/plan?from=52.5,13.4&to=52.6,13.5&time=2026-07-13T09:00:00Z&arriveBy=true&modes=BUS&maxTransfers=2')
       .set('Cookie', sessionCookie(1));
     expect(res.status).toBe(200);
-    expect(transitSvc.plan).toHaveBeenCalledWith({
+    expect(transitSvc.plan).toHaveBeenCalledWith(1, {
       from: '52.5,13.4', to: '52.6,13.5', time: '2026-07-13T09:00:00Z', arriveBy: true, modes: 'BUS', maxTransfers: 2,
     });
   });

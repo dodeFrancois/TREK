@@ -31,6 +31,7 @@ const { testDb, dbMock } = vi.hoisted(() => {
   };
   return { testDb: db, dbMock: mock };
 });
+const { clearTransitCacheMock } = vi.hoisted(() => ({ clearTransitCacheMock: vi.fn() }));
 
 vi.mock('../../../src/db/database', () => dbMock);
 vi.mock('../../../src/config', () => ({
@@ -61,6 +62,7 @@ vi.mock('../../../src/scheduler', () => ({
   loadSettings: vi.fn(() => ({ enabled: false })),
   VALID_INTERVALS: ['daily', 'weekly', 'monthly'],
 }));
+vi.mock('../../../src/services/transit/cache', () => ({ clearTransitCache: clearTransitCacheMock }));
 
 // ---------------------------------------------------------------------------
 // Imports (after mocks)
@@ -77,6 +79,7 @@ import {
   getSettings,
   listUsers,
   getAppSettings,
+  updateAppSettings,
   validateKeys,
   isOidcOnlyMode,
   resolveAuthToggles,
@@ -106,7 +109,10 @@ beforeAll(() => {
   runMigrations(testDb);
 });
 
-beforeEach(() => resetTestDb(testDb));
+beforeEach(() => {
+  resetTestDb(testDb);
+  clearTransitCacheMock.mockClear();
+});
 
 afterAll(() => testDb.close());
 
@@ -234,6 +240,16 @@ describe('getSettings', () => {
     // getSettings returns the stored key to the admin.
     expect(getSettings(user.id).settings?.unsplash_api_key).toBe('unsplash-secret-key');
   });
+
+  it('AUTH-DB-010c: round-trips navitime_rapidapi_key with the Google Maps key semantics', () => {
+    const { user } = createAdmin(testDb);
+
+    const result = updateApiKeys(user.id, { navitime_rapidapi_key: 'navitime-secret-key' });
+
+    expect(result.user.navitime_rapidapi_key).not.toBe('navitime-secret-key');
+    expect(result.user.navitime_rapidapi_key).toBeTruthy();
+    expect(getSettings(user.id).settings?.navitime_rapidapi_key).toBe('navitime-secret-key');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -281,6 +297,51 @@ describe('getAppSettings', () => {
     expect(result.status).toBeUndefined();
     expect(result.data).toBeDefined();
     expect(result.data).toHaveProperty('allow_registration', 'true');
+  });
+
+  it('AUTH-DB-014b: persists transit_provider through the existing app-settings endpoint', () => {
+    const { user } = createAdmin(testDb);
+    updateApiKeys(user.id, { navitime_rapidapi_key: 'navitime-key' });
+
+    const saved = updateAppSettings(user.id, { transit_provider: 'navitime' });
+
+    expect(saved.success).toBe(true);
+    expect(getAppSettings(user.id).data?.transit_provider).toBe('navitime');
+    expect(clearTransitCacheMock).toHaveBeenCalledWith('navitime:');
+  });
+
+  it('clears cached NAVITIME routes when a user changes the effective key', () => {
+    const { user } = createUser(testDb);
+
+    updateApiKeys(user.id, { navitime_rapidapi_key: 'new-secret' });
+
+    expect(clearTransitCacheMock).toHaveBeenCalledWith(`navitime:${user.id}:`);
+  });
+
+  it('clears all NAVITIME routes when an administrator changes a fallback key', () => {
+    const { user } = createAdmin(testDb);
+
+    updateApiKeys(user.id, { navitime_rapidapi_key: 'new-admin-secret' });
+
+    expect(clearTransitCacheMock).toHaveBeenCalledWith('navitime:');
+  });
+
+  it('AUTH-DB-014c: rejects NAVITIME selection when no user or admin key resolves', () => {
+    const { user } = createAdmin(testDb);
+
+    const result = updateAppSettings(user.id, { transit_provider: 'navitime' });
+
+    expect(result.status).toBe(400);
+    expect(result.error).toMatch(/NAVITIME.*key/i);
+  });
+
+  it('AUTH-DB-014d: rejects unknown transit providers', () => {
+    const { user } = createAdmin(testDb);
+
+    const result = updateAppSettings(user.id, { transit_provider: 'other' });
+
+    expect(result.status).toBe(400);
+    expect(result.error).toMatch(/provider/i);
   });
 });
 

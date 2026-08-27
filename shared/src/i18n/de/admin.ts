@@ -88,6 +88,13 @@ const admin: TranslationStrings = {
   'admin.requireMfaHint':
     'Benutzer ohne 2FA müssen die Einrichtung unter Einstellungen abschließen, bevor sie die App nutzen können.',
   'admin.apiKeys': 'API-Schlüssel',
+  'admin.transitProvider': 'Anbieter für öffentliche Verkehrsmittel',
+  'admin.transitProviderHint': 'Wähle den Dienst für die Suche nach Verbindungen im öffentlichen Verkehr.',
+  'admin.transitDefault': '(Standard)',
+  'admin.navitimeKey': 'NAVITIME-RapidAPI-Schlüssel',
+  'admin.navitimeKeyHint':
+    'Wird verschlüsselt gespeichert. Ein persönlicher Schlüssel hat Vorrang vor dem Admin-Schlüssel.',
+  'admin.toggleKeyVisibility': 'API-Schlüssel ein- oder ausblenden',
   'admin.apiKeysHint': 'Optional. Aktiviert erweiterte Ortsdaten wie Fotos und Wetter.',
   'admin.mapsKey': 'Google Maps API-Schlüssel',
   'admin.mapsKeyHint': 'Für Ortsuche benötigt. Erstellen unter console.cloud.google.com',

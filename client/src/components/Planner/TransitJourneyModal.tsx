@@ -132,6 +132,17 @@ export default function TransitJourneyModal({ reservation, onClose, onSave, onDe
     { Icon: ArrowRightLeft, value: String(transit.transfers ?? 0), label: t('transit.transfersLabel') },
     { Icon: Footprints, value: transit.walk_seconds > 59 ? t('transit.min', { count: Math.round(transit.walk_seconds / 60) }) : '—', label: t('transit.walkLabel') },
   ] : []
+  const fareAmount = transit?.fare?.ic ?? transit?.fare?.ticket
+  const fare =
+    fareAmount != null && transit?.fare?.currency
+      ? (() => {
+          try {
+            return new Intl.NumberFormat(locale, { style: 'currency', currency: transit.fare.currency, maximumFractionDigits: 2 }).format(fareAmount)
+          } catch {
+            return `${fareAmount} ${transit.fare.currency}`
+          }
+        })()
+      : null
 
   return (
     <Modal
@@ -212,6 +223,24 @@ export default function TransitJourneyModal({ reservation, onClose, onSave, onDe
 
         {transit && (
           <>
+            {(fare || transit.is_timetable === false) && (
+              <div
+                className="bg-surface-secondary text-content-muted"
+                style={{
+                  display: 'flex',
+                  gap: 10,
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  padding: '8px 11px',
+                  borderRadius: 10,
+                  fontSize: 'calc(11.5px * var(--fs-scale-caption, 1))',
+                }}
+              >
+                {transit.is_timetable === false && <span>{t('transit.estimatedTimes')}</span>}
+                {fare && <span style={{ fontWeight: 700 }}>{fare}</span>}
+              </div>
+            )}
             {/* journey stats — three full-width tiles; iconless and flat on mobile */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: isMobile ? 6 : 10 }}>
               {statTiles.map(({ Icon, value, label }, i) => (

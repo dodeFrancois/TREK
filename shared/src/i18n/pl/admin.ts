@@ -78,6 +78,13 @@ const admin: TranslationStrings = {
   'admin.requireMfaHint':
     'Użytkownicy bez 2FA muszą ukończyć konfigurację w Ustawieniach zanim zaczną korzystać z aplikacji.',
   'admin.apiKeys': 'Klucze API',
+  'admin.transitProvider': 'Dostawca transportu publicznego',
+  'admin.transitProviderHint': 'Wybierz usługę używaną do wyszukiwania tras transportem publicznym.',
+  'admin.transitDefault': '(domyślny)',
+  'admin.navitimeKey': 'Klucz NAVITIME RapidAPI',
+  'admin.navitimeKeyHint':
+    'Przechowywany w postaci zaszyfrowanej. Klucz osobisty ma pierwszeństwo przed kluczem administratora.',
+  'admin.toggleKeyVisibility': 'Pokaż lub ukryj klucz API',
   'admin.apiKeysHint':
     'Opcjonalne. Umożliwiają pobieranie większej ilości danych o miejscach, takich jak zdjęcia i pogoda.',
   'admin.mapsKey': 'Klucz Google Maps API',

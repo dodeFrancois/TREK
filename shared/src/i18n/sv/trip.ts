@@ -70,6 +70,7 @@ const trip: TranslationStrings = {
   'transit.addToDay': 'Lägg till dag',
   'transit.itinerary': 'Reseplan',
   'transit.attribution': 'Ruttdata via',
+  'transit.estimatedTimes': 'Beräknade tider — kontrollera dem med trafikoperatören.',
   'transport.modeManual': 'Manuell transport',
   'transport.modeAutomated': 'Automatisk transport',
   'transit.sectionTitle': 'Automatisk kollektivtrafik',
@@ -80,6 +81,6 @@ const trip: TranslationStrings = {
   'transit.durationLabel': 'Restid',
   'transit.transfersLabel': 'Byten',
   'transit.walkLabel': 'Gång',
-  'transit.searchHint': 'Sök verkliga förbindelser och lägg till dem direkt i dagen – data via Transitous.',
+  'transit.searchHint': 'Sök verkliga förbindelser och lägg till dem direkt i dagen.',
 };
 export default trip;

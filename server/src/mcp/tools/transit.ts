@@ -79,7 +79,7 @@ export function registerTransitTools(server: McpServer, userId: number, scopes: 
       'search_transit_routes',
       {
         description:
-          'Search scheduled public-transit routes via Transitous between two coordinates. Returns itineraries that can be passed unchanged to create_transit_journey. `dropped` counts provider itineraries that failed validation and are therefore absent from the results — a non-zero value means the provider offered routes this tool could not represent.',
+          'Search public-transit routes with the provider configured by the administrator. Returns provider and timetable metadata plus itineraries that can be passed unchanged to create_transit_journey. `dropped` counts provider itineraries that failed validation and are therefore absent from the results — a non-zero value means the provider offered routes this tool could not represent.',
         inputSchema: {
           from: transitPlaceSchema,
           to: transitPlaceSchema,
@@ -98,7 +98,7 @@ export function registerTransitTools(server: McpServer, userId: number, scopes: 
         const limited = rateLimit(userId, 'mcp_transit_plan', 60);
         if (limited) return limited;
         try {
-          const result = await plan({
+          const result = await plan(userId, {
             from: `${from.lat},${from.lng}`,
             to: `${to.lat},${to.lng}`,
             time,
@@ -118,7 +118,12 @@ export function registerTransitTools(server: McpServer, userId: number, scopes: 
           // A rejected itinerary is provider data we could not vouch for, but dropping it
           // silently is indistinguishable from "no routes exist" — report the count so the
           // caller knows the difference.
-          return ok({ itineraries, dropped: result.itineraries.length - itineraries.length });
+          return ok({
+            provider: result.provider,
+            isTimetable: result.isTimetable,
+            itineraries,
+            dropped: result.itineraries.length - itineraries.length,
+          });
         } catch (err) {
           return errorResult(err, 'Transit route search failed.');
         }
@@ -139,11 +144,13 @@ export function registerTransitTools(server: McpServer, userId: number, scopes: 
         from: transitPlaceSchema,
         to: transitPlaceSchema,
         itinerary: transitItinerarySchema,
+        provider: z.enum(['transitous', 'navitime']).optional().default('transitous'),
+        isTimetable: z.boolean().optional().default(true),
         notes: z.string().max(1000).optional(),
       },
       annotations: TOOL_ANNOTATIONS_OPEN_WORLD_NON_IDEMPOTENT,
     },
-    async ({ tripId, dayId, from, to, itinerary, notes }) => {
+    async ({ tripId, dayId, from, to, itinerary, provider, isTimetable, notes }) => {
       if (isDemoUser(userId)) return demoDenied();
       if (!canAccessTrip(tripId, userId)) return noAccess();
       if (!hasTripPermission('reservation_edit', tripId, userId)) return permissionDenied();
@@ -165,7 +172,7 @@ export function registerTransitTools(server: McpServer, userId: number, scopes: 
       }
       let reservationParts: ReturnType<typeof buildTransitReservationParts>;
       try {
-        reservationParts = buildTransitReservationParts(from, to, cleaned);
+        reservationParts = buildTransitReservationParts(from, to, cleaned, provider, isTimetable);
       } catch (err) {
         return errorResult(err, 'Unable to resolve the transit journey timezones.');
       }

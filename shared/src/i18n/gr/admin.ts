@@ -133,6 +133,12 @@ const admin: TranslationStrings = {
   'admin.requireMfaHint':
     'Οι χρήστες χωρίς 2FA πρέπει να ολοκληρώσουν τη ρύθμιση στις Ρυθμίσεις πριν χρησιμοποιήσουν την εφαρμογή.',
   'admin.apiKeys': 'Κλειδιά API',
+  'admin.transitProvider': 'Πάροχος δημόσιων συγκοινωνιών',
+  'admin.transitProviderHint': 'Επιλέξτε την υπηρεσία αναζήτησης διαδρομών δημόσιας συγκοινωνίας.',
+  'admin.transitDefault': '(προεπιλογή)',
+  'admin.navitimeKey': 'Κλειδί NAVITIME RapidAPI',
+  'admin.navitimeKeyHint': 'Αποθηκεύεται κρυπτογραφημένο. Ένα προσωπικό κλειδί υπερισχύει του κλειδιού διαχειριστή.',
+  'admin.toggleKeyVisibility': 'Εμφάνιση ή απόκρυψη κλειδιού API',
   'admin.apiKeysHint': 'Προαιρετικά. Ενεργοποιεί εκτεταμένα δεδομένα τόπων όπως φωτογραφίες και καιρό.',
   'admin.mapsKey': 'Google Maps API Key',
   'admin.mapsKeyHint': 'Απαιτείται για αναζήτηση τόπων. Λάβετε το από console.cloud.google.com',

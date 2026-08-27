@@ -70,6 +70,7 @@ const trip: TranslationStrings = {
   'transit.addToDay': 'Tambahkan ke hari',
   'transit.itinerary': 'Itinerari',
   'transit.attribution': 'Data rute melalui',
+  'transit.estimatedTimes': 'Waktu perkiraan — periksa kembali dengan operator transportasi.',
   'transport.modeManual': 'Transportasi manual',
   'transport.modeAutomated': 'Transportasi otomatis',
   'transit.sectionTitle': 'Transportasi umum otomatis',
@@ -81,6 +82,6 @@ const trip: TranslationStrings = {
   'transit.durationLabel': 'Durasi',
   'transit.transfersLabel': 'Transit',
   'transit.walkLabel': 'Jalan kaki',
-  'transit.searchHint': 'Cari koneksi nyata dan tambahkan langsung ke hari itu — data melalui Transitous.',
+  'transit.searchHint': 'Cari koneksi nyata dan tambahkan langsung ke hari itu.',
 };
 export default trip;

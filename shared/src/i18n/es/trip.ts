@@ -70,6 +70,7 @@ const trip: TranslationStrings = {
   'transit.addToDay': 'Añadir al día',
   'transit.itinerary': 'Itinerario',
   'transit.attribution': 'Datos de rutas vía',
+  'transit.estimatedTimes': 'Horarios estimados; compruébalos con el operador de transporte.',
   'transport.modeManual': 'Transporte manual',
   'transport.modeAutomated': 'Transporte automático',
   'transit.sectionTitle': 'Transporte público automático',
@@ -80,6 +81,6 @@ const trip: TranslationStrings = {
   'transit.durationLabel': 'Duración',
   'transit.transfersLabel': 'Transbordos',
   'transit.walkLabel': 'A pie',
-  'transit.searchHint': 'Busca conexiones reales y añádelas directamente al día — datos vía Transitous.',
+  'transit.searchHint': 'Busca conexiones reales y añádelas directamente al día.',
 };
 export default trip;

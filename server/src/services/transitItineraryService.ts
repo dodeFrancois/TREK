@@ -70,6 +70,13 @@ export const transitItinerarySchema = z
     duration: z.number().nonnegative(),
     transfers: z.number().int().nonnegative(),
     walkSeconds: z.number().nonnegative(),
+    fare: z
+      .object({
+        currency: z.string().length(3),
+        ticket: z.number().nonnegative().nullable(),
+        ic: z.number().nonnegative().nullable(),
+      })
+      .optional(),
     legs: z.array(transitLegSchema).min(1).max(20),
   })
   .superRefine((itinerary, context) => {
@@ -197,6 +204,8 @@ export function buildTransitReservationParts(
   from: TransitPlaceInput,
   to: TransitPlaceInput,
   itinerary: TransitItinerary,
+  provider: 'transitous' | 'navitime' = 'transitous',
+  isTimetable = true,
 ) {
   const fromTimezone = timezoneAt(from.lat, from.lng);
   const toTimezone = timezoneAt(to.lat, to.lng);
@@ -250,10 +259,12 @@ export function buildTransitReservationParts(
   const stats = deriveTransitStats(itinerary.startTime, itinerary.endTime, itinerary.legs, itinerary.transfers);
   const metadata = {
     transit: {
-      provider: 'transitous',
+      provider,
+      is_timetable: isTimetable,
       duration: stats.duration,
       transfers: stats.transfers,
       walk_seconds: stats.walkSeconds,
+      ...(itinerary.fare ? { fare: itinerary.fare } : {}),
       legs: itinerary.legs.map((leg: TransitLeg) => {
         const fromTime = effectiveTransitStopTime(leg.from);
         const toTime = effectiveTransitStopTime(leg.to);

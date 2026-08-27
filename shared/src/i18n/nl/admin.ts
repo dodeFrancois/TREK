@@ -88,6 +88,12 @@ const admin: TranslationStrings = {
   'admin.requireMfaHint':
     'Gebruikers zonder 2FA moeten de installatie in Instellingen voltooien voordat ze de app kunnen gebruiken.',
   'admin.apiKeys': 'API-sleutels',
+  'admin.transitProvider': 'Aanbieder van openbaar vervoer',
+  'admin.transitProviderHint': 'Kies de dienst voor het zoeken naar routes met het openbaar vervoer.',
+  'admin.transitDefault': '(standaard)',
+  'admin.navitimeKey': 'NAVITIME RapidAPI-sleutel',
+  'admin.navitimeKeyHint': 'Versleuteld opgeslagen. Een persoonlijke sleutel heeft voorrang op de beheerderssleutel.',
+  'admin.toggleKeyVisibility': 'API-sleutel tonen of verbergen',
   'admin.apiKeysHint': "Optioneel. Schakelt uitgebreide plaatsgegevens in zoals foto's en weer.",
   'admin.mapsKey': 'Google Maps API-sleutel',
   'admin.mapsKeyHint': 'Vereist voor het zoeken van plaatsen. Verkrijgbaar op console.cloud.google.com',

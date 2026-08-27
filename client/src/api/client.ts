@@ -988,7 +988,7 @@ export const shareApi = {
   getSharedTrip: (token: string) => apiClient.get(`/shared/${token}`).then(r => r.data),
 }
 
-// Public transit routing (#1065) — Transitous/MOTIS proxied through the server.
+// Public transit routing (#1065) — provider selection stays server-side.
 export const transitApi = {
   geocode: (q: string, opts?: { lang?: string; near?: string }) =>
     apiClient.get('/transit/geocode', { params: { q, lang: opts?.lang, near: opts?.near } }).then(r => r.data),

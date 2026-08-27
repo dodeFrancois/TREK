@@ -129,6 +129,12 @@ const admin: TranslationStrings = {
   'admin.requireMfaHint':
     'Pengguna tanpa 2FA harus menyelesaikan pengaturan di Pengaturan sebelum menggunakan aplikasi.',
   'admin.apiKeys': 'Kunci API',
+  'admin.transitProvider': 'Penyedia transportasi umum',
+  'admin.transitProviderHint': 'Pilih layanan yang digunakan untuk mencari rute transportasi umum.',
+  'admin.transitDefault': '(bawaan)',
+  'admin.navitimeKey': 'Kunci RapidAPI NAVITIME',
+  'admin.navitimeKeyHint': 'Disimpan terenkripsi. Kunci pribadi menggantikan kunci administrator.',
+  'admin.toggleKeyVisibility': 'Tampilkan atau sembunyikan kunci API',
   'admin.apiKeysHint': 'Opsional. Mengaktifkan data tempat yang lebih lengkap seperti foto dan cuaca.',
   'admin.mapsKey': 'Kunci API Google Maps',
   'admin.mapsKeyHint': 'Diperlukan untuk pencarian tempat. Dapatkan di console.cloud.google.com',

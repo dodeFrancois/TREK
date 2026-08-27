@@ -130,6 +130,12 @@ const admin: TranslationStrings = {
   'admin.requireMfaHint':
     "2FA'sı olmayan kullanıcıların uygulamayı kullanmadan önce Ayarlar'da kurulumu tamamlaması gerekir.",
   'admin.apiKeys': 'API Anahtarları',
+  'admin.transitProvider': 'Toplu taşıma sağlayıcısı',
+  'admin.transitProviderHint': 'Toplu taşıma rotalarını aramak için kullanılan hizmeti seçin.',
+  'admin.transitDefault': '(varsayılan)',
+  'admin.navitimeKey': 'NAVITIME RapidAPI anahtarı',
+  'admin.navitimeKeyHint': 'Şifrelenmiş olarak saklanır. Kişisel anahtar, yönetici anahtarını geçersiz kılar.',
+  'admin.toggleKeyVisibility': 'API anahtarını göster veya gizle',
   'admin.apiKeysHint': 'İsteğe bağlı. Fotoğraflar ve hava durumu gibi genişletilmiş yer verilerini etkinleştirir.',
   'admin.mapsKey': 'Google Haritalar API Anahtarı',
   'admin.mapsKeyHint': 'Yer arama için gereklidir. console.cloud.google.com adresinden erişin',

@@ -70,6 +70,7 @@ const trip: TranslationStrings = {
   'transit.addToDay': 'Добавить в день',
   'transit.itinerary': 'Маршрут',
   'transit.attribution': 'Данные о маршрутах через',
+  'transit.estimatedTimes': 'Время указано приблизительно — уточните его у перевозчика.',
   'transport.modeManual': 'Транспорт вручную',
   'transport.modeAutomated': 'Автоматический транспорт',
   'transit.sectionTitle': 'Автоматический общественный транспорт',
@@ -80,6 +81,6 @@ const trip: TranslationStrings = {
   'transit.durationLabel': 'Длительность',
   'transit.transfersLabel': 'Пересадки',
   'transit.walkLabel': 'Пешком',
-  'transit.searchHint': 'Ищите реальные маршруты и добавляйте их прямо в день — данные от Transitous.',
+  'transit.searchHint': 'Ищите реальные маршруты и добавляйте их прямо в день.',
 };
 export default trip;

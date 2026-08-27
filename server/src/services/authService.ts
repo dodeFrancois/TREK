@@ -23,6 +23,8 @@ import { verifyJwtAndLoadUser } from '../middleware/auth';
 import { User } from '../types';
 import { DEMO_EMAIL_PRIMARY, isDemoEmail } from './demo';
 import { avatarUrl } from './avatarUrl';
+import { clearTransitCache } from './transit/cache';
+import { getNavitimeKey } from './transit/settings';
 import { joinTripAsMember } from './tripMembership';
 import { isPasskeyConfigured } from './webauthnConfig';
 
@@ -55,7 +57,7 @@ const ADMIN_SETTINGS_KEYS = [
   'notification_channels', 'admin_webhook_url', 'admin_ntfy_server', 'admin_ntfy_topic', 'admin_ntfy_token',
   'notify_trip_reminder',
   'password_login', 'password_registration', 'oidc_login', 'oidc_registration',
-  'passkey_login', 'webauthn_rp_id', 'webauthn_origins',
+  'passkey_login', 'webauthn_rp_id', 'webauthn_origins', 'transit_provider',
 ];
 
 const avatarDir = path.join(__dirname, '../../uploads/avatars');
@@ -101,6 +103,7 @@ export function stripUserForClient(user: User): Record<string, unknown> {
   const {
     password_hash: _p,
     maps_api_key: _m,
+    navitime_rapidapi_key: _n,
     openweather_api_key: _o,
     unsplash_api_key: _u,
     mfa_secret: _mf,
@@ -624,27 +627,32 @@ export function updateMapsKey(userId: number, maps_api_key: string | null | unde
 
 export function updateApiKeys(
   userId: number,
-  body: { maps_api_key?: string; openweather_api_key?: string; unsplash_api_key?: string }
+  body: { maps_api_key?: string | null; navitime_rapidapi_key?: string | null; openweather_api_key?: string | null; unsplash_api_key?: string | null }
 ) {
-  const current = db.prepare('SELECT maps_api_key, openweather_api_key, unsplash_api_key FROM users WHERE id = ?').get(userId) as Pick<User, 'maps_api_key' | 'openweather_api_key' | 'unsplash_api_key'> | undefined;
+  const current = db.prepare('SELECT role, maps_api_key, navitime_rapidapi_key, openweather_api_key, unsplash_api_key FROM users WHERE id = ?').get(userId) as Pick<User, 'role' | 'maps_api_key' | 'navitime_rapidapi_key' | 'openweather_api_key' | 'unsplash_api_key'> | undefined;
 
   db.prepare(
-    'UPDATE users SET maps_api_key = ?, openweather_api_key = ?, unsplash_api_key = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+    'UPDATE users SET maps_api_key = ?, navitime_rapidapi_key = ?, openweather_api_key = ?, unsplash_api_key = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
   ).run(
     body.maps_api_key !== undefined ? maybe_encrypt_api_key(body.maps_api_key) : current!.maps_api_key,
+    body.navitime_rapidapi_key !== undefined ? maybe_encrypt_api_key(body.navitime_rapidapi_key) : current!.navitime_rapidapi_key,
     body.openweather_api_key !== undefined ? maybe_encrypt_api_key(body.openweather_api_key) : current!.openweather_api_key,
     body.unsplash_api_key !== undefined ? maybe_encrypt_api_key(body.unsplash_api_key) : current!.unsplash_api_key,
     userId
   );
 
+  if (body.navitime_rapidapi_key !== undefined) {
+    clearTransitCache(current?.role === 'admin' ? 'navitime:' : `navitime:${userId}:`);
+  }
+
   const updated = db.prepare(
-    'SELECT id, username, email, role, maps_api_key, openweather_api_key, unsplash_api_key, avatar, mfa_enabled FROM users WHERE id = ?'
-  ).get(userId) as Pick<User, 'id' | 'username' | 'email' | 'role' | 'maps_api_key' | 'openweather_api_key' | 'unsplash_api_key' | 'avatar' | 'mfa_enabled'> | undefined;
+    'SELECT id, username, email, role, maps_api_key, navitime_rapidapi_key, openweather_api_key, unsplash_api_key, avatar, mfa_enabled FROM users WHERE id = ?'
+  ).get(userId) as Pick<User, 'id' | 'username' | 'email' | 'role' | 'maps_api_key' | 'navitime_rapidapi_key' | 'openweather_api_key' | 'unsplash_api_key' | 'avatar' | 'mfa_enabled'> | undefined;
 
   const u = updated ? { ...updated, mfa_enabled: !!(updated.mfa_enabled === 1 || updated.mfa_enabled === true) } : undefined;
   return {
     success: true,
-    user: { ...u, maps_api_key: mask_stored_api_key(u?.maps_api_key), openweather_api_key: mask_stored_api_key(u?.openweather_api_key), unsplash_api_key: mask_stored_api_key(u?.unsplash_api_key), avatar_url: avatarUrl(updated || {}) },
+    user: { ...u, maps_api_key: mask_stored_api_key(u?.maps_api_key), navitime_rapidapi_key: mask_stored_api_key(u?.navitime_rapidapi_key), openweather_api_key: mask_stored_api_key(u?.openweather_api_key), unsplash_api_key: mask_stored_api_key(u?.unsplash_api_key), avatar_url: avatarUrl(updated || {}) },
   };
 }
 
@@ -703,13 +711,14 @@ export function updateSettings(
 
 export function getSettings(userId: number): { error?: string; status?: number; settings?: Record<string, unknown> } {
   const user = db.prepare(
-    'SELECT role, maps_api_key, openweather_api_key, unsplash_api_key FROM users WHERE id = ?'
-  ).get(userId) as Pick<User, 'role' | 'maps_api_key' | 'openweather_api_key' | 'unsplash_api_key'> | undefined;
+    'SELECT role, maps_api_key, navitime_rapidapi_key, openweather_api_key, unsplash_api_key FROM users WHERE id = ?'
+  ).get(userId) as Pick<User, 'role' | 'maps_api_key' | 'navitime_rapidapi_key' | 'openweather_api_key' | 'unsplash_api_key'> | undefined;
   if (user?.role !== 'admin') return { error: 'Admin access required', status: 403 };
 
   return {
     settings: {
       maps_api_key: decrypt_api_key(user.maps_api_key),
+      navitime_rapidapi_key: decrypt_api_key(user.navitime_rapidapi_key),
       openweather_api_key: decrypt_api_key(user.openweather_api_key),
       unsplash_api_key: decrypt_api_key(user.unsplash_api_key),
     },
@@ -872,6 +881,16 @@ export function updateAppSettings(
   const user = db.prepare('SELECT role FROM users WHERE id = ?').get(userId) as { role: string } | undefined;
   if (user?.role !== 'admin') return { error: 'Admin access required', status: 403 };
 
+  if (body.transit_provider !== undefined) {
+    const provider = String(body.transit_provider);
+    if (provider !== 'transitous' && provider !== 'navitime') {
+      return { error: 'Invalid public transit provider', status: 400 };
+    }
+    if (provider === 'navitime' && !getNavitimeKey(userId)) {
+      return { error: 'A NAVITIME RapidAPI key is required before selecting NAVITIME', status: 400 };
+    }
+  }
+
   const { require_mfa } = body;
   if (require_mfa === true || require_mfa === 'true') {
     const adminMfa = db.prepare('SELECT mfa_enabled FROM users WHERE id = ?').get(userId) as { mfa_enabled: number } | undefined;
@@ -915,6 +934,8 @@ export function updateAppSettings(
       db.prepare("INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)").run(key, val);
     }
   }
+
+  if (body.transit_provider !== undefined) clearTransitCache('navitime:');
 
   const changedKeys = ADMIN_SETTINGS_KEYS.filter(k => body[k] !== undefined && !(k === 'smtp_pass' && String(body[k]) === '••••••••'));
 

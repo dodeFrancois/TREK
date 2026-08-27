@@ -248,7 +248,7 @@ async function main() {
     }
 
     // --- users: api key columns + synology credentials ---
-    const apiKeyColumns = ['maps_api_key', 'openweather_api_key', 'immich_api_key', 'synology_password', 'synology_sid', 'synology_did'];
+    const apiKeyColumns = ['maps_api_key', 'navitime_rapidapi_key', 'openweather_api_key', 'immich_api_key', 'synology_password', 'synology_sid', 'synology_did'];
     const users = db.prepare('SELECT id FROM users').all() as { id: number }[];
 
     for (const user of users) {

@@ -88,6 +88,7 @@ export function useAdmin() {
   useEffect(() => {
     apiClient.get('/auth/app-settings').then(r => {
       setSmtpValues(r.data || {})
+      setTransitProvider(r.data?.transit_provider === 'navitime' ? 'navitime' : 'transitous')
       if (r.data?.webauthn_rp_id) setWebauthnRpId(r.data.webauthn_rp_id)
       if (r.data?.webauthn_origins) setWebauthnOrigins(r.data.webauthn_origins)
       setSmtpLoaded(true)
@@ -98,6 +99,9 @@ export function useAdmin() {
   const [mapsKey, setMapsKey] = useState<string>('')
   const [weatherKey, setWeatherKey] = useState<string>('')
   const [unsplashKey, setUnsplashKey] = useState<string>('')
+  const [navitimeKey, setNavitimeKey] = useState<string>('')
+  const [transitProvider, setTransitProvider] = useState<'transitous' | 'navitime'>('transitous')
+  const [savingTransit, setSavingTransit] = useState<boolean>(false)
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({})
   const [savingKeys, setSavingKeys] = useState<boolean>(false)
   const [validating, setValidating] = useState<Record<string, boolean>>({})
@@ -168,6 +172,7 @@ export function useAdmin() {
       setMapsKey(data.settings?.maps_api_key || '')
       setWeatherKey(data.settings?.openweather_api_key || '')
       setUnsplashKey(data.settings?.unsplash_api_key || '')
+      setNavitimeKey(data.settings?.navitime_rapidapi_key || '')
     } catch (err: unknown) {
       // ignore
     }
@@ -229,6 +234,22 @@ export function useAdmin() {
       toast.error(err instanceof Error ? err.message : 'Unknown error')
     } finally {
       setSavingKeys(false)
+    }
+  }
+
+  const handleSaveTransit = async () => {
+    setSavingTransit(true)
+    try {
+      // The server validates NAVITIME selection against the effective key, so
+      // persist the key first. This also preserves the Google-key semantics:
+      // a user key wins, otherwise the first admin key is used as fallback.
+      await updateApiKeys({ navitime_rapidapi_key: navitimeKey })
+      await authApi.updateAppSettings({ transit_provider: transitProvider })
+      toast.success(t('common.saved'))
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, t('common.error')))
+    } finally {
+      setSavingTransit(false)
     }
   }
 
@@ -382,12 +403,13 @@ export function useAdmin() {
     allowedFileTypes, setAllowedFileTypes, savingFileTypes, setSavingFileTypes,
     smtpValues, setSmtpValues, smtpLoaded,
     mapsKey, setMapsKey, weatherKey, setWeatherKey, unsplashKey, setUnsplashKey,
+    navitimeKey, setNavitimeKey, transitProvider, setTransitProvider, savingTransit,
     showKeys, setShowKeys, savingKeys, validating, validation,
     updateInfo, setUpdateInfo, showUpdateModal, setShowUpdateModal,
     showRotateJwtModal, setShowRotateJwtModal, rotatingJwt, setRotatingJwt,
     // handlers
     loadData, loadAppConfig, loadApiKeys, handleToggleAuthSetting, handleToggleRequireMfa,
-    toggleKey, handleSaveApiKeys, handleValidateKeys, handleValidateKey,
+    toggleKey, handleSaveApiKeys, handleSaveTransit, handleValidateKeys, handleValidateKey,
     handleCreateUser, handleCreateInvite, handleDeleteInvite, copyInviteLink,
     handleEditUser, handleSaveUser, handleDeleteUser,
   }

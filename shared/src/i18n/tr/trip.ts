@@ -70,6 +70,7 @@ const trip: TranslationStrings = {
   'transit.addToDay': 'Güne ekle',
   'transit.itinerary': 'Güzergah',
   'transit.attribution': 'Rota verileri:',
+  'transit.estimatedTimes': 'Tahmini saatler — ulaşım işletmecisinden doğrulayın.',
   'transport.modeManual': 'Manuel ulaşım',
   'transport.modeAutomated': 'Otomatik ulaşım',
   'transit.sectionTitle': 'Otomatik toplu taşıma',
@@ -81,6 +82,6 @@ const trip: TranslationStrings = {
   'transit.durationLabel': 'Süre',
   'transit.transfersLabel': 'Aktarma',
   'transit.walkLabel': 'Yürüyüş',
-  'transit.searchHint': 'Gerçek bağlantıları ara ve doğrudan güne ekle — veriler Transitous üzerinden.',
+  'transit.searchHint': 'Gerçek bağlantıları ara ve doğrudan güne ekle.',
 };
 export default trip;

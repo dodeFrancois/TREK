@@ -121,6 +121,14 @@ describe('plan mapping', () => {
     ],
   };
 
+  it('routes the authenticated request through the default Transitous provider', async () => {
+    fetchMock.mockResolvedValueOnce(okJson({ itineraries: [] }));
+
+    const result = await (plan as any)(7, { from: '47.1000,8.1000', to: '47.2000,8.2000' });
+
+    expect(result).toEqual({ provider: 'transitous', isTimetable: true, itineraries: [] });
+  });
+
   it('TRANSIT-SVC-007: maps legs compactly, normalises GTFS colors and counts walk seconds', async () => {
     fetchMock.mockResolvedValueOnce(okJson(motisResponse));
     const r = await plan({ from: '52.5000,13.4000', to: '52.5100,13.4100' });

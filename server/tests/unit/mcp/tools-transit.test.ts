@@ -156,6 +156,8 @@ describe('MCP transit tools', () => {
     const { user } = createUser(testDb);
     geocodeMock.mockResolvedValue({ results: [from] });
     planMock.mockResolvedValue({
+      provider: 'navitime',
+      isTimetable: false,
       itineraries: [
         itinerary,
         { ...itinerary, legs: [itinerary.legs[0]] },
@@ -184,7 +186,9 @@ describe('MCP transit tools', () => {
       expect(routes.itineraries[0].legs[0].from.name).toBe('Namba');
       expect(routes.itineraries[0].legs[1].to.name).toBe('Umeda');
       expect(routes.itineraries).toHaveLength(1);
-      expect(planMock).toHaveBeenCalledWith(expect.objectContaining({ modes: 'SUBWAY' }));
+      expect(routes.provider).toBe('navitime');
+      expect(routes.isTimetable).toBe(false);
+      expect(planMock).toHaveBeenCalledWith(user.id, expect.objectContaining({ modes: 'SUBWAY' }));
 
       const invalidNear = await harness.client.callTool({
         name: 'search_transit_stops',
@@ -207,7 +211,14 @@ describe('MCP transit tools', () => {
             dayId: day.id,
             from,
             to,
-            itinerary: { ...itinerary, duration: 1, walkSeconds: 1 },
+            provider: 'navitime',
+            isTimetable: false,
+            itinerary: {
+              ...itinerary,
+              duration: 1,
+              walkSeconds: 1,
+              fare: { currency: 'JPY', ticket: 200, ic: 199 },
+            },
           },
         }),
       ) as any;
@@ -217,7 +228,9 @@ describe('MCP transit tools', () => {
       expect(result.reservation.endpoints).toHaveLength(2);
       expect(result.reservation.endpoints[0].timezone).toBe('Asia/Tokyo');
       const metadata = JSON.parse(result.reservation.metadata);
-      expect(metadata.transit.provider).toBe('transitous');
+      expect(metadata.transit.provider).toBe('navitime');
+      expect(metadata.transit.is_timetable).toBe(false);
+      expect(metadata.transit.fare).toEqual({ currency: 'JPY', ticket: 200, ic: 199 });
       expect(metadata.transit.duration).toBe(1800);
       expect(metadata.transit.transfers).toBe(0);
       expect(metadata.transit.walk_seconds).toBe(300);

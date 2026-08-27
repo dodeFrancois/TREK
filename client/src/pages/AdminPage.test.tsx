@@ -981,6 +981,41 @@ describe('AdminPage', () => {
   });
 
   describe('FE-PAGE-ADMIN-043: Save API keys in Settings tab', () => {
+    it('saves the NAVITIME key before selecting NAVITIME as the transit provider', async () => {
+      const calls: Array<{ endpoint: string; body: Record<string, unknown> }> = [];
+      server.use(
+        http.get('/api/auth/app-settings', () => HttpResponse.json({ transit_provider: 'transitous' })),
+        http.get('/api/auth/me/settings', () => HttpResponse.json({ settings: { navitime_rapidapi_key: '' } })),
+        http.put('/api/auth/me/api-keys', async ({ request }) => {
+          calls.push({ endpoint: 'keys', body: (await request.json()) as Record<string, unknown> });
+          return HttpResponse.json({ success: true });
+        }),
+        http.put('/api/auth/app-settings', async ({ request }) => {
+          calls.push({ endpoint: 'settings', body: (await request.json()) as Record<string, unknown> });
+          return HttpResponse.json({ success: true });
+        })
+      );
+
+      seedStore(useAuthStore, { isAuthenticated: true, user: buildAdmin() });
+      render(<AdminPage />);
+      await waitFor(() => expect(screen.getByRole('button', { name: /^users$/i })).toBeInTheDocument());
+      fireEvent.click(screen.getByRole('button', { name: /settings/i }));
+
+      const heading = await screen.findByRole('heading', { name: /public transit provider/i });
+      const card = heading.closest<HTMLElement>('.bg-white');
+      fireEvent.click(within(card!).getByRole('radio', { name: 'NAVITIME' }));
+      fireEvent.change(within(card!).getByLabelText(/NAVITIME RapidAPI key/i), {
+        target: { value: 'rapid-secret' },
+      });
+      fireEvent.click(within(card!).getByRole('button', { name: /^save$/i }));
+
+      await waitFor(() => expect(calls).toHaveLength(2));
+      expect(calls).toEqual([
+        { endpoint: 'keys', body: { navitime_rapidapi_key: 'rapid-secret' } },
+        { endpoint: 'settings', body: { transit_provider: 'navitime' } },
+      ]);
+    });
+
     it('typing in the maps API key and clicking Save calls PUT /api/auth/me/api-keys', async () => {
       let capturedBody: unknown;
       server.use(

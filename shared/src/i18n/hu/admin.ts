@@ -87,6 +87,12 @@ const admin: TranslationStrings = {
   'admin.requireMfaHint':
     'A 2FA nélküli felhasználóknak a Beállításokban kell befejezniük a beállítást az alkalmazás használata előtt.',
   'admin.apiKeys': 'API kulcsok',
+  'admin.transitProvider': 'Tömegközlekedési szolgáltató',
+  'admin.transitProviderHint': 'Válaszd ki a tömegközlekedési útvonalak kereséséhez használt szolgáltatást.',
+  'admin.transitDefault': '(alapértelmezett)',
+  'admin.navitimeKey': 'NAVITIME RapidAPI-kulcs',
+  'admin.navitimeKeyHint': 'Titkosítva tároljuk. A személyes kulcs felülírja az adminisztrátori kulcsot.',
+  'admin.toggleKeyVisibility': 'API-kulcs megjelenítése vagy elrejtése',
   'admin.apiKeysHint': 'Opcionális. Bővített helyadatokat tesz lehetővé, például fotókat és időjárást.',
   'admin.mapsKey': 'Google Maps API kulcs',
   'admin.mapsKeyHint': 'Helykereséshez szükséges. Létrehozás: console.cloud.google.com',

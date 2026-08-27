@@ -5,6 +5,7 @@
 TREK encrypts sensitive settings at rest using AES-256-GCM. The following values are stored encrypted in the database:
 
 - Google Maps API key (per user)
+- NAVITIME RapidAPI key (per user, with administrator fallback)
 - Mapbox access token (per user)
 - OpenWeather API key (per user)
 - Immich API key (per user)
@@ -60,7 +61,7 @@ The script:
 3. Creates a timestamped backup of the database (e.g. `travel.db.backup-1713484800000`) before modifying anything.
 4. Re-encrypts all stored secrets across all tables:
    - `app_settings`: `oidc_client_secret`, `smtp_pass`, `admin_webhook_url`, `admin_ntfy_token`
-   - `users` (per user): `maps_api_key`, `openweather_api_key`, `immich_api_key`, `synology_password`, `synology_sid`, `synology_did`, `mfa_secret`
+   - `users` (per user): `maps_api_key`, `navitime_rapidapi_key`, `openweather_api_key`, `immich_api_key`, `synology_password`, `synology_sid`, `synology_did`, `mfa_secret`
    - `settings` (per user): `webhook_url`, `ntfy_token`, `mapbox_access_token`
    - `trip_album_links`: `passphrase`
    - `trek_photos`: `passphrase`

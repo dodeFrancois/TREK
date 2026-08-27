@@ -428,6 +428,7 @@ Caddy handles TLS and WebSockets automatically.
 | `SESSION_DURATION_REMEMBER` | Session length when **"Remember me" is ticked** at login: a longer-lived JWT plus a persistent `trek_session` cookie that survives browser restarts. Same format and startup-fallback behaviour as `SESSION_DURATION`. | `30d` |
 | `TRUST_PROXY` | Number of trusted reverse proxies. Tells the server to read client IP from `X-Forwarded-For` and protocol from `X-Forwarded-Proto`. Defaults to `1` in production; off in dev unless set. | `1` |
 | `ALLOW_INTERNAL_NETWORK` | Allow outbound requests to private/RFC-1918 IPs (e.g. Immich on your LAN). Loopback and link-local addresses remain blocked. | `false` |
+| `TRANSIT_API_URL` | Optional Transitous/MOTIS base URL override, also used for public-transit stop search. Provider selection and NAVITIME credentials are configured in Admin and have no environment-variable override. | `https://api.transitous.org` |
 | `APP_URL` | Public base URL of this instance (e.g. `https://trek.example.com`). Required when OIDC is enabled; used as base for email notification links. | — |
 | **OIDC / SSO** | | |
 | `OIDC_ISSUER` | OpenID Connect provider URL | — |

@@ -93,6 +93,12 @@ const admin: TranslationStrings = {
   'admin.requireMfaHint':
     "Els usuaris sense 2FA han de completar la configuració a Ajustos abans d'utilitzar l'aplicació.",
   'admin.apiKeys': 'Claus API',
+  'admin.transitProvider': 'Proveïdor de transport públic',
+  'admin.transitProviderHint': 'Tria el servei utilitzat per cercar rutes de transport públic.',
+  'admin.transitDefault': '(predeterminat)',
+  'admin.navitimeKey': 'Clau RapidAPI de NAVITIME',
+  'admin.navitimeKeyHint': 'Es desa xifrada. Una clau personal preval sobre la de l’administrador.',
+  'admin.toggleKeyVisibility': 'Mostra o amaga la clau API',
   'admin.apiKeysHint': 'Opcional. Activa dades ampliades de llocs, com ara fotos i previsió meteorològica.',
   'admin.mapsKey': 'Clau API de Google Maps',
   'admin.mapsKeyHint': 'Obligatòria per cercar llocs. Aconsegueix-la a console.cloud.google.com',

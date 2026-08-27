@@ -112,6 +112,40 @@ describe('TransitSearchPanel', () => {
     expect(payload.metadata.transit.legs[1]).toMatchObject({ mode: 'SUBWAY', line: 'U2', line_color: '#FF3300', headsign: 'Ruhleben' })
   })
 
+  it('stores NAVITIME provenance, estimated times and fares returned by the facade', async () => {
+    const user = userEvent.setup();
+    const onAdd = vi.fn().mockResolvedValue({});
+    const navitimeItinerary = {
+      ...ITINERARY,
+      fare: { currency: 'JPY', ticket: 210, ic: 208 },
+    };
+    transitApiMock.plan.mockResolvedValueOnce({
+      provider: 'navitime',
+      isTimetable: false,
+      itineraries: [navitimeItinerary],
+    });
+    render(<TransitSearchPanel {...makeProps({ onAdd })} />);
+    await pickFromAndTo(user);
+    await user.click(screen.getByRole('button', { name: /^Search$/ }));
+
+    await waitFor(() => expect(transitApiMock.plan).toHaveBeenCalledTimes(1));
+    expect(await screen.findByRole('link', { name: 'NAVITIME' })).toHaveAttribute(
+      'href',
+      'https://www.navitime.co.jp/'
+    );
+    expect(screen.getByText(/estimated times/i)).toBeInTheDocument();
+    expect(screen.getByText(/¥208/)).toBeInTheDocument();
+
+    await user.click(screen.getByText(/08:30 – 09:00/));
+    await user.click(screen.getByRole('button', { name: 'Add to day' }));
+    await waitFor(() => expect(onAdd).toHaveBeenCalled());
+    expect(onAdd.mock.calls[0][0].metadata.transit).toMatchObject({
+      provider: 'navitime',
+      is_timetable: false,
+      fare: { currency: 'JPY', ticket: 210, ic: 208 },
+    });
+  });
+
   it('FE-PLANNER-TRANSIT-004: search failure shows the empty state, not a crash', async () => {
     const user = userEvent.setup()
     transitApiMock.plan.mockRejectedValueOnce(new Error('boom'))

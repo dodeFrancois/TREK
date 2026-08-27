@@ -70,6 +70,7 @@ const trip: TranslationStrings = {
   'transit.addToDay': '日程に追加',
   'transit.itinerary': '行程',
   'transit.attribution': 'ルートデータ提供:',
+  'transit.estimatedTimes': '時刻は推定です。交通事業者の情報をご確認ください。',
   'transport.modeManual': '手動で入力',
   'transport.modeAutomated': '自動で検索',
   'transit.sectionTitle': '公共交通機関の自動検索',
@@ -80,6 +81,6 @@ const trip: TranslationStrings = {
   'transit.durationLabel': '所要時間',
   'transit.transfersLabel': '乗り換え',
   'transit.walkLabel': '徒歩',
-  'transit.searchHint': '実際の経路を検索して、そのまま日程に追加できます — データは Transitous 提供。',
+  'transit.searchHint': '実際の経路を検索して、そのまま日程に追加できます。',
 };
 export default trip;

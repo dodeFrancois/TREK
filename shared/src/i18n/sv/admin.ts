@@ -130,6 +130,12 @@ const admin: TranslationStrings = {
   'admin.requireMfaHint':
     'Användare som inte har tvåfaktorsautentisering måste slutföra inställningarna under inställningar innan de använder appen.',
   'admin.apiKeys': 'API Nycklar',
+  'admin.transitProvider': 'Leverantör för kollektivtrafik',
+  'admin.transitProviderHint': 'Välj tjänsten som används för att söka kollektivtrafikrutter.',
+  'admin.transitDefault': '(standard)',
+  'admin.navitimeKey': 'NAVITIME RapidAPI-nyckel',
+  'admin.navitimeKeyHint': 'Lagras krypterat. En personlig nyckel har företräde framför administratörens nyckel.',
+  'admin.toggleKeyVisibility': 'Visa eller dölj API-nyckeln',
   'admin.apiKeysHint': 'Valfritt. Aktiverar utökade platsuppgifter, såsom foton och väderinformation.',
   'admin.mapsKey': 'Google Maps API Nyckel',
   'admin.mapsKeyHint': 'Krävs för att söka efter platser. Hämta på console.cloud.google.com',

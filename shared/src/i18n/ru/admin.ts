@@ -88,6 +88,12 @@ const admin: TranslationStrings = {
   'admin.requireMfaHint':
     'Пользователи без 2FA должны завершить настройку в разделе «Настройки» перед использованием приложения.',
   'admin.apiKeys': 'API-ключи',
+  'admin.transitProvider': 'Поставщик общественного транспорта',
+  'admin.transitProviderHint': 'Выберите сервис для поиска маршрутов общественного транспорта.',
+  'admin.transitDefault': '(по умолчанию)',
+  'admin.navitimeKey': 'Ключ NAVITIME RapidAPI',
+  'admin.navitimeKeyHint': 'Хранится в зашифрованном виде. Личный ключ имеет приоритет над ключом администратора.',
+  'admin.toggleKeyVisibility': 'Показать или скрыть API-ключ',
   'admin.apiKeysHint': 'Необязательно. Включает расширенные данные о местах, такие как фото и погода.',
   'admin.mapsKey': 'API-ключ Google Maps',
   'admin.mapsKeyHint': 'Необходим для поиска мест. Получите на console.cloud.google.com',

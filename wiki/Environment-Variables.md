@@ -219,15 +219,17 @@ Booking import can also fall back to an AI model for documents KDE Itinerary can
 
 ---
 
-## Public Transit (Transitous)
+## Public Transit
 
-Public-transit routing in the planner is powered by [Transitous](https://transitous.org/), a free community MOTIS service — no API key is required. See [Transport: Flights, Trains, Cars](Transport-Flights-Trains-Cars) for the feature itself.
+Public-transit routing uses [Transitous](https://transitous.org/) by default. NAVITIME Route (totalnavi) through RapidAPI can be selected in **Admin → Settings → Public transit provider**. See [Transport: Flights, Trains, Cars](Transport-Flights-Trains-Cars) for setup and behavior.
 
 | Variable          | Description                                                                                                                                                                                                                             | Default                     |
 |-------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------|
 | `TRANSIT_API_URL` | Base URL of the transit routing API. TREK's server proxies requests to it. Point this at your own self-hosted [MOTIS](https://github.com/motis-project/motis) instance if you want zero third-party egress. A trailing slash is stripped. | `https://api.transitous.org` |
 
-When left at the default, using the transit feature makes the TREK **server** send outbound HTTPS requests to `api.transitous.org` (with an identifying User-Agent, as the Transitous usage policy asks). No transit request is made until a user actually searches for a journey.
+`TRANSIT_API_URL` affects only the Transitous adapter and the stop picker. When left at the default, TREK's **server** sends outbound HTTPS requests to `api.transitous.org` (with an identifying User-Agent). No transit request is made until a user searches for a journey.
+
+There is intentionally no `TRANSIT_PROVIDER` or `NAVITIME_RAPIDAPI_KEY` variable. Both the provider selection and NAVITIME credential are stored through the Admin interface; the credential is encrypted at rest.
 
 ---
 

@@ -3701,6 +3701,13 @@ function runMigrations(db: Database.Database): void {
       `);
       db.exec('CREATE INDEX IF NOT EXISTS idx_hidden_regions_user ON hidden_regions (user_id);');
     },
+
+    // Optional NAVITIME RapidAPI credential. It follows the same per-user
+    // storage and administrator fallback model as maps_api_key.
+    () => {
+      const exists = db.prepare("SELECT 1 FROM pragma_table_info('users') WHERE name = 'navitime_rapidapi_key'").get();
+      if (!exists) db.exec('ALTER TABLE users ADD COLUMN navitime_rapidapi_key TEXT');
+    },
   ];
 
   if (currentVersion < migrations.length) {

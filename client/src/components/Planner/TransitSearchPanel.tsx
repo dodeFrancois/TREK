@@ -10,8 +10,8 @@ import { useTranslation } from '../../i18n'
 import type { Day, Place, Accommodation } from '../../types'
 
 /**
- * Public transit route search (#1065), backed by Transitous (MOTIS) through the
- * server proxy — no paid providers. Google-Maps-like flow in TREK's clean style:
+ * Public transit route search (#1065), backed by the provider selected on the
+ * server. Google-Maps-like flow in TREK's clean style:
  * pick from/to (stop search + the day's own places as quick picks), filter by
  * mode and preference, compare the returned itineraries, then add the chosen
  * one to the day. The result is saved as a regular transport reservation
@@ -30,6 +30,7 @@ interface TransitLeg {
 }
 export interface TransitItinerary {
   startTime: string; endTime: string; duration: number; transfers: number; walkSeconds: number; legs: TransitLeg[]
+  fare?: { currency: string; ticket: number | null; ic: number | null }
 }
 
 interface TransitPlaceResult { name: string; lat: number; lng: number; type: string; area: string | null }
@@ -88,6 +89,16 @@ function fmtDuration(seconds: number, t: (k: string, p?: Record<string, string |
   const h = Math.floor(mins / 60)
   const m = mins % 60
   return m > 0 ? `${h} h ${m} min` : `${h} h`
+}
+
+function fmtFare(itinerary: TransitItinerary): string | null {
+  const amount = itinerary.fare?.ic ?? itinerary.fare?.ticket
+  if (amount == null || !itinerary.fare) return null
+  try {
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency: itinerary.fare.currency, maximumFractionDigits: 2 }).format(amount)
+  } catch {
+    return `${amount} ${itinerary.fare.currency}`
+  }
 }
 
 // ── from/to stop picker ──────────────────────────────────────────────────────
@@ -202,6 +213,7 @@ function ItineraryCard({ it, tzFrom, tzTo, is12h, expanded, onToggle, onAdd, add
 }) {
   const transitLegs = it.legs.filter(l => l.mode !== 'WALK')
   const walkMins = Math.round(it.walkSeconds / 60)
+  const fare = fmtFare(it)
   return (
     <div className="bg-surface-card border border-edge" style={{ borderRadius: 14, overflow: 'hidden' }}>
       <button onClick={onToggle} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '12px 14px', border: 'none', background: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -210,6 +222,7 @@ function ItineraryCard({ it, tzFrom, tzTo, is12h, expanded, onToggle, onAdd, add
             {fmtTimeInTz(it.startTime, tzFrom, is12h)} – {fmtTimeInTz(it.endTime, tzTo, is12h)}
           </span>
           <span className="text-content-muted" style={{ fontSize: 'calc(13px * var(--fs-scale-body, 1))', fontWeight: 600 }}>{fmtDuration(it.duration, t)}</span>
+          {fare && <span className="text-content-muted" style={{ fontSize: 'calc(12px * var(--fs-scale-body, 1))', fontWeight: 600 }}>{fare}</span>}
           <span className="text-content-faint" style={{ marginLeft: 'auto', fontSize: 'calc(12px * var(--fs-scale-body, 1))', display: 'inline-flex', alignItems: 'center', gap: 10 }}>
             <span>{it.transfers === 0 ? t('transit.direct') : t('transit.transfers', { count: it.transfers })}</span>
             {walkMins > 0 && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><Footprints size={12} />{t('transit.min', { count: walkMins })}</span>}
@@ -331,6 +344,8 @@ export default function TransitSearchPanel({ day, days, places, accommodations =
   const [activeModes, setActiveModes] = useState<Set<string>>(() => new Set(MODE_GROUPS.map(m => m.key)))
   const [pref, setPref] = useState<'best' | 'transfers' | 'walking'>('best')
   const [itineraries, setItineraries] = useState<TransitItinerary[] | null>(null)
+  const [planProvider, setPlanProvider] = useState<'transitous' | 'navitime'>('transitous')
+  const [isTimetable, setIsTimetable] = useState(true)
   const [loading, setLoading] = useState(false)
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
   const [addingIdx, setAddingIdx] = useState<number | null>(null)
@@ -375,6 +390,8 @@ export default function TransitSearchPanel({ day, days, places, accommodations =
       const allModes = activeModes.size === MODE_GROUPS.length
       const modes = allModes ? undefined : MODE_GROUPS.filter(m => activeModes.has(m.key)).map(m => m.modes).join(',')
       const d = await transitApi.plan({ from: `${from.lat},${from.lng}`, to: `${to.lat},${to.lng}`, time: timeIso, arriveBy, modes })
+      setPlanProvider(d.provider === 'navitime' ? 'navitime' : 'transitous')
+      setIsTimetable(d.isTimetable ?? true)
       // MOTIS names the request coordinates START/END — swap in the places the
       // user actually picked so walks read "Walk to Zoologischer Garten".
       const cleanStop = (n: string) => (n === 'START' ? from.name : n === 'END' ? to.name : n)
@@ -449,10 +466,12 @@ export default function TransitSearchPanel({ day, days, places, accommodations =
         notes: null,
         metadata: {
           transit: {
-            provider: 'transitous',
+            provider: planProvider,
+            is_timetable: isTimetable,
             duration: it.duration,
             transfers: it.transfers,
             walk_seconds: it.walkSeconds,
+            ...(it.fare ? { fare: it.fare } : {}),
             legs: it.legs.map(l => ({
               mode: l.mode,
               line: l.line,
@@ -584,6 +603,11 @@ export default function TransitSearchPanel({ day, days, places, accommodations =
         )}
         {!loading && ranked && ranked.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {!isTimetable && (
+              <div className="bg-surface-secondary text-content-muted" style={{ borderRadius: 9, padding: '8px 10px', fontSize: 'calc(11.5px * var(--fs-scale-caption, 1))' }}>
+                {t('transit.estimatedTimes')}
+              </div>
+            )}
             {ranked.map((it, idx) => (
               <ItineraryCard
                 key={`${it.startTime}-${it.endTime}-${idx}`}
@@ -600,7 +624,9 @@ export default function TransitSearchPanel({ day, days, places, accommodations =
             ))}
             <div className="text-content-faint" style={{ fontSize: 'calc(10.5px * var(--fs-scale-caption, 1))', textAlign: 'center', marginTop: 2 }}>
               {t('transit.attribution')}{' '}
-              <a href="https://transitous.org/sources/" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'underline' }}>Transitous</a>
+              {planProvider === 'navitime'
+                ? <a href="https://www.navitime.co.jp/" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'underline' }}>NAVITIME</a>
+                : <a href="https://transitous.org/sources/" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'underline' }}>Transitous</a>}
             </div>
           </div>
         )}

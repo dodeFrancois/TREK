@@ -3,14 +3,15 @@ import type { Request } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RateLimitService } from '../auth/rate-limit.service';
 import * as transit from '../../services/transitService';
+import type { User } from '../../types';
+import { CurrentUser } from '../auth/current-user.decorator';
 
 const RL_WINDOW = 15 * 60 * 1000;
 
 /**
- * /api/transit — public transit routing (#1065) proxied through Transitous
- * (or a self-hosted MOTIS via TRANSIT_API_URL). JWT-guarded and rate-limited:
- * the Transitous usage policy asks integrators to keep expensive routing
- * traffic reasonable, so planning gets a tighter bucket than geocoding.
+ * /api/transit — public transit routing (#1065) through the configured adapter.
+ * Transitous (or TRANSIT_API_URL) continues to provide stop search. Requests
+ * are JWT-guarded, rate-limited and cached by the service layer.
  */
 @Controller('api/transit')
 @UseGuards(JwtAuthGuard)
@@ -50,11 +51,12 @@ export class TransitController {
     @Query('arriveBy') arriveBy: string | undefined,
     @Query('modes') modes: string | undefined,
     @Query('maxTransfers') maxTransfers: string | undefined,
+    @CurrentUser() user: User,
     @Req() req: Request,
   ) {
     this.limit('transit_plan', req, 60);
     try {
-      return await transit.plan({
+      return await transit.plan(user.id, {
         from: from || '',
         to: to || '',
         time,

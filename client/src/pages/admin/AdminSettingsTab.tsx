@@ -26,10 +26,12 @@ export default function AdminSettingsTab({ admin, t }: AdminSettingsTabProps): R
     passkeyLogin, setPasskeyLogin, passkeyConfigured,
     webauthnRpId, setWebauthnRpId, webauthnOrigins, setWebauthnOrigins, savingWebauthn, handleSaveWebauthn,
     allowedFileTypes, setAllowedFileTypes, savingFileTypes, setSavingFileTypes,
-    mapsKey, setMapsKey, unsplashKey, setUnsplashKey, showKeys, savingKeys, validating, validation,
+    mapsKey, setMapsKey, unsplashKey, setUnsplashKey,
+    navitimeKey, setNavitimeKey, transitProvider, setTransitProvider, savingTransit,
+    showKeys, savingKeys, validating, validation,
     setShowRotateJwtModal,
     handleToggleAuthSetting, handleToggleRequireMfa,
-    toggleKey, handleSaveApiKeys, handleValidateKey,
+    toggleKey, handleSaveApiKeys, handleSaveTransit, handleValidateKey,
   } = admin
 
   return (
@@ -239,6 +241,67 @@ export default function AdminSettingsTab({ admin, t }: AdminSettingsTabProps): R
             className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg text-sm hover:bg-slate-700 disabled:bg-slate-400 mt-3"
           >
             {savingFileTypes ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save className="w-4 h-4" />}
+            {t('common.save')}
+          </button>
+        </div>
+      </div>
+
+      {/* Public transit provider */}
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <div className="border-b border-slate-100 px-6 py-4">
+          <h2 className="font-semibold text-slate-900">{t('admin.transitProvider')}</h2>
+          <p className="mt-1 text-xs text-slate-400">{t('admin.transitProviderHint')}</p>
+        </div>
+        <div className="space-y-4 p-6">
+          <fieldset className="space-y-2">
+            <legend className="sr-only">{t('admin.transitProvider')}</legend>
+            {(['transitous', 'navitime'] as const).map((provider) => (
+              <label key={provider} className="flex cursor-pointer items-center gap-3 text-sm text-slate-700">
+                <input
+                  type="radio"
+                  name="transit-provider"
+                  value={provider}
+                  checked={transitProvider === provider}
+                  onChange={() => setTransitProvider(provider)}
+                />
+                <span>{provider === 'transitous' ? 'Transitous' : 'NAVITIME'}</span>
+                {provider === 'transitous' && (
+                  <span className="text-xs text-slate-400">{t('admin.transitDefault')}</span>
+                )}
+              </label>
+            ))}
+          </fieldset>
+          <div>
+            <label htmlFor="navitime-rapidapi-key" className="mb-1.5 block text-sm font-medium text-slate-700">
+              {t('admin.navitimeKey')}
+            </label>
+            <div className="relative">
+              <input
+                id="navitime-rapidapi-key"
+                type={showKeys.navitime ? 'text' : 'password'}
+                value={navitimeKey}
+                onChange={(event) => setNavitimeKey(event.target.value)}
+                placeholder={t('settings.keyPlaceholder')}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 pr-10 text-sm focus:border-transparent focus:ring-2 focus:ring-slate-400"
+              />
+              <button
+                type="button"
+                onClick={() => toggleKey('navitime')}
+                aria-label={t('admin.toggleKeyVisibility')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                {showKeys.navitime ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+            <p className="mt-1 text-xs text-slate-400">{t('admin.navitimeKeyHint')}</p>
+          </div>
+          <button
+            type="button"
+            onClick={handleSaveTransit}
+            disabled={savingTransit}
+            className="flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-700 disabled:bg-slate-400"
+          >
+            {savingTransit ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             {t('common.save')}
           </button>
         </div>

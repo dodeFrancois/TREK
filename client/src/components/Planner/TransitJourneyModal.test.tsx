@@ -57,6 +57,21 @@ describe('TransitJourneyModal', () => {
     expect(screen.getByText(/BVG/)).toBeInTheDocument()
   })
 
+  it('shows persisted NAVITIME fare and estimated-time provenance', () => {
+    const reservation = makeReservation();
+    reservation.metadata.transit = {
+      ...reservation.metadata.transit,
+      provider: 'navitime',
+      is_timetable: false,
+      fare: { currency: 'JPY', ticket: 210, ic: 208 },
+    };
+
+    render(<TransitJourneyModal {...makeProps({ reservation })} />);
+
+    expect(screen.getByText(/¥208/)).toBeInTheDocument();
+    expect(screen.getByText(/estimated times/i)).toBeInTheDocument();
+  });
+
   it('FE-PLANNER-TRANSITJOURNEY-002: inline title rename + notes save as a minimal field payload', async () => {
     const user = userEvent.setup()
     const onSave = vi.fn().mockResolvedValue({})
