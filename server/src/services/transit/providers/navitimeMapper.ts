@@ -69,7 +69,7 @@ function toLeg(move: NavitimeMove, from: NavitimePoint, to: NavitimePoint): Tran
     lineColor: hexColor(transport?.color),
     lineTextColor: null,
     agency: trimmed(transport?.company?.name),
-    intermediateStops: link?.calling_at?.length ?? 0,
+    intermediateStops: transport?.calling_at?.length ?? 0,
     geometry: null, // rempli par attachGeometries, une fois tous les legs connus
     geometryPrecision: POLYLINE_PRECISION,
   };
@@ -87,41 +87,59 @@ function lineString(feature: NavitimeShapeFeature): Coordinate[] | null {
  * Pose sur chaque leg le polyline de sa portion de trajet.
  *
  * NAVITIME livre la forme du trajet en une FeatureCollection par itinéraire,
- * jamais une par leg, et ne donne aucune clé de jointure : `properties.section`
- * regroupe par point de passage (出発地/経由地/目的地), pas par section de route
- * — dans l'exemple de la spec, la feature `walk` et la feature `transport`
- * portent la même valeur. Les sections `move`, elles, ne portent pas de
- * coordonnées.
+ * jamais une par leg, et sans clé de jointure : les `properties` d'une feature
+ * ne portent que du style, `ways`, et un `section`/`route_no` constants sur tout
+ * l'itinéraire. Ce qui se recoupe, c'est l'ordre — features et sections sont
+ * listées le long du trajet — et un décompte : NAVITIME émet une feature par
+ * inter-gare, et `calling_at` donne les gares intermédiaires.
  *
- * Ce que la réponse garantit en revanche, c'est l'ordre : les features sont
- * listées le long du trajet, avec `properties.ways` valant 'walk' ou
- * 'transport'. On aligne donc les deux côtés par type — quand les compteurs
- * concordent, la n-ième feature d'un type est le n-ième leg de ce type. Sinon on
- * laisse ce type sans géométrie : le client retombe sur la ligne droite plutôt
- * que de tracer le chemin d'un autre leg.
+ * On parcourt donc les deux listes de front. Un leg transit prend
+ * `intermediateStops + 1` features ; une marche prend toute la série `walk` qui
+ * commence là. Une correspondance ne prend rien : NAVITIME ne la trace pas, elle
+ * reçoit un segment droit d'une gare à l'autre.
  *
- * Si l'ordre s'avérait insuffisant en production, la jointure existe : avec
- * `shape_color=railway_line`, `properties.inline.color` d'une feature transport
- * vaut la couleur de `section.transport.color`.
+ * Au moindre désaccord — un type qui ne tombe pas en face, un décompte plus long
+ * que ce qui reste, des features non consommées à la fin — l'itinéraire entier
+ * reste sans géométrie. C'est voulu : le client ne dessine ses lignes droites de
+ * secours que si aucune leg n'est tracée
+ * (`client/src/components/Map/reservationsMapbox.ts`), une géométrie partielle
+ * laisserait un trou.
  */
-function attachGeometries(legs: TransitLeg[], features: NavitimeShapeFeature[] = []): void {
-  const shapes: Record<'walk' | 'ride', Coordinate[][]> = { walk: [], ride: [] };
+function attachGeometries(legs: TransitLeg[], transfers: Set<TransitLeg>, features: NavitimeShapeFeature[] = []): void {
+  const shapes: Array<{ walk: boolean; points: Coordinate[] }> = [];
   for (const feature of features) {
-    const line = lineString(feature);
-    if (line) shapes[feature.properties?.ways === 'walk' ? 'walk' : 'ride'].push(line);
+    const points = lineString(feature);
+    if (points) shapes.push({ walk: feature.properties?.ways === 'walk', points });
   }
 
-  const walkLegs = legs.filter((leg) => leg.mode === 'WALK').length;
-  const usable = {
-    walk: shapes.walk.length === walkLegs,
-    ride: shapes.ride.length === legs.length - walkLegs,
-  };
-
+  const claims: Coordinate[][] = [];
+  let cursor = 0;
   for (const leg of legs) {
-    const kind = leg.mode === 'WALK' ? 'walk' : 'ride';
-    const line = usable[kind] ? shapes[kind].shift() : undefined;
-    if (line) leg.geometry = encodePolyline(line.map(([lng, lat]) => [lat, lng]));
+    if (transfers.has(leg)) {
+      claims.push([
+        [leg.from.lng, leg.from.lat],
+        [leg.to.lng, leg.to.lat],
+      ]);
+      continue;
+    }
+    const walk = leg.mode === 'WALK';
+    let count = leg.intermediateStops + 1;
+    if (walk) {
+      count = 0;
+      while (shapes[cursor + count]?.walk) count += 1;
+    }
+    const claim = shapes.slice(cursor, cursor + count);
+    if (!count || claim.length !== count || claim.some((shape) => shape.walk !== walk)) return;
+    // Les jonctions à l'intérieur d'un leg se répètent à l'arrondi près (moins
+    // de trois mètres sur l'exemple) : on concatène tel quel.
+    claims.push(claim.flatMap((shape) => shape.points));
+    cursor += count;
   }
+  if (cursor !== shapes.length) return;
+
+  legs.forEach((leg, index) => {
+    leg.geometry = encodePolyline(claims[index].map(([lng, lat]) => [lat, lng]));
+  });
 }
 
 function toItinerary(route: NavitimeRoute, currency: string): TransitItinerary | null {
@@ -134,6 +152,7 @@ function toItinerary(route: NavitimeRoute, currency: string): TransitItinerary |
   // par ses deux voisins.
   const sections = route.sections ?? [];
   const legs: TransitLeg[] = [];
+  const transfers = new Set<TransitLeg>();
   for (let index = 1; index < sections.length - 1; index += 1) {
     const move = sections[index];
     if (move.type !== 'move') continue;
@@ -143,10 +162,14 @@ function toItinerary(route: NavitimeRoute, currency: string): TransitItinerary |
     const leg = toLeg(move, from, to);
     if (!leg) return null;
     legs.push(leg);
+    // Le motif d'une correspondance : transit portant `next_transit`, point,
+    // ce walk, point, transit. Le move d'avant est deux sections plus haut.
+    const previous = sections[index - 2];
+    if (leg.mode === 'WALK' && previous?.type === 'move' && previous.next_transit) transfers.add(leg);
   }
   if (!legs.some((leg) => leg.mode !== 'WALK')) return null;
 
-  attachGeometries(legs, route.shapes?.features);
+  attachGeometries(legs, transfers, route.shapes?.features);
 
   const fare = summary?.reference_fare;
   const ticket = Number.isFinite(fare?.lowest_total_ticket) ? fare!.lowest_total_ticket! : null;

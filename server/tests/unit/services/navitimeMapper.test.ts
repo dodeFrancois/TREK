@@ -1,7 +1,7 @@
-import { describe, expect, it } from 'vitest';
-
 import { encodePolyline } from '../../../src/services/transit/polyline';
 import { mapNavitimeResponse } from '../../../src/services/transit/providers/navitimeMapper';
+
+import { describe, expect, it } from 'vitest';
 
 const at = (time: string) => `2026-09-03T${time}:00+09:00`;
 
@@ -59,9 +59,20 @@ describe('NAVITIME route_transit mapping', () => {
     [139.703839, 35.69803],
     [139.700032, 35.701245],
   ];
-  const trainShape: Array<[number, number]> = [
-    [139.700032, 35.701245],
-    [139.702687, 35.670168],
+  /** Trois inter-gares (新大久保 → 新宿 → 代々木 → 原宿) : NAVITIME émet trois features. */
+  const trainShapes: Array<Array<[number, number]>> = [
+    [
+      [139.700032, 35.701245],
+      [139.700676, 35.68958],
+    ],
+    [
+      [139.700676, 35.68958],
+      [139.702067, 35.683974],
+    ],
+    [
+      [139.702067, 35.683974],
+      [139.702687, 35.670168],
+    ],
   ];
   const lastWalkShape: Array<[number, number]> = [
     [139.702687, 35.670168],
@@ -79,7 +90,8 @@ describe('NAVITIME route_transit mapping', () => {
           name: 'ＪＲ山手線',
           color: '#80C241',
           company: { name: 'ＪＲ東日本' },
-          links: [{ destination: { name: '新宿' }, calling_at: [{}, {}], is_timetable: 'false' }],
+          calling_at: [{}, {}],
+          links: [{ destination: { name: '新宿' }, is_timetable: 'false' }],
         },
       }),
       point('原宿', 35.670168, 139.702687),
@@ -88,7 +100,11 @@ describe('NAVITIME route_transit mapping', () => {
     ],
     {
       fare: { lowest_total_ticket: 200, lowest_total_ic: 199 },
-      shapes: [line('walk', walkShape), line('transport', trainShape), line('walk', lastWalkShape)],
+      shapes: [
+        line('walk', walkShape),
+        ...trainShapes.map((shape) => line('transport', shape)),
+        line('walk', lastWalkShape),
+      ],
     },
   );
 
@@ -189,7 +205,7 @@ describe('NAVITIME shape assignment', () => {
     );
   });
 
-  it('leaves a kind without geometry when its shapes do not line up with its legs', () => {
+  it('leaves the whole itinerary without geometry when its shapes do not line up with its legs', () => {
     const train: Array<[number, number]> = [
       [139.02, 35],
       [139.03, 35],
@@ -224,10 +240,11 @@ describe('NAVITIME shape assignment', () => {
 
     const [itinerary] = mapNavitimeResponse(raw).itineraries;
 
-    // Trois legs à pied pour deux formes : on préfère la ligne droite à un tracé
-    // volé au leg suivant. Le train, lui, garde le sien.
-    expect(itinerary.legs.filter((leg) => leg.mode === 'WALK').map((leg) => leg.geometry)).toEqual([null, null, null]);
-    expect(itinerary.legs[2].geometry).toBe(encodePolyline(train.map(([lng, lat]) => [lat, lng])));
+    // Trois legs à pied pour deux formes : rien ne dit lequel sacrifier, donc
+    // l'itinéraire entier reste sans géométrie — y compris le train, qui a
+    // pourtant la sienne. C'est la condition du repli côté client : il ne trace
+    // ses lignes droites que si aucune leg n'est dessinée.
+    expect(itinerary.legs.map((leg) => leg.geometry)).toEqual([null, null, null, null]);
   });
 
   it('treats a feature without `ways` as transport', () => {

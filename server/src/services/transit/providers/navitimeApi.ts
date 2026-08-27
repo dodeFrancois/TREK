@@ -48,14 +48,19 @@ export interface NavitimeMove {
   /** Unité déclarée par `unit.distance`, en pratique le mètre. */
   distance?: number;
   line_name?: string;
+  /** Vrai quand le `move` walk qui suit est une correspondance de quai à quai. */
+  next_transit?: boolean;
   transport?: {
     name?: string;
     color?: string;
     company?: { name?: string };
+    /**
+     * Gares intermédiaires desservies, renvoyées grâce à
+     * `options=railway_calling_at`. Porté par `transport`, pas par un `link`.
+     */
+    calling_at?: unknown[];
     links?: Array<{
       destination?: { name?: string };
-      /** Arrêts desservis, renvoyés grâce à `options=railway_calling_at`. */
-      calling_at?: unknown[];
       /** NAVITIME l'envoie tantôt en booléen, tantôt en chaîne. */
       is_timetable?: boolean | string;
     }>;
