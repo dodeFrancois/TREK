@@ -2,14 +2,27 @@ import { localParts, resolveTimeZone } from '../../timezoneService';
 import { getTransitCache, setTransitCache } from '../cache';
 import { getNavitimeKey } from '../settings';
 import { SCHEDULED_TRANSIT_MODES, type PlanQuery, type TransitPlanResult } from '../types';
-import { mapNavitimeResponse, navitimeResponseIsTimetable } from './navitimeMapper';
+import { httpError, parseCoordinates } from '../validation';
+import { excludableMoves } from './navitimeApi';
+import { mapNavitimeResponse, type NavitimeRoutes } from './navitimeMapper';
 
 const RAPIDAPI_HOST = 'navitime-route-totalnavi.p.rapidapi.com';
 const ROUTE_URL = `https://${RAPIDAPI_HOST}/route_transit`;
-const NAVITIME_CACHE_TTL_MS = 5 * 60 * 1000;
+const CACHE_TTL = 5 * 60 * 1000;
 
-const COORD_RE = /^-?\d{1,3}(\.\d+)?,-?\d{1,3}(\.\d+)?$/;
-const RAIL_MODES = new Set([
+/** Statuts qui décrivent notre requête ou notre abonnement ; le reste devient un 502. */
+const PASSTHROUGH_STATUS = new Set([400, 401, 403, 429]);
+
+/** Modes qu'un appelant peut demander : TRANSIT couvre tout, les autres filtrent. */
+const ALLOWED_MODES = new Set<string>(['TRANSIT', ...SCHEDULED_TRANSIT_MODES]);
+
+/**
+ * Modes TREK que NAVITIME ne sait pas distinguer : sa taxonomie ne connaît que
+ * des catégories de train (普通 / 快速 / 特急 / 新幹線…), pas la différence entre
+ * métro, tram et train régional. Demander l'un quelconque d'entre eux garde donc
+ * toutes les catégories.
+ */
+const RAIL_FAMILY = new Set([
   'RAIL',
   'SUBWAY',
   'TRAM',
@@ -19,57 +32,47 @@ const RAIL_MODES = new Set([
   'REGIONAL_RAIL',
   'SUBURBAN',
 ]);
-const ALLOWED_MODES = new Set(['TRANSIT', ...SCHEDULED_TRANSIT_MODES]);
 
-function httpError(message: string, status: number): Error & { status: number } {
-  return Object.assign(new Error(message), { status });
-}
-
-function coordinate(value: string, name: string): [number, number] {
-  if (!COORD_RE.test(value)) throw httpError(`${name} must be "lat,lng"`, 400);
-  const [lat, lng] = value.split(',').map(Number);
-  if (Math.abs(lat) > 90 || Math.abs(lng) > 180) throw httpError(`${name} must be "lat,lng"`, 400);
-  return [lat, lng];
-}
-
-function navitimeTime(iso: string, coordinateValue: [number, number]): string {
-  const timezone = resolveTimeZone(coordinateValue[0], coordinateValue[1]);
-  const parts = localParts(iso, timezone);
-  if (!parts.date || !parts.time) throw httpError('time must be an ISO date-time', 400);
-  return `${parts.date}T${parts.time}:00`;
-}
-
-function unuseForModes(modesValue: string | undefined): string | null {
-  if (!modesValue) return null;
-  const modes = new Set(
-    modesValue
+/** Les modes demandés, ou null quand l'appelant n'a posé aucun filtre. */
+function requestedModes(modes: string | undefined): Set<string> | null {
+  const requested = new Set(
+    (modes ?? '')
       .split(',')
       .map((mode) => mode.trim().toUpperCase())
       .filter(Boolean),
   );
-  if ([...modes].some((mode) => !ALLOWED_MODES.has(mode))) throw httpError('unsupported transit mode', 400);
-  if (modes.has('TRANSIT')) return null;
-  const unuse: string[] = ['domestic_flight'];
-  if (![...modes].some((mode) => RAIL_MODES.has(mode))) {
-    unuse.push(
-      'superexpress',
-      'sleeper_ultraexpress',
-      'limited_express',
-      'express',
-      'semiexpress',
-      'rapid',
-      'local_train',
-    );
+  for (const mode of requested) {
+    if (!ALLOWED_MODES.has(mode)) throw httpError('unsupported transit mode', 400);
   }
-  if (!modes.has('BUS')) unuse.push('route_bus');
-  if (!modes.has('COACH')) unuse.push('highway_bus');
-  if (!modes.has('FERRY')) unuse.push('ferry');
-  return unuse.join(',');
+  return requested.size === 0 || requested.has('TRANSIT') ? null : requested;
+}
+
+/**
+ * NAVITIME n'a pas de paramètre « seulement ces modes », uniquement `unuse` :
+ * on exclut donc tout déplacement qu'aucun mode demandé ne couvre.
+ */
+function unuseForModes(modes: string | undefined): string | null {
+  const requested = requestedModes(modes);
+  if (!requested) return null;
+  const wantsRail = [...requested].some((mode) => RAIL_FAMILY.has(mode));
+  return (
+    excludableMoves()
+      .filter(([, mode]) => !(RAIL_FAMILY.has(mode) ? wantsRail : requested.has(mode)))
+      .map(([move]) => move)
+      .join(',') || null
+  );
+}
+
+/** NAVITIME attend une heure locale nue, prise au fuseau du point concerné. */
+function navitimeTime(iso: string, [lat, lng]: [number, number]): string {
+  const { date, time } = localParts(iso, resolveTimeZone(lat, lng));
+  if (!date || !time) throw httpError('time must be an ISO date-time', 400);
+  return `${date}T${time}:00`;
 }
 
 function buildParams(query: PlanQuery): URLSearchParams {
-  const from = coordinate(query.from, 'from');
-  const to = coordinate(query.to, 'to');
+  const from = parseCoordinates(query.from, 'from');
+  const to = parseCoordinates(query.to, 'to');
   const params = new URLSearchParams({
     start: query.from,
     goal: query.to,
@@ -78,63 +81,63 @@ function buildParams(query: PlanQuery): URLSearchParams {
     shape_color: 'railway_line',
     options: 'railway_calling_at',
   });
+
   if (query.time) {
-    if (!Number.isFinite(Date.parse(query.time))) throw httpError('time must be an ISO date-time', 400);
-    if (query.arriveBy) params.set('goal_time', navitimeTime(query.time, to));
-    else params.set('start_time', navitimeTime(query.time, from));
+    if (Number.isNaN(Date.parse(query.time))) throw httpError('time must be an ISO date-time', 400);
+    params.set(
+      query.arriveBy ? 'goal_time' : 'start_time',
+      navitimeTime(query.time, query.arriveBy ? to : from),
+    );
   }
+
   const unuse = unuseForModes(query.modes);
   if (unuse) params.set('unuse', unuse);
-  if (query.maxTransfers !== undefined) {
-    const maximum = Number(query.maxTransfers);
-    if (!Number.isInteger(maximum) || maximum < 0 || maximum > 10) {
-      throw httpError('maxTransfers must be 0-10', 400);
-    }
-  }
   return params;
+}
+
+/** NAVITIME n'a pas de plafond de correspondances : on valide ici, on filtre à la sortie. */
+function transferLimit(value: number | undefined): number | undefined {
+  if (value === undefined || value === null) return undefined;
+  const maximum = Number(value);
+  if (!Number.isInteger(maximum) || maximum < 0 || maximum > 10) throw httpError('maxTransfers must be 0-10', 400);
+  return maximum;
+}
+
+async function fetchRoutes(key: string, params: URLSearchParams): Promise<unknown> {
+  const response = await fetch(`${ROUTE_URL}?${params.toString()}`, {
+    headers: { Accept: 'application/json', 'X-RapidAPI-Key': key, 'X-RapidAPI-Host': RAPIDAPI_HOST },
+  });
+  if (!response.ok) {
+    const status = PASSTHROUGH_STATUS.has(response.status) ? response.status : 502;
+    throw httpError(`NAVITIME provider error (HTTP ${response.status})`, status);
+  }
+  try {
+    return await response.json();
+  } catch {
+    throw httpError('Invalid NAVITIME response', 502);
+  }
 }
 
 export async function planNavitime(userId: number, query: PlanQuery): Promise<TransitPlanResult> {
   const key = getNavitimeKey(userId);
   if (!key) throw httpError('NAVITIME RapidAPI key is not configured', 400);
+
+  const limit = transferLimit(query.maxTransfers);
   const params = buildParams(query);
-  const cacheKey = `navitime:${userId}:${params.toString()}:${query.maxTransfers ?? ''}`;
-  const cached = getTransitCache<TransitPlanResult>(cacheKey, NAVITIME_CACHE_TTL_MS);
-  if (cached) return cached;
 
-  const response = await fetch(`${ROUTE_URL}?${params}`, {
-    headers: {
-      Accept: 'application/json',
-      'X-RapidAPI-Key': key,
-      'X-RapidAPI-Host': RAPIDAPI_HOST,
-    },
-  });
-  if (!response.ok) {
-    const status =
-      response.status === 400
-        ? 400
-        : response.status === 401 || response.status === 403
-          ? response.status
-          : response.status === 429
-            ? 429
-            : 502;
-    throw httpError(`NAVITIME provider error (HTTP ${response.status})`, status);
+  // maxTransfers reste hors de la clé : il est appliqué ici et pas par NAVITIME,
+  // donc le changer réutilise la réponse au lieu de refacturer un appel RapidAPI.
+  const cacheKey = `navitime:${userId}:${params.toString()}`;
+  let routes = getTransitCache<NavitimeRoutes>(cacheKey, CACHE_TTL);
+  if (!routes) {
+    routes = mapNavitimeResponse(await fetchRoutes(key, params));
+    setTransitCache(cacheKey, routes);
   }
 
-  let raw: unknown;
-  try {
-    raw = await response.json();
-  } catch {
-    throw httpError('Invalid NAVITIME response', 502);
-  }
-  let itineraries = mapNavitimeResponse(raw);
-  if (query.maxTransfers !== undefined)
-    itineraries = itineraries.filter((item) => item.transfers <= query.maxTransfers!);
-  const result: TransitPlanResult = {
+  return {
     provider: 'navitime',
-    isTimetable: navitimeResponseIsTimetable(raw),
-    itineraries,
+    isTimetable: routes.isTimetable,
+    itineraries:
+      limit === undefined ? routes.itineraries : routes.itineraries.filter((route) => route.transfers <= limit),
   };
-  setTransitCache(cacheKey, result);
-  return result;
 }

@@ -4,6 +4,7 @@ import { getTransitProvider } from './transit/settings';
 
 export {
   SCHEDULED_TRANSIT_MODES,
+  TRANSIT_PROVIDERS,
   deriveTransitStats,
   geocode,
   type PlanQuery,
@@ -12,6 +13,7 @@ export {
   type TransitLegStop,
   type TransitPlace,
   type TransitPlanResult,
+  type TransitProviderId,
 } from './transit/providers/transitousAdapter';
 
 /** Provider facade. The one-argument form is retained while internal callers migrate. */

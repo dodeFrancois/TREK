@@ -1,7 +1,7 @@
 import { haversineKm } from './distanceService';
 import type { EndpointInput } from './reservationService';
 import { localParts, resolveTimeZone } from './timezoneService';
-import { deriveTransitStats, type TransitItinerary, type TransitLeg } from './transitService';
+import { deriveTransitStats, type TransitItinerary, type TransitLeg, type TransitProviderId } from './transitService';
 
 import { z } from 'zod';
 
@@ -204,7 +204,7 @@ export function buildTransitReservationParts(
   from: TransitPlaceInput,
   to: TransitPlaceInput,
   itinerary: TransitItinerary,
-  provider: 'transitous' | 'navitime' = 'transitous',
+  provider: TransitProviderId = 'transitous',
   isTimetable = true,
 ) {
   const fromTimezone = timezoneAt(from.lat, from.lng);

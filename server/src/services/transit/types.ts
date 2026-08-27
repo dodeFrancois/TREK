@@ -1,4 +1,5 @@
-export type TransitProviderId = 'transitous' | 'navitime';
+export const TRANSIT_PROVIDERS = ['transitous', 'navitime'] as const;
+export type TransitProviderId = (typeof TRANSIT_PROVIDERS)[number];
 
 export const SCHEDULED_TRANSIT_MODES = [
   'BUS',

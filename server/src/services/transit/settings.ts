@@ -1,7 +1,6 @@
 import { db } from '../../db/database';
 import { decrypt_api_key } from '../apiKeyCrypto';
-
-export type TransitProviderId = 'transitous' | 'navitime';
+import type { TransitProviderId } from './types';
 
 export function getTransitProvider(): TransitProviderId {
   const row = db.prepare("SELECT value FROM app_settings WHERE key = 'transit_provider'").get() as

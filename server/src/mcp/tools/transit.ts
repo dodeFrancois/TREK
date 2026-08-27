@@ -11,7 +11,7 @@ import {
   transitItinerarySchema,
   transitPlaceSchema,
 } from '../../services/transitItineraryService';
-import { geocode, plan, SCHEDULED_TRANSIT_MODES } from '../../services/transitService';
+import { geocode, plan, SCHEDULED_TRANSIT_MODES, TRANSIT_PROVIDERS } from '../../services/transitService';
 import { canRead, canWrite } from '../scopes';
 import {
   demoDenied,
@@ -144,7 +144,7 @@ export function registerTransitTools(server: McpServer, userId: number, scopes: 
         from: transitPlaceSchema,
         to: transitPlaceSchema,
         itinerary: transitItinerarySchema,
-        provider: z.enum(['transitous', 'navitime']).optional().default('transitous'),
+        provider: z.enum(TRANSIT_PROVIDERS).optional().default('transitous'),
         isTimetable: z.boolean().optional().default(true),
         notes: z.string().max(1000).optional(),
       },

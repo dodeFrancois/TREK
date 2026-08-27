@@ -1,6 +1,7 @@
 import { buildUserAgent } from '../../mapsService';
 import { getAppUrl } from '../../notifications';
 import { getTransitCache, setTransitCache } from '../cache';
+import { POLYLINE_PRECISION } from '../polyline';
 import {
   SCHEDULED_TRANSIT_MODES,
   type PlanQuery,
@@ -9,16 +10,18 @@ import {
   type TransitLegStop,
   type TransitPlace,
 } from '../types';
-import { deriveTransitStats } from '../validation';
+import { deriveTransitStats, httpError, isCoordinates } from '../validation';
 
 export {
   SCHEDULED_TRANSIT_MODES,
+  TRANSIT_PROVIDERS,
   type PlanQuery,
   type TransitItinerary,
   type TransitLeg,
   type TransitLegStop,
   type TransitPlace,
   type TransitPlanResult,
+  type TransitProviderId,
 } from '../types';
 export { deriveTransitStats } from '../validation';
 
@@ -51,21 +54,11 @@ const ALLOWED_MODES = new Set(['TRANSIT', ...SCHEDULED_TRANSIT_MODES]);
 // usage policy, and a user toggling filters re-requests identical plans.
 const CACHE_TTL = 60 * 1000;
 
-const COORD_RE = /^-?\d{1,3}(\.\d+)?,-?\d{1,3}(\.\d+)?$/;
-
-function isCoord(v: string): boolean {
-  if (!COORD_RE.test(v)) return false;
-  const [lat, lng] = v.split(',').map(Number);
-  return Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
-}
-
 async function upstream(path: string, params: URLSearchParams): Promise<unknown> {
   const url = `${TRANSIT_API_BASE}${path}?${params}`;
   const res = await fetch(url, { headers: { 'User-Agent': getUserAgent(), Accept: 'application/json' } });
   if (!res.ok) {
-    const err = new Error(`Transit provider error (HTTP ${res.status})`) as Error & { status: number };
-    err.status = res.status === 429 ? 429 : 502;
-    throw err;
+    throw httpError(`Transit provider error (HTTP ${res.status})`, res.status === 429 ? 429 : 502);
   }
   return res.json();
 }
@@ -76,15 +69,11 @@ async function upstream(path: string, params: URLSearchParams): Promise<unknown>
 export async function geocode(query: string, language?: string, near?: string): Promise<{ results: TransitPlace[] }> {
   const text = (query || '').trim();
   if (text.length < 2) return { results: [] };
-  if (text.length > 200) {
-    const e = new Error('Query too long') as Error & { status: number };
-    e.status = 400;
-    throw e;
-  }
+  if (text.length > 200) throw httpError('Query too long', 400);
 
   const params = new URLSearchParams({ text });
   if (language) params.set('language', language.slice(0, 5));
-  if (near && isCoord(near)) params.set('place', near);
+  if (isCoordinates(near)) params.set('place', near!);
 
   const key = `transitous:geo:${params.toString()}`;
   const cached = getTransitCache<{ results: TransitPlace[] }>(key, CACHE_TTL);
@@ -144,19 +133,14 @@ function mapStop(p: MotisPlaceRaw | undefined, kind: 'departure' | 'arrival'): T
 
 /** Transitous route search between two coordinates. */
 export async function planTransitous(q: PlanQuery): Promise<{ itineraries: TransitItinerary[] }> {
-  const bad = (msg: string) => {
-    const e = new Error(msg) as Error & { status: number };
-    e.status = 400;
-    throw e;
-  };
-  if (!q.from || !isCoord(q.from)) bad('from must be "lat,lng"');
-  if (!q.to || !isCoord(q.to)) bad('to must be "lat,lng"');
+  if (!isCoordinates(q.from)) throw httpError('from must be "lat,lng"', 400);
+  if (!isCoordinates(q.to)) throw httpError('to must be "lat,lng"', 400);
 
   const params = new URLSearchParams({ fromPlace: q.from, toPlace: q.to, numItineraries: '8' });
 
   if (q.time) {
     const parsed = new Date(q.time);
-    if (isNaN(parsed.getTime())) bad('time must be an ISO date-time');
+    if (isNaN(parsed.getTime())) throw httpError('time must be an ISO date-time', 400);
     params.set('time', parsed.toISOString());
   }
   if (q.arriveBy) params.set('arriveBy', 'true');
@@ -166,12 +150,12 @@ export async function planTransitous(q: PlanQuery): Promise<{ itineraries: Trans
       .split(',')
       .map((m) => m.trim().toUpperCase())
       .filter(Boolean);
-    if (modes.some((m) => !ALLOWED_MODES.has(m))) bad('unsupported transit mode');
+    if (modes.some((m) => !ALLOWED_MODES.has(m))) throw httpError('unsupported transit mode', 400);
     if (modes.length > 0) params.set('transitModes', modes.join(','));
   }
   if (q.maxTransfers !== undefined && q.maxTransfers !== null) {
     const n = Number(q.maxTransfers);
-    if (!Number.isInteger(n) || n < 0 || n > 10) bad('maxTransfers must be 0-10');
+    if (!Number.isInteger(n) || n < 0 || n > 10) throw httpError('maxTransfers must be 0-10', 400);
     params.set('maxTransfers', String(n));
   }
   // We only want scheduled transit journeys in the results — a pure-walk
@@ -221,7 +205,7 @@ export async function planTransitous(q: PlanQuery): Promise<{ itineraries: Trans
       agency: leg.agencyName || null,
       intermediateStops: Array.isArray(leg.intermediateStops) ? leg.intermediateStops.length : 0,
       geometry: leg.legGeometry?.points || null,
-      geometryPrecision: leg.legGeometry?.precision ?? 6,
+      geometryPrecision: leg.legGeometry?.precision ?? POLYLINE_PRECISION,
     }));
     const stats = deriveTransitStats(it.startTime, it.endTime, legs, it.transfers);
     return [
