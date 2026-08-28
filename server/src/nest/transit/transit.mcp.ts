@@ -99,7 +99,7 @@ export class TransitMcp {
   @Tool({
     name: 'search_transit_routes',
     description:
-      'Search scheduled public-transit routes via Transitous between two coordinates. Returns itineraries that can be passed unchanged to create_transit_journey. `dropped` counts provider itineraries that failed validation and are therefore absent from the results — a non-zero value means the provider offered routes this tool could not represent.',
+      'Search scheduled public-transit routes between two coordinates. Returns itineraries that can be passed unchanged to create_transit_journey. `dropped` counts provider itineraries that failed validation and are therefore absent from the results — a non-zero value means the provider offered routes this tool could not represent.',
     inputSchema: {
       from: transitPlaceSchema,
       to: transitPlaceSchema,
@@ -204,7 +204,7 @@ export class TransitMcp {
     }
     let reservationParts: ReturnType<typeof buildTransitReservationParts>;
     try {
-      reservationParts = buildTransitReservationParts(from, to, cleaned);
+      reservationParts = buildTransitReservationParts(from, to, cleaned, this.transit.providerId());
     } catch (err) {
       return errorResult(err, 'Unable to resolve the transit journey timezones.');
     }

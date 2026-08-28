@@ -294,7 +294,7 @@ describe('buildTransitReservationParts', () => {
       ],
     };
 
-    const { endpoints, metadata } = buildTransitReservationParts(namba, kyoto, itinerary);
+    const { endpoints, metadata } = buildTransitReservationParts(namba, kyoto, itinerary, 'transitous');
 
     expect(endpoints).toEqual([
       { role: 'from', sequence: 0, name: 'Namba', code: null, lat: 34.667, lng: 135.501, timezone: 'Asia/Tokyo', local_date: '2026-04-01', local_time: '09:00' },
@@ -335,6 +335,15 @@ describe('buildTransitReservationParts', () => {
     });
   });
 
+  it('TRANSIT-ITIN-022: records the provider it was told about, not a hardcoded one', () => {
+    // The itinerary reaches create_transit_journey from outside, so the provider
+    // is whichever one the instance is configured for — never assumed.
+    const provider = (parts: ReturnType<typeof buildTransitReservationParts>) =>
+      (parts.metadata as { transit: { provider: string } }).transit.provider;
+    expect(provider(buildTransitReservationParts(namba, umeda, singleLeg(), 'transitous'))).toBe('transitous');
+    expect(provider(buildTransitReservationParts(namba, umeda, singleLeg(), 'navitime'))).toBe('navitime');
+  });
+
   it('TRANSIT-ITIN-019: a transfer stop with no times at all yields null local date/time', () => {
     const kyoto = { name: 'Kyoto', lat: 35.0116, lng: 135.7681 };
     const itinerary = twoLegs();
@@ -342,7 +351,7 @@ describe('buildTransitReservationParts', () => {
       { ...itinerary.legs[0], to: stop('Umeda', 34.702, 135.496, null) },
       itinerary.legs[1],
     ];
-    const { endpoints, metadata } = buildTransitReservationParts(namba, kyoto, itinerary);
+    const { endpoints, metadata } = buildTransitReservationParts(namba, kyoto, itinerary, 'transitous');
     expect(endpoints[1]).toEqual({
       role: 'stop', sequence: 1, name: 'Umeda', code: null, lat: 34.702, lng: 135.496,
       timezone: 'Asia/Tokyo', local_date: null, local_time: null,
@@ -351,13 +360,13 @@ describe('buildTransitReservationParts', () => {
   });
 
   it('TRANSIT-ITIN-020: an unresolvable endpoint timezone throws with the coordinates in the message', () => {
-    expect(() => buildTransitReservationParts({ name: 'Nowhere', lat: NaN, lng: 135.501 }, umeda, singleLeg())).toThrow(
+    expect(() => buildTransitReservationParts({ name: 'Nowhere', lat: NaN, lng: 135.501 }, umeda, singleLeg(), 'transitous')).toThrow(
       'Unable to resolve timezone for NaN,135.501.',
     );
   });
 
   it('TRANSIT-ITIN-021: an unconvertible itinerary time throws with the ISO string and timezone', () => {
-    expect(() => buildTransitReservationParts(namba, umeda, singleLeg({ startTime: 'not-a-date' }))).toThrow(
+    expect(() => buildTransitReservationParts(namba, umeda, singleLeg({ startTime: 'not-a-date' }), 'transitous')).toThrow(
       'Unable to convert not-a-date to local time in Asia/Tokyo.',
     );
   });

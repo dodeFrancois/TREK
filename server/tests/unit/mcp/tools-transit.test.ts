@@ -242,6 +242,28 @@ describe('MCP transit tools', () => {
     });
   });
 
+
+  it('records the configured provider in the stored journey metadata', async () => {
+    // The itinerary arrives from outside, so the provider cannot be read off it:
+    // TransitMcp asks TransitService which one this instance is set to.
+    const { user } = createUser(testDb);
+    const trip = createTrip(testDb, user.id, { start_date: '2026-12-03', end_date: '2026-12-04' });
+    const day = testDb.prepare('SELECT * FROM days WHERE trip_id = ? AND date = ?').get(trip.id, '2026-12-03') as any;
+    testDb.prepare("INSERT OR REPLACE INTO app_settings (key, value) VALUES ('transit_provider', 'navitime')").run();
+    try {
+      await withHarness(user.id, ['reservations:write'], async (harness) => {
+        const result = parseToolResult(
+          await harness.client.callTool({
+            name: 'create_transit_journey',
+            arguments: { tripId: trip.id, dayId: day.id, from, to, itinerary: { ...itinerary, duration: 1, walkSeconds: 1 } },
+          }),
+        ) as any;
+        expect(JSON.parse(result.reservation.metadata).transit.provider).toBe('navitime');
+      });
+    } finally {
+      testDb.prepare("DELETE FROM app_settings WHERE key = 'transit_provider'").run();
+    }
+  });
   it('rejects dateless, mismatched, and out-of-range journey dates', async () => {
     const { user } = createUser(testDb);
     const datelessTrip = createTrip(testDb, user.id);
