@@ -133,6 +133,11 @@ export function useAdmin() {
   const [allowedFileTypes, setAllowedFileTypes] = useState<string>('jpg,jpeg,png,gif,webp,heic,pdf,doc,docx,xls,xlsx,txt,csv')
   const [savingFileTypes, setSavingFileTypes] = useState<boolean>(false)
 
+  // Transit provider (instance-wide, app_settings)
+  const [transitProvider, setTransitProvider] = useState<'transitous' | 'navitime'>('transitous')
+  const [navitimeKey, setNavitimeKey] = useState<string>('')
+  const [savingTransit, setSavingTransit] = useState<boolean>(false)
+
   // SMTP settings
   const [smtpValues, setSmtpValues] = useState<Record<string, string>>({})
   const [smtpLoaded, setSmtpLoaded] = useState(false)
@@ -141,6 +146,10 @@ export function useAdmin() {
       setSmtpValues(r.data || {})
       if (r.data?.webauthn_rp_id) setWebauthnRpId(r.data.webauthn_rp_id)
       if (r.data?.webauthn_origins) setWebauthnOrigins(r.data.webauthn_origins)
+      // Anything but an exact 'navitime' shows the default, mirroring the server reader.
+      setTransitProvider(r.data?.transit_provider === 'navitime' ? 'navitime' : 'transitous')
+      // Arrives masked when a key is stored; echoing the mask back does not overwrite it.
+      if (r.data?.navitime_api_key) setNavitimeKey(r.data.navitime_api_key)
       setSmtpLoaded(true)
     }).catch(() => setSmtpLoaded(true))
   }, [])
@@ -287,6 +296,19 @@ export function useAdmin() {
       toast.error(err instanceof Error ? err.message : 'Unknown error')
     } finally {
       setSavingKeys(false)
+    }
+  }
+
+  // Both settings live in app_settings, so one request carries them together.
+  const handleSaveTransit = async () => {
+    setSavingTransit(true)
+    try {
+      await authApi.updateAppSettings({ transit_provider: transitProvider, navitime_api_key: navitimeKey })
+      toast.success(t('common.saved'))
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, t('common.error')))
+    } finally {
+      setSavingTransit(false)
     }
   }
 
@@ -441,6 +463,7 @@ export function useAdmin() {
     invites, setInvites, inviteTrips, showCreateInvite, setShowCreateInvite, inviteForm, setInviteForm,
     allowedFileTypes, setAllowedFileTypes, savingFileTypes, setSavingFileTypes,
     smtpValues, setSmtpValues, smtpLoaded,
+    transitProvider, setTransitProvider, navitimeKey, setNavitimeKey, savingTransit, handleSaveTransit,
     mapsKey, setMapsKey, weatherKey, setWeatherKey, unsplashKey, setUnsplashKey,
     showKeys, setShowKeys, savingKeys, validating, validation,
     updateInfo, setUpdateInfo, showUpdateModal, setShowUpdateModal,

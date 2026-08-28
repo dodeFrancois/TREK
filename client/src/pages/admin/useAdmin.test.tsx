@@ -775,3 +775,63 @@ describe('useAdmin', () => {
     expect(result.current.currentUser?.username).toBe('admin');
   });
 });
+
+// ── transit provider (NAVITIME) ──────────────────────────────────────────────
+
+describe('transit provider', () => {
+  it('FE-ADMHOOK-050: reads the provider and the masked key off the admin settings row', async () => {
+    server.use(
+      http.get('/api/auth/app-settings', () =>
+        HttpResponse.json({ transit_provider: 'navitime', navitime_api_key: '••••••••' })
+      )
+    );
+    const { result } = await mountAdmin();
+
+    await waitFor(() => expect(result.current.transitProvider).toBe('navitime'));
+    expect(result.current.navitimeKey).toBe('••••••••');
+  });
+
+  it('FE-ADMHOOK-051: an unusable stored provider reads as the default', async () => {
+    server.use(http.get('/api/auth/app-settings', () => HttpResponse.json({ transit_provider: 'motis' })));
+    const { result } = await mountAdmin();
+
+    await waitFor(() => expect(result.current.smtpLoaded).toBe(true));
+    expect(result.current.transitProvider).toBe('transitous');
+  });
+
+  it('FE-ADMHOOK-052: handleSaveTransit sends the provider and the key in ONE request', async () => {
+    const bodies: Record<string, unknown>[] = [];
+    server.use(
+      http.get('/api/auth/app-settings', () => HttpResponse.json({})),
+      http.put('/api/auth/app-settings', async ({ request }) => {
+        bodies.push((await request.json()) as Record<string, unknown>);
+        return HttpResponse.json({ success: true });
+      })
+    );
+    const { result } = await mountAdmin();
+
+    act(() => result.current.setTransitProvider('navitime'));
+    act(() => result.current.setNavitimeKey('rapid-key'));
+    await act(async () => {
+      await result.current.handleSaveTransit();
+    });
+
+    // One request, both settings — they share a storage mechanism.
+    expect(bodies).toHaveLength(1);
+    expect(bodies[0]).toEqual({ transit_provider: 'navitime', navitime_api_key: 'rapid-key' });
+  });
+
+  it('FE-ADMHOOK-053: handleSaveTransit toasts on failure', async () => {
+    server.use(
+      http.get('/api/auth/app-settings', () => HttpResponse.json({})),
+      http.put('/api/auth/app-settings', () => HttpResponse.json({ error: 'nope' }, { status: 400 }))
+    );
+    const { result } = await mountAdmin();
+
+    await act(async () => {
+      await result.current.handleSaveTransit();
+    });
+
+    expect(toastCalls.some(c => c.type === 'error')).toBe(true);
+  });
+});

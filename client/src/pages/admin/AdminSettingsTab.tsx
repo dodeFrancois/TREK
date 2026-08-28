@@ -33,6 +33,7 @@ export default function AdminSettingsTab({ admin, t }: AdminSettingsTabProps): R
     setShowRotateJwtModal,
     handleToggleAuthSetting, handleToggleRequireMfa,
     toggleKey, handleSaveApiKeys, handleValidateKey,
+    transitProvider, setTransitProvider, navitimeKey, setNavitimeKey, savingTransit, handleSaveTransit,
   } = admin
 
   return (
@@ -467,6 +468,69 @@ export default function AdminSettingsTab({ admin, t }: AdminSettingsTabProps): R
           to wire, so the fields are not offered. */}
       {!managed && (<>
       </>)}
+      {/* Public transit — the provider choice and the credential it needs. Both are
+          the customer's here (see MANAGED_CUSTOMER_KEYS): nobody can supply a NAVITIME
+          subscription on their behalf, so this card is offered on a managed install too. */}
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100">
+          <h2 className="font-semibold text-slate-900">{t('admin.transit')}</h2>
+          <p className="text-xs text-slate-400 mt-1">{t('admin.transitProviderHint')}</p>
+        </div>
+        <div className="p-6 space-y-4">
+          <div>
+            <label htmlFor="transit-provider" className="block text-sm font-medium text-slate-700 mb-1.5">
+              {t('admin.transitProvider')}
+            </label>
+            <select
+              id="transit-provider"
+              value={transitProvider}
+              onChange={e => setTransitProvider(e.target.value as 'transitous' | 'navitime')}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-slate-400 focus:border-transparent"
+            >
+              <option value="transitous">Transitous</option>
+              <option value="navitime">NAVITIME</option>
+            </select>
+          </div>
+
+          {/* Only shown for NAVITIME: Transitous has no credential to hold, and an
+              always-visible field would suggest otherwise. */}
+          {transitProvider === 'navitime' && (
+            <div>
+              <label htmlFor="navitime-key" className="block text-sm font-medium text-slate-700 mb-1.5">
+                {t('admin.navitimeKey')}
+              </label>
+              <div className="relative">
+                <input
+                  id="navitime-key"
+                  type={showKeys.navitime ? 'text' : 'password'}
+                  value={navitimeKey}
+                  onChange={e => setNavitimeKey(e.target.value)}
+                  placeholder={t('settings.keyPlaceholder')}
+                  className="w-full pr-10 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-slate-400 focus:border-transparent"
+                />
+                <button
+                  type="button"
+                  onClick={() => toggleKey('navitime')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  {showKeys.navitime ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              <p className="text-xs text-slate-400 mt-1">{t('admin.navitimeKeyHint')}</p>
+            </div>
+          )}
+
+          <button type="button"
+            onClick={handleSaveTransit}
+            disabled={savingTransit}
+            className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg text-sm hover:bg-slate-700 disabled:bg-slate-400"
+          >
+            {savingTransit ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save className="w-4 h-4" />}
+            {t('common.save')}
+          </button>
+        </div>
+      </div>
+
       {/* OIDC / SSO Configuration */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-100">

@@ -490,3 +490,37 @@ describe('AdminSettingsTab', () => {
     expect(admin.setShowRotateJwtModal).toHaveBeenCalledWith(true);
   });
 });
+
+// ── transit provider card (NAVITIME) ─────────────────────────────────────────
+
+describe('transit provider card', () => {
+  it('FE-ADMSET-041: hides the NAVITIME key field while Transitous is selected', () => {
+    renderTab({ transitProvider: 'transitous' });
+    const transit = card('Public transit');
+    expect(within(transit).getByRole('combobox')).toHaveValue('transitous');
+    // Transitous has no credential to hold.
+    expect(within(transit).queryByText('NAVITIME API Key')).toBeNull();
+  });
+
+  it('FE-ADMSET-042: shows the NAVITIME key field once NAVITIME is selected', () => {
+    renderTab({ transitProvider: 'navitime', navitimeKey: '••••••••' });
+    const transit = card('Public transit');
+    expect(within(transit).getByText('NAVITIME API Key')).toBeInTheDocument();
+    // Arrives masked from the server; echoing the mask back must not overwrite it.
+    expect(within(transit).getByDisplayValue('••••••••')).toBeInTheDocument();
+  });
+
+  it('FE-ADMSET-043: reports a provider change through the hook', () => {
+    const admin = renderTab({ transitProvider: 'transitous' });
+    fireEvent.change(within(card('Public transit')).getByRole('combobox'), {
+      target: { value: 'navitime' },
+    });
+    expect(admin.setTransitProvider).toHaveBeenCalledWith('navitime');
+  });
+
+  it('FE-ADMSET-044: saves the provider and the key with one handler', () => {
+    const admin = renderTab({ transitProvider: 'navitime', navitimeKey: 'rapid-key' });
+    fireEvent.click(within(card('Public transit')).getByRole('button', { name: /save/i }));
+    expect(admin.handleSaveTransit).toHaveBeenCalledTimes(1);
+  });
+});
