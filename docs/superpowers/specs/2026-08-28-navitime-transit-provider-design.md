@@ -427,14 +427,17 @@ Côté client : `TransitSearchPanel` lit `d.isTimetable === false` et affiche
 
 ## 10. Vérifié sur la donnée réelle
 
-Deux captures de `/route_transit`, **même requête** (Tokyo, 新宿 → 代々木, 5 itinéraires),
-seul `calling_at` diffère. Elles entrent dans le dépôt **intactes** — ni clé, ni jeton, ni
-en-tête d'authentification dedans (vérifié) :
+La capture réelle de `/route_transit` (Tokyo, 新宿 → 代々木, 5 itinéraires) entre dans le
+dépôt **intacte** — ni clé, ni jeton, ni en-tête d'authentification dedans (vérifié) :
 
 ```
-server/tests/fixtures/navitime/route_transit.calling-at.json      (référence)
-server/tests/fixtures/navitime/route_transit.no-calling-at.json   (repli)
+server/tests/fixtures/navitime/route_transit.calling-at.json
 ```
+
+Une seule : `options=railway_calling_at` est toujours envoyé, donc la capture prise sans
+l'option ne décrit aucun état atteignable. Le chemin de repli qu'elle exerçait est le même
+`giveUp` que les six mutations couvrent, dont `NAVITIME-GEO-008` — un `calling_at`
+supprimé — pour quelques octets au lieu de 174 Ko.
 
 L'algorithme a été prototypé en jetable et exécuté sur ces captures avant toute ligne de
 TypeScript.
@@ -466,10 +469,10 @@ TypeScript.
 | une feature transport en trop à la fin | 1 feature non consommée |
 | une insérée au début | leg 0 : marche sans feature walk au curseur 0 |
 
-La capture sans `calling_at` a des shapes **identiques** à la référence (mêmes décomptes,
-mêmes séquences `ways`) : chaque leg transit ne réclame plus qu'une feature, le décompte
-ne tombe pas juste, et les 5 itinéraires sortent avec un motif précis. La dépendance à
-`options=railway_calling_at` est détectée, pas subie.
+Un `calling_at` absent n'est **pas** un repli : c'est le cas nominal de deux gares
+adjacentes — 東新宿 → 新宿西口 sur la Ōedo — qui vaut zéro gare intermédiaire, donc une
+feature, et le leg est tracé normalement. Le repli ne survient que lorsque le décompte ne
+tombe pas juste, ce que les six mutations ci-dessus couvrent.
 
 ### Le contrat existant accepte NAVITIME tel quel
 

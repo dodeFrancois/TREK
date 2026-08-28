@@ -15,7 +15,6 @@ import {
 } from '../../../src/nest/transit/providers/navitime/navitime.geometry';
 import { decodePolylineForTest } from './helpers/decodePolyline';
 import capture from '../../fixtures/navitime/route_transit.calling-at.json';
-import bareCapture from '../../fixtures/navitime/route_transit.no-calling-at.json';
 
 const items = (capture as { items: unknown[] }).items;
 
@@ -165,16 +164,6 @@ describe('attachNavitimeGeometry falls back for the whole itinerary', () => {
       }),
       'leg 0: no walk feature at cursor 0',
     );
-  });
-
-  it('NAVITIME-GEO-012: for every itinerary of the capture taken without railway_calling_at', () => {
-    // Same request, same shapes, only calling_at missing: each transit leg then
-    // claims one feature instead of its real count, the tally never balances, and
-    // the log says exactly where. The dependency on the option is detected, not
-    // suffered.
-    const bare = (bareCapture as { items: unknown[] }).items;
-    expect(bare).toHaveLength(5);
-    for (const item of bare) expectTotalFallback(attach(item));
   });
 });
 

@@ -43,7 +43,7 @@
 | `server/src/nest/settings/instance-api-keys.ts` | **modified** — `InstanceApiKeyName` widened, `USER_ROW_SQL` partial |
 | `server/src/nest/auth/auth.helpers.ts` | **modified** — `ADMIN_SETTINGS_KEYS` gains two keys |
 | `server/src/nest/auth/auth.service.ts` | **modified** — encrypt/mask/audit branches for `navitime_api_key` |
-| `server/tests/fixtures/navitime/*.json` | **new** — two untouched real captures |
+| `server/tests/fixtures/navitime/route_transit.calling-at.json` | **new** — one untouched real capture |
 | `client/src/components/Planner/TransitSearchPanel.tsx` | **modified** — estimated-times banner |
 | `client/src/pages/admin/AdminSettingsTab.tsx`, `useAdmin.ts` | **modified** — provider + key card |
 | `shared/src/i18n/<23 locales>/trip.ts`, `admin.ts` | **modified** — 6 new keys |
@@ -748,7 +748,6 @@ git commit -m "feat(transit): NAVITIME mode tables and request builder"
 
 **Files:**
 - Create: `server/tests/fixtures/navitime/route_transit.calling-at.json`
-- Create: `server/tests/fixtures/navitime/route_transit.no-calling-at.json`
 - Create: `server/src/nest/transit/providers/navitime/navitime.mapper.ts`
 - Test: `server/tests/unit/nest/navitime.mapper.test.ts`
 
@@ -761,10 +760,11 @@ git commit -m "feat(transit): NAVITIME mode tables and request builder"
 ```bash
 mkdir -p server/tests/fixtures/navitime
 cp /home/fdode/.config/JetBrains/IntelliJIdea2026.1/scratches/scratch_55.json server/tests/fixtures/navitime/route_transit.calling-at.json
-cp /home/fdode/.config/JetBrains/IntelliJIdea2026.1/scratches/scratch_53.json server/tests/fixtures/navitime/route_transit.no-calling-at.json
 ```
 
-Both are real `/route_transit` responses for the same query (Tokyo, 新宿 → 代々木, 5 itineraries); only `calling_at` differs. Neither contains a key, token or auth header — verified. **Do not edit them.**
+A real `/route_transit` response (Tokyo, 新宿 → 代々木, 5 itineraries). It contains no key, token or auth header — verified. **Do not edit it.**
+
+One capture, not two: `options=railway_calling_at` is always sent, so a capture taken without it describes no reachable state. The fallback path it would exercise is the same single `giveUp` the six mutations already cover.
 
 - [ ] **Step 2: Create `navitime.mapper.ts`**
 
@@ -1206,7 +1206,6 @@ import { mapNavitimeItinerary, navitimeShapes } from '../../../src/nest/transit/
 import { attachNavitimeGeometry, encodePolyline } from '../../../src/nest/transit/providers/navitime/navitime.geometry';
 import { decodePolylineForTest } from './helpers/decodePolyline';
 import withCallingAt from '../../fixtures/navitime/route_transit.calling-at.json';
-import withoutCallingAt from '../../fixtures/navitime/route_transit.no-calling-at.json';
 
 const items = (withCallingAt as { items: unknown[] }).items;
 
@@ -1312,13 +1311,6 @@ describe('attachNavitimeGeometry falls back for the whole itinerary', () => {
     expect(r.fallback).toBeTruthy();
   });
 
-  it('for every itinerary of the capture taken without railway_calling_at', () => {
-    const bare = (withoutCallingAt as { items: unknown[] }).items;
-    const results = bare.map(attach);
-    expect(results).toHaveLength(5);
-    expect(results.every((r) => r.fallback !== null)).toBe(true);
-    expect(results.every((r) => r.itinerary.legs.every((leg) => leg.geometry === null))).toBe(true);
-  });
 });
 
 describe('encodePolyline', () => {
