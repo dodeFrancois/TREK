@@ -1,0 +1,6737 @@
+{
+  "items": [
+    {
+      "summary": {
+        "no": "1",
+        "start": {
+          "type": "point",
+          "coord": {
+            "lat": 35.69803,
+            "lon": 139.703839
+          },
+          "name": "start"
+        },
+        "goal": {
+          "type": "point",
+          "coord": {
+            "lat": 35.676398,
+            "lon": 139.699326
+          },
+          "name": "goal"
+        },
+        "move": {
+          "transit_count": 0,
+          "walk_distance": 1777,
+          "fare": {
+            "unit_0": 200.0,
+            "unit_48": 199.0,
+            "unit_128_train": 5890.0,
+            "unit_130_train": 16790.0,
+            "unit_133_train": 31810.0
+          },
+          "type": "move",
+          "from_time": "2026-09-03T09:00:00+09:00",
+          "to_time": "2026-09-03T09:33:00+09:00",
+          "time": 33,
+          "distance": 5277,
+          "move_type": [
+            "local_train",
+            "walk"
+          ],
+          "reference_fare": {
+            "lowest_total_ticket": 200.0,
+            "lowest_total_ic": 199.0
+          }
+        }
+      },
+      "sections": [
+        {
+          "type": "point",
+          "coord": {
+            "lat": 35.69803,
+            "lon": 139.703839
+          },
+          "name": "start"
+        },
+        {
+          "type": "move",
+          "move": "walk",
+          "from_time": "2026-09-03T09:00:00+09:00",
+          "to_time": "2026-09-03T09:11:00+09:00",
+          "time": 11,
+          "distance": 797,
+          "line_name": "徒歩"
+        },
+        {
+          "type": "point",
+          "coord": {
+            "lat": 35.701419,
+            "lon": 139.700093
+          },
+          "name": "新大久保",
+          "node_id": "00004302",
+          "node_types": [
+            "station"
+          ],
+          "numbering": {
+            "departure": [
+              {
+                "symbol": "JY",
+                "number": "16"
+              }
+            ]
+          }
+        },
+        {
+          "type": "move",
+          "transport": {
+            "fare": {
+              "unit_0": 200.0,
+              "unit_128": 5890.0,
+              "unit_130": 16790.0,
+              "unit_133": 31810.0,
+              "unit_136": 3190.0,
+              "unit_138": 9060.0,
+              "unit_141": 17170.0,
+              "unit_144": 2870.0,
+              "unit_146": 8150.0,
+              "unit_149": 15450.0,
+              "unit_152": 2230.0,
+              "unit_154": 6340.0,
+              "unit_157": 12010.0,
+              "unit_160": 5000.0,
+              "unit_162": 14270.0,
+              "unit_165": 27030.0,
+              "unit_48": 199.0
+            },
+            "getoff": "前・中",
+            "color": "#80C241",
+            "name": "ＪＲ山手線",
+            "fare_season": "slack",
+            "company": {
+              "id": "00000004",
+              "name": "ＪＲ東日本"
+            },
+            "links": [
+              {
+                "id": "00000141",
+                "name": "ＪＲ山手線",
+                "direction": "up",
+                "destination": {
+                  "id": "00004254",
+                  "name": "新宿"
+                },
+                "from": {
+                  "id": "00004302",
+                  "name": "新大久保"
+                },
+                "to": {
+                  "id": "00002128",
+                  "name": "原宿"
+                },
+                "is_timetable": "false",
+                "way": "新宿,渋谷"
+              }
+            ],
+            "id": "00000330",
+            "type": "普通",
+            "fare_break": {
+              "unit_0": true,
+              "unit_128": true,
+              "unit_130": true,
+              "unit_133": true,
+              "unit_136": true,
+              "unit_138": true,
+              "unit_141": true,
+              "unit_144": true,
+              "unit_146": true,
+              "unit_149": true,
+              "unit_152": true,
+              "unit_154": true,
+              "unit_157": true,
+              "unit_160": true,
+              "unit_162": true,
+              "unit_165": true,
+              "unit_48": true
+            },
+            "fare_detail": [
+              {
+                "start": {
+                  "name": "新大久保",
+                  "node_id": "00004302"
+                },
+                "id": "0",
+                "goal": {
+                  "name": "原宿",
+                  "node_id": "00002128"
+                },
+                "fare": 200.0
+              },
+              {
+                "start": {
+                  "name": "新大久保",
+                  "node_id": "00004302"
+                },
+                "id": "48",
+                "goal": {
+                  "name": "原宿",
+                  "node_id": "00002128"
+                },
+                "fare": 199.0
+              },
+              {
+                "start": {
+                  "name": "新大久保",
+                  "node_id": "00004302"
+                },
+                "id": "128",
+                "goal": {
+                  "name": "原宿",
+                  "node_id": "00002128"
+                },
+                "fare": 5890.0
+              },
+              {
+                "start": {
+                  "name": "新大久保",
+                  "node_id": "00004302"
+                },
+                "id": "130",
+                "goal": {
+                  "name": "原宿",
+                  "node_id": "00002128"
+                },
+                "fare": 16790.0
+              },
+              {
+                "start": {
+                  "name": "新大久保",
+                  "node_id": "00004302"
+                },
+                "id": "133",
+                "goal": {
+                  "name": "原宿",
+                  "node_id": "00002128"
+                },
+                "fare": 31810.0
+              },
+              {
+                "start": {
+                  "name": "新大久保",
+                  "node_id": "00004302"
+                },
+                "id": "136",
+                "goal": {
+                  "name": "原宿",
+                  "node_id": "00002128"
+                },
+                "fare": 3190.0
+              },
+              {
+                "start": {
+                  "name": "新大久保",
+                  "node_id": "00004302"
+                },
+                "id": "138",
+                "goal": {
+                  "name": "原宿",
+                  "node_id": "00002128"
+                },
+                "fare": 9060.0
+              },
+              {
+                "start": {
+                  "name": "新大久保",
+                  "node_id": "00004302"
+                },
+                "id": "141",
+                "goal": {
+                  "name": "原宿",
+                  "node_id": "00002128"
+                },
+                "fare": 17170.0
+              },
+              {
+                "start": {
+                  "name": "新大久保",
+                  "node_id": "00004302"
+                },
+                "id": "144",
+                "goal": {
+                  "name": "原宿",
+                  "node_id": "00002128"
+                },
+                "fare": 2870.0
+              },
+              {
+                "start": {
+                  "name": "新大久保",
+                  "node_id": "00004302"
+                },
+                "id": "146",
+                "goal": {
+                  "name": "原宿",
+                  "node_id": "00002128"
+                },
+                "fare": 8150.0
+              },
+              {
+                "start": {
+                  "name": "新大久保",
+                  "node_id": "00004302"
+                },
+                "id": "149",
+                "goal": {
+                  "name": "原宿",
+                  "node_id": "00002128"
+                },
+                "fare": 15450.0
+              },
+              {
+                "start": {
+                  "name": "新大久保",
+                  "node_id": "00004302"
+                },
+                "id": "152",
+                "goal": {
+                  "name": "原宿",
+                  "node_id": "00002128"
+                },
+                "fare": 2230.0
+              },
+              {
+                "start": {
+                  "name": "新大久保",
+                  "node_id": "00004302"
+                },
+                "id": "154",
+                "goal": {
+                  "name": "原宿",
+                  "node_id": "00002128"
+                },
+                "fare": 6340.0
+              },
+              {
+                "start": {
+                  "name": "新大久保",
+                  "node_id": "00004302"
+                },
+                "id": "157",
+                "goal": {
+                  "name": "原宿",
+                  "node_id": "00002128"
+                },
+                "fare": 12010.0
+              },
+              {
+                "start": {
+                  "name": "新大久保",
+                  "node_id": "00004302"
+                },
+                "id": "160",
+                "goal": {
+                  "name": "原宿",
+                  "node_id": "00002128"
+                },
+                "fare": 5000.0
+              },
+              {
+                "start": {
+                  "name": "新大久保",
+                  "node_id": "00004302"
+                },
+                "id": "162",
+                "goal": {
+                  "name": "原宿",
+                  "node_id": "00002128"
+                },
+                "fare": 14270.0
+              },
+              {
+                "start": {
+                  "name": "新大久保",
+                  "node_id": "00004302"
+                },
+                "id": "165",
+                "goal": {
+                  "name": "原宿",
+                  "node_id": "00002128"
+                },
+                "fare": 27030.0
+              }
+            ]
+          },
+          "move": "local_train",
+          "from_time": "2026-09-03T09:13:00+09:00",
+          "to_time": "2026-09-03T09:20:00+09:00",
+          "time": 7,
+          "distance": 3500,
+          "line_name": "ＪＲ山手線"
+        },
+        {
+          "type": "point",
+          "coord": {
+            "lat": 35.669957,
+            "lon": 139.702262
+          },
+          "name": "原宿",
+          "node_id": "00002128",
+          "node_types": [
+            "station"
+          ],
+          "gateway": "西口",
+          "numbering": {
+            "arrival": [
+              {
+                "symbol": "JY",
+                "number": "19"
+              }
+            ]
+          }
+        },
+        {
+          "type": "move",
+          "move": "walk",
+          "from_time": "2026-09-03T09:20:00+09:00",
+          "to_time": "2026-09-03T09:33:00+09:00",
+          "time": 13,
+          "distance": 980,
+          "line_name": "徒歩"
+        },
+        {
+          "type": "point",
+          "coord": {
+            "lat": 35.676398,
+            "lon": 139.699326
+          },
+          "name": "goal"
+        }
+      ],
+      "shapes": {
+        "type": "FeatureCollection",
+        "features": [
+          {
+            "type": "Feature",
+            "bbox": [
+              139.703839,
+              35.698016,
+              139.703957,
+              35.69803
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.703839,
+                  35.69803
+                ],
+                [
+                  139.703957,
+                  35.698016
+                ]
+              ]
+            },
+            "properties": {
+              "inline": {
+                "line_style": "auxiliary",
+                "width": 5,
+                "color": "#D3D3D3",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#898989",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "route_no": "1",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.703957,
+              35.698016,
+              139.703982,
+              35.698168
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.703957,
+                  35.698016
+                ],
+                [
+                  139.703982,
+                  35.698168
+                ]
+              ]
+            },
+            "properties": {
+              "indoor": false,
+              "inline": {
+                "line_style": "solid",
+                "width": 5,
+                "color": "#02FA47",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#0A6400",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "restriction": false,
+              "route_no": "1",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.70032,
+              35.698168,
+              139.703982,
+              35.698397
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.703982,
+                  35.698168
+                ],
+                [
+                  139.703965,
+                  35.698397
+                ],
+                [
+                  139.703843,
+                  35.69839
+                ],
+                [
+                  139.70267,
+                  35.698292
+                ],
+                [
+                  139.702647,
+                  35.698286
+                ],
+                [
+                  139.702028,
+                  35.69823
+                ],
+                [
+                  139.701951,
+                  35.698225
+                ],
+                [
+                  139.701278,
+                  35.698202
+                ],
+                [
+                  139.700721,
+                  35.698201
+                ],
+                [
+                  139.700574,
+                  35.698201
+                ],
+                [
+                  139.700505,
+                  35.698201
+                ],
+                [
+                  139.700477,
+                  35.698222
+                ],
+                [
+                  139.70032,
+                  35.698222
+                ]
+              ]
+            },
+            "properties": {
+              "indoor": false,
+              "inline": {
+                "line_style": "solid",
+                "width": 5,
+                "color": "#02FA47",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#0A6400",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "restriction": false,
+              "route_no": "1",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.700092,
+              35.698222,
+              139.700701,
+              35.701418
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.70032,
+                  35.698222
+                ],
+                [
+                  139.700334,
+                  35.6983
+                ],
+                [
+                  139.700397,
+                  35.699163
+                ],
+                [
+                  139.700477,
+                  35.699638
+                ],
+                [
+                  139.700477,
+                  35.699648
+                ],
+                [
+                  139.700482,
+                  35.69969
+                ],
+                [
+                  139.700511,
+                  35.700014
+                ],
+                [
+                  139.700494,
+                  35.700292
+                ],
+                [
+                  139.700534,
+                  35.700551
+                ],
+                [
+                  139.700585,
+                  35.700806
+                ],
+                [
+                  139.700666,
+                  35.701152
+                ],
+                [
+                  139.700673,
+                  35.701179
+                ],
+                [
+                  139.700701,
+                  35.701381
+                ],
+                [
+                  139.700646,
+                  35.701384
+                ],
+                [
+                  139.700502,
+                  35.701382
+                ],
+                [
+                  139.700167,
+                  35.70141
+                ],
+                [
+                  139.700113,
+                  35.701417
+                ],
+                [
+                  139.700092,
+                  35.701418
+                ]
+              ]
+            },
+            "properties": {
+              "indoor": false,
+              "inline": {
+                "line_style": "solid",
+                "width": 5,
+                "color": "#02FA47",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#0A6400",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "restriction": false,
+              "route_no": "1",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.699398,
+              35.689594,
+              139.700247,
+              35.701119
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.700247,
+                  35.701119
+                ],
+                [
+                  139.699946,
+                  35.698197
+                ],
+                [
+                  139.699398,
+                  35.695614
+                ],
+                [
+                  139.699404,
+                  35.69536
+                ],
+                [
+                  139.699402,
+                  35.694863
+                ],
+                [
+                  139.699869,
+                  35.693214
+                ],
+                [
+                  139.700167,
+                  35.691855
+                ],
+                [
+                  139.700216,
+                  35.689594
+                ]
+              ]
+            },
+            "properties": {
+              "inline": {
+                "color": "#80C241",
+                "line_style": "solid",
+                "opacity": 1,
+                "width": 5,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "color": "#00174C",
+                "line_style": "solid",
+                "opacity": 1,
+                "width": 10,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "route_no": "1",
+              "section": "0001,0002,0003",
+              "transport_type": "railway",
+              "ways": "transport"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.700216,
+              35.684601,
+              139.701875,
+              35.689594
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.700216,
+                  35.689594
+                ],
+                [
+                  139.700458,
+                  35.688553
+                ],
+                [
+                  139.701144,
+                  35.686882
+                ],
+                [
+                  139.701209,
+                  35.686474
+                ],
+                [
+                  139.701508,
+                  35.685638
+                ],
+                [
+                  139.701875,
+                  35.684601
+                ]
+              ]
+            },
+            "properties": {
+              "inline": {
+                "color": "#80C241",
+                "line_style": "solid",
+                "opacity": 1,
+                "width": 5,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "color": "#00174C",
+                "line_style": "solid",
+                "opacity": 1,
+                "width": 10,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "route_no": "1",
+              "section": "0001,0002,0003",
+              "transport_type": "railway",
+              "ways": "transport"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.70188,
+              35.670662,
+              139.704011,
+              35.684601
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.70188,
+                  35.684601
+                ],
+                [
+                  139.702111,
+                  35.683596
+                ],
+                [
+                  139.702308,
+                  35.682996
+                ],
+                [
+                  139.702575,
+                  35.682419
+                ],
+                [
+                  139.703094,
+                  35.681047
+                ],
+                [
+                  139.703366,
+                  35.679984
+                ],
+                [
+                  139.703627,
+                  35.679097
+                ],
+                [
+                  139.70393,
+                  35.677373
+                ],
+                [
+                  139.70401,
+                  35.676211
+                ],
+                [
+                  139.704011,
+                  35.675471
+                ],
+                [
+                  139.70376,
+                  35.674539
+                ],
+                [
+                  139.703322,
+                  35.673256
+                ],
+                [
+                  139.7029,
+                  35.672043
+                ],
+                [
+                  139.702518,
+                  35.670662
+                ]
+              ]
+            },
+            "properties": {
+              "inline": {
+                "color": "#80C241",
+                "line_style": "solid",
+                "opacity": 1,
+                "width": 5,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "color": "#00174C",
+                "line_style": "solid",
+                "opacity": 1,
+                "width": 10,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "route_no": "1",
+              "section": "0001,0002,0003",
+              "transport_type": "railway",
+              "ways": "transport"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.69946,
+              35.669937,
+              139.702262,
+              35.675599
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.702262,
+                  35.669958
+                ],
+                [
+                  139.70221,
+                  35.669958
+                ],
+                [
+                  139.7022,
+                  35.669955
+                ],
+                [
+                  139.702191,
+                  35.669951
+                ],
+                [
+                  139.702137,
+                  35.669937
+                ],
+                [
+                  139.702023,
+                  35.66994
+                ],
+                [
+                  139.701881,
+                  35.67017
+                ],
+                [
+                  139.701671,
+                  35.671083
+                ],
+                [
+                  139.701631,
+                  35.671388
+                ],
+                [
+                  139.701827,
+                  35.67276
+                ],
+                [
+                  139.701878,
+                  35.673392
+                ],
+                [
+                  139.701856,
+                  35.6736
+                ],
+                [
+                  139.701671,
+                  35.674096
+                ],
+                [
+                  139.699897,
+                  35.674047
+                ],
+                [
+                  139.699594,
+                  35.67404
+                ],
+                [
+                  139.699529,
+                  35.674941
+                ],
+                [
+                  139.69946,
+                  35.675599
+                ]
+              ]
+            },
+            "properties": {
+              "indoor": false,
+              "inline": {
+                "line_style": "solid",
+                "width": 5,
+                "color": "#02FA47",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#0A6400",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "restriction": false,
+              "route_no": "1",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.699326,
+              35.675599,
+              139.69946,
+              35.676398
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.69946,
+                  35.675599
+                ],
+                [
+                  139.699326,
+                  35.676398
+                ]
+              ]
+            },
+            "properties": {
+              "inline": {
+                "line_style": "auxiliary",
+                "width": 5,
+                "color": "#D3D3D3",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#898989",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "route_no": "1",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          }
+        ],
+        "bbox": [
+          139.699326,
+          35.669937,
+          139.704011,
+          35.701418
+        ]
+      }
+    },
+    {
+      "summary": {
+        "no": "2",
+        "start": {
+          "type": "point",
+          "coord": {
+            "lat": 35.69803,
+            "lon": 139.703839
+          },
+          "name": "start"
+        },
+        "goal": {
+          "type": "point",
+          "coord": {
+            "lat": 35.676398,
+            "lon": 139.699326
+          },
+          "name": "goal"
+        },
+        "move": {
+          "transit_count": 0,
+          "walk_distance": 2098,
+          "fare": {
+            "unit_0": 160.0,
+            "unit_48": 155.0,
+            "unit_128_train": 4910.0,
+            "unit_130_train": 13960.0,
+            "unit_133_train": 26620.0
+          },
+          "type": "move",
+          "from_time": "2026-09-03T09:00:00+09:00",
+          "to_time": "2026-09-03T09:33:00+09:00",
+          "time": 33,
+          "distance": 4198,
+          "move_type": [
+            "local_train",
+            "walk"
+          ],
+          "reference_fare": {
+            "lowest_total_ticket": 160.0,
+            "lowest_total_ic": 155.0
+          }
+        }
+      },
+      "sections": [
+        {
+          "type": "point",
+          "coord": {
+            "lat": 35.69803,
+            "lon": 139.703839
+          },
+          "name": "start"
+        },
+        {
+          "type": "move",
+          "move": "walk",
+          "from_time": "2026-09-03T09:00:00+09:00",
+          "to_time": "2026-09-03T09:10:00+09:00",
+          "time": 10,
+          "distance": 842,
+          "line_name": "徒歩"
+        },
+        {
+          "type": "point",
+          "coord": {
+            "lat": 35.69968,
+            "lon": 139.69798
+          },
+          "name": "大久保（東京都）",
+          "node_id": "00005561",
+          "node_types": [
+            "station"
+          ],
+          "gateway": "南口",
+          "numbering": {
+            "departure": [
+              {
+                "symbol": "JB",
+                "number": "09"
+              }
+            ]
+          }
+        },
+        {
+          "type": "move",
+          "transport": {
+            "fare": {
+              "unit_0": 160.0,
+              "unit_128": 4910.0,
+              "unit_130": 13960.0,
+              "unit_133": 26620.0,
+              "unit_136": 2760.0,
+              "unit_138": 7830.0,
+              "unit_141": 14860.0,
+              "unit_144": 2480.0,
+              "unit_146": 7040.0,
+              "unit_149": 13370.0,
+              "unit_152": 1930.0,
+              "unit_154": 5480.0,
+              "unit_157": 10400.0,
+              "unit_160": 4170.0,
+              "unit_162": 11860.0,
+              "unit_165": 22620.0,
+              "unit_48": 155.0
+            },
+            "getoff": "前",
+            "color": "#FAAF18",
+            "name": "ＪＲ中央総武線各停",
+            "fare_season": "slack",
+            "company": {
+              "id": "00000004",
+              "name": "ＪＲ東日本"
+            },
+            "links": [
+              {
+                "id": "00000176",
+                "name": "ＪＲ中央本線（東京-塩尻）",
+                "direction": "up",
+                "destination": {
+                  "id": "00004254",
+                  "name": "新宿"
+                },
+                "from": {
+                  "id": "00005561",
+                  "name": "大久保（東京都）"
+                },
+                "to": {
+                  "id": "00005506",
+                  "name": "代々木"
+                },
+                "is_timetable": "false",
+                "way": "新宿,東京"
+              }
+            ],
+            "id": "00000327",
+            "type": "普通",
+            "fare_break": {
+              "unit_0": true,
+              "unit_128": true,
+              "unit_130": true,
+              "unit_133": true,
+              "unit_136": true,
+              "unit_138": true,
+              "unit_141": true,
+              "unit_144": true,
+              "unit_146": true,
+              "unit_149": true,
+              "unit_152": true,
+              "unit_154": true,
+              "unit_157": true,
+              "unit_160": true,
+              "unit_162": true,
+              "unit_165": true,
+              "unit_48": true
+            },
+            "fare_detail": [
+              {
+                "start": {
+                  "name": "大久保（東京都）",
+                  "node_id": "00005561"
+                },
+                "id": "0",
+                "goal": {
+                  "name": "代々木",
+                  "node_id": "00005506"
+                },
+                "fare": 160.0
+              },
+              {
+                "start": {
+                  "name": "大久保（東京都）",
+                  "node_id": "00005561"
+                },
+                "id": "48",
+                "goal": {
+                  "name": "代々木",
+                  "node_id": "00005506"
+                },
+                "fare": 155.0
+              },
+              {
+                "start": {
+                  "name": "大久保（東京都）",
+                  "node_id": "00005561"
+                },
+                "id": "128",
+                "goal": {
+                  "name": "代々木",
+                  "node_id": "00005506"
+                },
+                "fare": 4910.0
+              },
+              {
+                "start": {
+                  "name": "大久保（東京都）",
+                  "node_id": "00005561"
+                },
+                "id": "130",
+                "goal": {
+                  "name": "代々木",
+                  "node_id": "00005506"
+                },
+                "fare": 13960.0
+              },
+              {
+                "start": {
+                  "name": "大久保（東京都）",
+                  "node_id": "00005561"
+                },
+                "id": "133",
+                "goal": {
+                  "name": "代々木",
+                  "node_id": "00005506"
+                },
+                "fare": 26620.0
+              },
+              {
+                "start": {
+                  "name": "大久保（東京都）",
+                  "node_id": "00005561"
+                },
+                "id": "136",
+                "goal": {
+                  "name": "代々木",
+                  "node_id": "00005506"
+                },
+                "fare": 2760.0
+              },
+              {
+                "start": {
+                  "name": "大久保（東京都）",
+                  "node_id": "00005561"
+                },
+                "id": "138",
+                "goal": {
+                  "name": "代々木",
+                  "node_id": "00005506"
+                },
+                "fare": 7830.0
+              },
+              {
+                "start": {
+                  "name": "大久保（東京都）",
+                  "node_id": "00005561"
+                },
+                "id": "141",
+                "goal": {
+                  "name": "代々木",
+                  "node_id": "00005506"
+                },
+                "fare": 14860.0
+              },
+              {
+                "start": {
+                  "name": "大久保（東京都）",
+                  "node_id": "00005561"
+                },
+                "id": "144",
+                "goal": {
+                  "name": "代々木",
+                  "node_id": "00005506"
+                },
+                "fare": 2480.0
+              },
+              {
+                "start": {
+                  "name": "大久保（東京都）",
+                  "node_id": "00005561"
+                },
+                "id": "146",
+                "goal": {
+                  "name": "代々木",
+                  "node_id": "00005506"
+                },
+                "fare": 7040.0
+              },
+              {
+                "start": {
+                  "name": "大久保（東京都）",
+                  "node_id": "00005561"
+                },
+                "id": "149",
+                "goal": {
+                  "name": "代々木",
+                  "node_id": "00005506"
+                },
+                "fare": 13370.0
+              },
+              {
+                "start": {
+                  "name": "大久保（東京都）",
+                  "node_id": "00005561"
+                },
+                "id": "152",
+                "goal": {
+                  "name": "代々木",
+                  "node_id": "00005506"
+                },
+                "fare": 1930.0
+              },
+              {
+                "start": {
+                  "name": "大久保（東京都）",
+                  "node_id": "00005561"
+                },
+                "id": "154",
+                "goal": {
+                  "name": "代々木",
+                  "node_id": "00005506"
+                },
+                "fare": 5480.0
+              },
+              {
+                "start": {
+                  "name": "大久保（東京都）",
+                  "node_id": "00005561"
+                },
+                "id": "157",
+                "goal": {
+                  "name": "代々木",
+                  "node_id": "00005506"
+                },
+                "fare": 10400.0
+              },
+              {
+                "start": {
+                  "name": "大久保（東京都）",
+                  "node_id": "00005561"
+                },
+                "id": "160",
+                "goal": {
+                  "name": "代々木",
+                  "node_id": "00005506"
+                },
+                "fare": 4170.0
+              },
+              {
+                "start": {
+                  "name": "大久保（東京都）",
+                  "node_id": "00005561"
+                },
+                "id": "162",
+                "goal": {
+                  "name": "代々木",
+                  "node_id": "00005506"
+                },
+                "fare": 11860.0
+              },
+              {
+                "start": {
+                  "name": "大久保（東京都）",
+                  "node_id": "00005561"
+                },
+                "id": "165",
+                "goal": {
+                  "name": "代々木",
+                  "node_id": "00005506"
+                },
+                "fare": 22620.0
+              }
+            ]
+          },
+          "move": "local_train",
+          "from_time": "2026-09-03T09:12:00+09:00",
+          "to_time": "2026-09-03T09:16:00+09:00",
+          "time": 4,
+          "distance": 2100,
+          "line_name": "ＪＲ中央総武線各停"
+        },
+        {
+          "type": "point",
+          "coord": {
+            "lat": 35.682943,
+            "lon": 139.70209
+          },
+          "name": "代々木",
+          "node_id": "00005506",
+          "node_types": [
+            "station"
+          ],
+          "gateway": "西口",
+          "numbering": {
+            "arrival": [
+              {
+                "symbol": "JB",
+                "number": "11"
+              }
+            ]
+          }
+        },
+        {
+          "type": "move",
+          "move": "walk",
+          "from_time": "2026-09-03T09:16:00+09:00",
+          "to_time": "2026-09-03T09:33:00+09:00",
+          "time": 17,
+          "distance": 1256,
+          "line_name": "徒歩"
+        },
+        {
+          "type": "point",
+          "coord": {
+            "lat": 35.676398,
+            "lon": 139.699326
+          },
+          "name": "goal"
+        }
+      ],
+      "shapes": {
+        "type": "FeatureCollection",
+        "features": [
+          {
+            "type": "Feature",
+            "bbox": [
+              139.703839,
+              35.698016,
+              139.703957,
+              35.69803
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.703839,
+                  35.69803
+                ],
+                [
+                  139.703957,
+                  35.698016
+                ]
+              ]
+            },
+            "properties": {
+              "inline": {
+                "line_style": "auxiliary",
+                "width": 5,
+                "color": "#D3D3D3",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#898989",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "route_no": "2",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.703957,
+              35.698016,
+              139.703982,
+              35.698168
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.703957,
+                  35.698016
+                ],
+                [
+                  139.703982,
+                  35.698168
+                ]
+              ]
+            },
+            "properties": {
+              "indoor": false,
+              "inline": {
+                "line_style": "solid",
+                "width": 5,
+                "color": "#02FA47",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#0A6400",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "restriction": false,
+              "route_no": "2",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.69865,
+              35.698168,
+              139.703982,
+              35.698397
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.703982,
+                  35.698168
+                ],
+                [
+                  139.703965,
+                  35.698397
+                ],
+                [
+                  139.703843,
+                  35.69839
+                ],
+                [
+                  139.70267,
+                  35.698292
+                ],
+                [
+                  139.702647,
+                  35.698286
+                ],
+                [
+                  139.702028,
+                  35.69823
+                ],
+                [
+                  139.701951,
+                  35.698225
+                ],
+                [
+                  139.701278,
+                  35.698202
+                ],
+                [
+                  139.700721,
+                  35.698201
+                ],
+                [
+                  139.700574,
+                  35.698201
+                ],
+                [
+                  139.700505,
+                  35.698201
+                ],
+                [
+                  139.700477,
+                  35.698222
+                ],
+                [
+                  139.70032,
+                  35.698222
+                ],
+                [
+                  139.700281,
+                  35.698202
+                ],
+                [
+                  139.699896,
+                  35.698205
+                ],
+                [
+                  139.69988,
+                  35.698205
+                ],
+                [
+                  139.699693,
+                  35.698202
+                ],
+                [
+                  139.699673,
+                  35.698202
+                ],
+                [
+                  139.699551,
+                  35.698201
+                ],
+                [
+                  139.69932,
+                  35.698194
+                ],
+                [
+                  139.699031,
+                  35.698187
+                ],
+                [
+                  139.698977,
+                  35.698184
+                ],
+                [
+                  139.698727,
+                  35.69818
+                ],
+                [
+                  139.698679,
+                  35.698177
+                ],
+                [
+                  139.69865,
+                  35.698177
+                ]
+              ]
+            },
+            "properties": {
+              "indoor": false,
+              "inline": {
+                "line_style": "solid",
+                "width": 5,
+                "color": "#02FA47",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#0A6400",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "restriction": false,
+              "route_no": "2",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.697852,
+              35.698177,
+              139.69865,
+              35.699626
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.69865,
+                  35.698177
+                ],
+                [
+                  139.698548,
+                  35.698375
+                ],
+                [
+                  139.698258,
+                  35.698924
+                ],
+                [
+                  139.698238,
+                  35.698923
+                ],
+                [
+                  139.698224,
+                  35.698923
+                ],
+                [
+                  139.698176,
+                  35.699083
+                ],
+                [
+                  139.698093,
+                  35.699249
+                ],
+                [
+                  139.698059,
+                  35.699294
+                ],
+                [
+                  139.697852,
+                  35.699626
+                ]
+              ]
+            },
+            "properties": {
+              "indoor": false,
+              "inline": {
+                "line_style": "solid",
+                "width": 5,
+                "color": "#02FA47",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#0A6400",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "restriction": false,
+              "route_no": "2",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.697704,
+              35.690566,
+              139.700391,
+              35.700482
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.697704,
+                  35.700482
+                ],
+                [
+                  139.698282,
+                  35.699498
+                ],
+                [
+                  139.698781,
+                  35.69857
+                ],
+                [
+                  139.699027,
+                  35.697895
+                ],
+                [
+                  139.69968,
+                  35.695156
+                ],
+                [
+                  139.699935,
+                  35.693352
+                ],
+                [
+                  139.700077,
+                  35.692792
+                ],
+                [
+                  139.7003,
+                  35.691375
+                ],
+                [
+                  139.700346,
+                  35.690755
+                ],
+                [
+                  139.700391,
+                  35.690566
+                ]
+              ]
+            },
+            "properties": {
+              "inline": {
+                "color": "#FAAF18",
+                "line_style": "solid",
+                "opacity": 1,
+                "width": 5,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "color": "#00174C",
+                "line_style": "solid",
+                "opacity": 1,
+                "width": 10,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "route_no": "2",
+              "section": "0001,0002,0003",
+              "transport_type": "railway",
+              "ways": "transport"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.700391,
+              35.684617,
+              139.702151,
+              35.690544
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.700391,
+                  35.690544
+                ],
+                [
+                  139.700412,
+                  35.690132
+                ],
+                [
+                  139.700468,
+                  35.689506
+                ],
+                [
+                  139.700575,
+                  35.688858
+                ],
+                [
+                  139.700866,
+                  35.687769
+                ],
+                [
+                  139.701294,
+                  35.686703
+                ],
+                [
+                  139.701648,
+                  35.685858
+                ],
+                [
+                  139.701867,
+                  35.685447
+                ],
+                [
+                  139.702014,
+                  35.685021
+                ],
+                [
+                  139.702151,
+                  35.684617
+                ]
+              ]
+            },
+            "properties": {
+              "inline": {
+                "color": "#FAAF18",
+                "line_style": "solid",
+                "opacity": 1,
+                "width": 5,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "color": "#00174C",
+                "line_style": "solid",
+                "opacity": 1,
+                "width": 10,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "route_no": "2",
+              "section": "0001,0002,0003",
+              "transport_type": "railway",
+              "ways": "transport"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.702084,
+              35.682931,
+              139.702136,
+              35.682963
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.702084,
+                  35.682958
+                ],
+                [
+                  139.702105,
+                  35.682963
+                ],
+                [
+                  139.702136,
+                  35.682931
+                ]
+              ]
+            },
+            "properties": {
+              "indoor": false,
+              "inline": {
+                "line_style": "solid",
+                "width": 5,
+                "color": "#02FA47",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#0A6400",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "restriction": false,
+              "route_no": "2",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.702136,
+              35.682918,
+              139.702153,
+              35.682931
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.702136,
+                  35.682931
+                ],
+                [
+                  139.702153,
+                  35.682918
+                ]
+              ]
+            },
+            "properties": {
+              "indoor": false,
+              "inline": {
+                "line_style": "solid",
+                "width": 5,
+                "color": "#02FA47",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#0A6400",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "restriction": false,
+              "route_no": "2",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.701883,
+              35.680197,
+              139.702963,
+              35.682918
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.702153,
+                  35.682918
+                ],
+                [
+                  139.702164,
+                  35.682855
+                ],
+                [
+                  139.702116,
+                  35.682813
+                ],
+                [
+                  139.702076,
+                  35.682751
+                ],
+                [
+                  139.702042,
+                  35.682726
+                ],
+                [
+                  139.701974,
+                  35.682655
+                ],
+                [
+                  139.701912,
+                  35.682595
+                ],
+                [
+                  139.701883,
+                  35.68256
+                ],
+                [
+                  139.702133,
+                  35.681816
+                ],
+                [
+                  139.702272,
+                  35.681408
+                ],
+                [
+                  139.702312,
+                  35.681294
+                ],
+                [
+                  139.702318,
+                  35.681273
+                ],
+                [
+                  139.702463,
+                  35.680852
+                ],
+                [
+                  139.702497,
+                  35.680783
+                ],
+                [
+                  139.702545,
+                  35.680748
+                ],
+                [
+                  139.702443,
+                  35.680672
+                ],
+                [
+                  139.702497,
+                  35.68063
+                ],
+                [
+                  139.702829,
+                  35.680405
+                ],
+                [
+                  139.702897,
+                  35.680329
+                ],
+                [
+                  139.702904,
+                  35.680321
+                ],
+                [
+                  139.702937,
+                  35.680288
+                ],
+                [
+                  139.702963,
+                  35.680214
+                ],
+                [
+                  139.702926,
+                  35.680197
+                ]
+              ]
+            },
+            "properties": {
+              "indoor": false,
+              "inline": {
+                "line_style": "solid",
+                "width": 5,
+                "color": "#02FA47",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#0A6400",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "restriction": false,
+              "route_no": "2",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.70211,
+              35.67935,
+              139.702926,
+              35.680197
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.702926,
+                  35.680197
+                ],
+                [
+                  139.702713,
+                  35.680089
+                ],
+                [
+                  139.702605,
+                  35.679995
+                ],
+                [
+                  139.702318,
+                  35.679739
+                ],
+                [
+                  139.702136,
+                  35.679446
+                ],
+                [
+                  139.70211,
+                  35.679387
+                ],
+                [
+                  139.702224,
+                  35.67935
+                ]
+              ]
+            },
+            "properties": {
+              "indoor": false,
+              "inline": {
+                "line_style": "solid",
+                "width": 5,
+                "color": "#02FA47",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#0A6400",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "restriction": false,
+              "route_no": "2",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.702133,
+              35.679127,
+              139.702224,
+              35.67935
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.702224,
+                  35.67935
+                ],
+                [
+                  139.702133,
+                  35.679127
+                ]
+              ]
+            },
+            "properties": {
+              "indoor": false,
+              "inline": {
+                "line_style": "solid",
+                "width": 5,
+                "color": "#02FA47",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#0A6400",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "restriction": false,
+              "route_no": "2",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.69946,
+              35.675172,
+              139.70214,
+              35.679127
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.702133,
+                  35.679127
+                ],
+                [
+                  139.70214,
+                  35.678114
+                ],
+                [
+                  139.702001,
+                  35.676339
+                ],
+                [
+                  139.70185,
+                  35.675446
+                ],
+                [
+                  139.701819,
+                  35.675172
+                ],
+                [
+                  139.701623,
+                  35.67521
+                ],
+                [
+                  139.701501,
+                  35.675255
+                ],
+                [
+                  139.701321,
+                  35.675385
+                ],
+                [
+                  139.701143,
+                  35.675516
+                ],
+                [
+                  139.700901,
+                  35.675635
+                ],
+                [
+                  139.700751,
+                  35.675691
+                ],
+                [
+                  139.699897,
+                  35.675629
+                ],
+                [
+                  139.69946,
+                  35.675599
+                ]
+              ]
+            },
+            "properties": {
+              "indoor": false,
+              "inline": {
+                "line_style": "solid",
+                "width": 5,
+                "color": "#02FA47",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#0A6400",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "restriction": false,
+              "route_no": "2",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.699326,
+              35.675599,
+              139.69946,
+              35.676398
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.69946,
+                  35.675599
+                ],
+                [
+                  139.699326,
+                  35.676398
+                ]
+              ]
+            },
+            "properties": {
+              "inline": {
+                "line_style": "auxiliary",
+                "width": 5,
+                "color": "#D3D3D3",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#898989",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "route_no": "2",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          }
+        ],
+        "bbox": [
+          139.697704,
+          35.675172,
+          139.703982,
+          35.700482
+        ]
+      }
+    },
+    {
+      "summary": {
+        "no": "3",
+        "start": {
+          "type": "point",
+          "coord": {
+            "lat": 35.69803,
+            "lon": 139.703839
+          },
+          "name": "start"
+        },
+        "goal": {
+          "type": "point",
+          "coord": {
+            "lat": 35.676398,
+            "lon": 139.699326
+          },
+          "name": "goal"
+        },
+        "move": {
+          "transit_count": 0,
+          "walk_distance": 1694,
+          "fare": {
+            "unit_0": 180.0,
+            "unit_48": 178.0,
+            "unit_128_train": 6980.0,
+            "unit_130_train": 19900.0,
+            "unit_133_train": 37700.0
+          },
+          "type": "move",
+          "from_time": "2026-09-03T09:00:00+09:00",
+          "to_time": "2026-09-03T09:35:00+09:00",
+          "time": 35,
+          "distance": 4194,
+          "move_type": [
+            "local_train",
+            "walk"
+          ],
+          "reference_fare": {
+            "lowest_total_ticket": 180.0,
+            "lowest_total_ic": 178.0
+          }
+        }
+      },
+      "sections": [
+        {
+          "type": "point",
+          "coord": {
+            "lat": 35.69803,
+            "lon": 139.703839
+          },
+          "name": "start"
+        },
+        {
+          "type": "move",
+          "move": "walk",
+          "from_time": "2026-09-03T09:00:00+09:00",
+          "to_time": "2026-09-03T09:10:00+09:00",
+          "time": 10,
+          "distance": 526,
+          "line_name": "徒歩"
+        },
+        {
+          "type": "point",
+          "coord": {
+            "lat": 35.697862,
+            "lon": 139.70682
+          },
+          "name": "東新宿",
+          "node_id": "00009222",
+          "node_types": [
+            "station"
+          ],
+          "gateway": "A1口",
+          "numbering": {
+            "departure": [
+              {
+                "symbol": "F",
+                "number": "12"
+              }
+            ]
+          }
+        },
+        {
+          "type": "move",
+          "transport": {
+            "fare": {
+              "unit_0": 180.0,
+              "unit_128": 6980.0,
+              "unit_130": 19900.0,
+              "unit_133": 37700.0,
+              "unit_136": 3300.0,
+              "unit_138": 9410.0,
+              "unit_141": 17820.0,
+              "unit_48": 178.0
+            },
+            "getoff": "後",
+            "color": "#9C5E31",
+            "name": "東京メトロ副都心線",
+            "fare_season": "normal",
+            "company": {
+              "id": "00000113",
+              "name": "東京地下鉄（メトロ）"
+            },
+            "links": [
+              {
+                "id": "00000776",
+                "name": "東京メトロ副都心線",
+                "direction": "down",
+                "destination": {
+                  "id": "00003544",
+                  "name": "渋谷"
+                },
+                "from": {
+                  "id": "00009222",
+                  "name": "東新宿"
+                },
+                "to": {
+                  "id": "00009540",
+                  "name": "北参道"
+                },
+                "is_timetable": "false",
+                "way": "渋谷"
+              }
+            ],
+            "id": "00000569",
+            "type": "普通",
+            "fare_break": {
+              "unit_0": true,
+              "unit_128": true,
+              "unit_130": true,
+              "unit_133": true,
+              "unit_136": true,
+              "unit_138": true,
+              "unit_141": true,
+              "unit_48": true
+            },
+            "fare_detail": [
+              {
+                "start": {
+                  "name": "東新宿",
+                  "node_id": "00009222"
+                },
+                "id": "0",
+                "goal": {
+                  "name": "北参道",
+                  "node_id": "00009540"
+                },
+                "fare": 180.0
+              },
+              {
+                "start": {
+                  "name": "東新宿",
+                  "node_id": "00009222"
+                },
+                "id": "48",
+                "goal": {
+                  "name": "北参道",
+                  "node_id": "00009540"
+                },
+                "fare": 178.0
+              },
+              {
+                "start": {
+                  "name": "東新宿",
+                  "node_id": "00009222"
+                },
+                "id": "128",
+                "goal": {
+                  "name": "北参道",
+                  "node_id": "00009540"
+                },
+                "fare": 6980.0
+              },
+              {
+                "start": {
+                  "name": "東新宿",
+                  "node_id": "00009222"
+                },
+                "id": "130",
+                "goal": {
+                  "name": "北参道",
+                  "node_id": "00009540"
+                },
+                "fare": 19900.0
+              },
+              {
+                "start": {
+                  "name": "東新宿",
+                  "node_id": "00009222"
+                },
+                "id": "133",
+                "goal": {
+                  "name": "北参道",
+                  "node_id": "00009540"
+                },
+                "fare": 37700.0
+              },
+              {
+                "start": {
+                  "name": "東新宿",
+                  "node_id": "00009222"
+                },
+                "id": "136",
+                "goal": {
+                  "name": "北参道",
+                  "node_id": "00009540"
+                },
+                "fare": 3300.0
+              },
+              {
+                "start": {
+                  "name": "東新宿",
+                  "node_id": "00009222"
+                },
+                "id": "138",
+                "goal": {
+                  "name": "北参道",
+                  "node_id": "00009540"
+                },
+                "fare": 9410.0
+              },
+              {
+                "start": {
+                  "name": "東新宿",
+                  "node_id": "00009222"
+                },
+                "id": "141",
+                "goal": {
+                  "name": "北参道",
+                  "node_id": "00009540"
+                },
+                "fare": 17820.0
+              }
+            ]
+          },
+          "move": "local_train",
+          "from_time": "2026-09-03T09:14:00+09:00",
+          "to_time": "2026-09-03T09:18:00+09:00",
+          "time": 4,
+          "distance": 2500,
+          "line_name": "東京メトロ副都心線"
+        },
+        {
+          "type": "point",
+          "coord": {
+            "lat": 35.678961,
+            "lon": 139.70493
+          },
+          "name": "北参道",
+          "node_id": "00009540",
+          "node_types": [
+            "station"
+          ],
+          "gateway": "3番口",
+          "numbering": {
+            "arrival": [
+              {
+                "symbol": "F",
+                "number": "14"
+              }
+            ]
+          }
+        },
+        {
+          "type": "move",
+          "move": "walk",
+          "from_time": "2026-09-03T09:18:00+09:00",
+          "to_time": "2026-09-03T09:35:00+09:00",
+          "time": 17,
+          "distance": 1168,
+          "line_name": "徒歩"
+        },
+        {
+          "type": "point",
+          "coord": {
+            "lat": 35.676398,
+            "lon": 139.699326
+          },
+          "name": "goal"
+        }
+      ],
+      "shapes": {
+        "type": "FeatureCollection",
+        "features": [
+          {
+            "type": "Feature",
+            "bbox": [
+              139.703839,
+              35.698016,
+              139.703957,
+              35.69803
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.703839,
+                  35.69803
+                ],
+                [
+                  139.703957,
+                  35.698016
+                ]
+              ]
+            },
+            "properties": {
+              "inline": {
+                "line_style": "auxiliary",
+                "width": 5,
+                "color": "#D3D3D3",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#898989",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "route_no": "3",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.703957,
+              35.698016,
+              139.703982,
+              35.698168
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.703957,
+                  35.698016
+                ],
+                [
+                  139.703982,
+                  35.698168
+                ]
+              ]
+            },
+            "properties": {
+              "indoor": false,
+              "inline": {
+                "line_style": "solid",
+                "width": 5,
+                "color": "#02FA47",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#0A6400",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "restriction": false,
+              "route_no": "3",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.703982,
+              35.697862,
+              139.706828,
+              35.698191
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.703982,
+                  35.698168
+                ],
+                [
+                  139.704056,
+                  35.69817
+                ],
+                [
+                  139.704306,
+                  35.698182
+                ],
+                [
+                  139.704517,
+                  35.698191
+                ],
+                [
+                  139.704856,
+                  35.698156
+                ],
+                [
+                  139.704959,
+                  35.69807
+                ],
+                [
+                  139.705061,
+                  35.698052
+                ],
+                [
+                  139.705178,
+                  35.698119
+                ],
+                [
+                  139.705453,
+                  35.698077
+                ],
+                [
+                  139.70553,
+                  35.698066
+                ],
+                [
+                  139.705589,
+                  35.698062
+                ],
+                [
+                  139.706129,
+                  35.697996
+                ],
+                [
+                  139.706178,
+                  35.697987
+                ],
+                [
+                  139.706422,
+                  35.697959
+                ],
+                [
+                  139.706828,
+                  35.697911
+                ],
+                [
+                  139.706828,
+                  35.697903
+                ],
+                [
+                  139.706819,
+                  35.697862
+                ]
+              ]
+            },
+            "properties": {
+              "indoor": false,
+              "inline": {
+                "line_style": "solid",
+                "width": 5,
+                "color": "#02FA47",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#0A6400",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "restriction": false,
+              "route_no": "3",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.704875,
+              35.690856,
+              139.707859,
+              35.699843
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.707859,
+                  35.699843
+                ],
+                [
+                  139.707858,
+                  35.699841
+                ],
+                [
+                  139.707767,
+                  35.699304
+                ],
+                [
+                  139.707614,
+                  35.69851
+                ],
+                [
+                  139.707506,
+                  35.697943
+                ],
+                [
+                  139.707232,
+                  35.696571
+                ],
+                [
+                  139.707026,
+                  35.695604
+                ],
+                [
+                  139.706887,
+                  35.694899
+                ],
+                [
+                  139.706766,
+                  35.694259
+                ],
+                [
+                  139.706644,
+                  35.693928
+                ],
+                [
+                  139.706557,
+                  35.693719
+                ],
+                [
+                  139.705817,
+                  35.692434
+                ],
+                [
+                  139.705266,
+                  35.691504
+                ],
+                [
+                  139.705149,
+                  35.691333
+                ],
+                [
+                  139.704978,
+                  35.691036
+                ],
+                [
+                  139.704876,
+                  35.690857
+                ],
+                [
+                  139.704875,
+                  35.690856
+                ]
+              ]
+            },
+            "properties": {
+              "inline": {
+                "color": "#9C5E31",
+                "line_style": "solid",
+                "opacity": 1,
+                "width": 5,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "color": "#00174C",
+                "line_style": "solid",
+                "opacity": 1,
+                "width": 10,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "route_no": "3",
+              "section": "0001,0002,0003",
+              "transport_type": "railway",
+              "ways": "transport"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.702919,
+              35.678284,
+              139.705599,
+              35.690856
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.704875,
+                  35.690856
+                ],
+                [
+                  139.704875,
+                  35.690855
+                ],
+                [
+                  139.704471,
+                  35.690282
+                ],
+                [
+                  139.704095,
+                  35.6897
+                ],
+                [
+                  139.703743,
+                  35.689191
+                ],
+                [
+                  139.703432,
+                  35.68874
+                ],
+                [
+                  139.703114,
+                  35.688271
+                ],
+                [
+                  139.703022,
+                  35.688119
+                ],
+                [
+                  139.70298,
+                  35.688
+                ],
+                [
+                  139.702919,
+                  35.687746
+                ],
+                [
+                  139.702935,
+                  35.687486
+                ],
+                [
+                  139.703,
+                  35.68726
+                ],
+                [
+                  139.703253,
+                  35.686367
+                ],
+                [
+                  139.703523,
+                  35.685424
+                ],
+                [
+                  139.703606,
+                  35.685114
+                ],
+                [
+                  139.703692,
+                  35.684847
+                ],
+                [
+                  139.703956,
+                  35.684456
+                ],
+                [
+                  139.70405,
+                  35.684318
+                ],
+                [
+                  139.704148,
+                  35.684138
+                ],
+                [
+                  139.704277,
+                  35.683913
+                ],
+                [
+                  139.704361,
+                  35.683691
+                ],
+                [
+                  139.704444,
+                  35.683489
+                ],
+                [
+                  139.70453,
+                  35.683232
+                ],
+                [
+                  139.704552,
+                  35.683052
+                ],
+                [
+                  139.704571,
+                  35.682661
+                ],
+                [
+                  139.70457,
+                  35.681738
+                ],
+                [
+                  139.70456,
+                  35.680941
+                ],
+                [
+                  139.704503,
+                  35.680588
+                ],
+                [
+                  139.704493,
+                  35.680254
+                ],
+                [
+                  139.704536,
+                  35.679967
+                ],
+                [
+                  139.704597,
+                  35.679757
+                ],
+                [
+                  139.704647,
+                  35.679629
+                ],
+                [
+                  139.704739,
+                  35.679427
+                ],
+                [
+                  139.705598,
+                  35.678285
+                ],
+                [
+                  139.705599,
+                  35.678284
+                ]
+              ]
+            },
+            "properties": {
+              "inline": {
+                "color": "#9C5E31",
+                "line_style": "solid",
+                "opacity": 1,
+                "width": 5,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "color": "#00174C",
+                "line_style": "solid",
+                "opacity": 1,
+                "width": 10,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "route_no": "3",
+              "section": "0001,0002,0003",
+              "transport_type": "railway",
+              "ways": "transport"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.704437,
+              35.678966,
+              139.70494,
+              35.679915
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.70494,
+                  35.678966
+                ],
+                [
+                  139.704917,
+                  35.678996
+                ],
+                [
+                  139.704892,
+                  35.679044
+                ],
+                [
+                  139.704681,
+                  35.679328
+                ],
+                [
+                  139.704659,
+                  35.679371
+                ],
+                [
+                  139.70457,
+                  35.679498
+                ],
+                [
+                  139.704502,
+                  35.679634
+                ],
+                [
+                  139.704488,
+                  35.679672
+                ],
+                [
+                  139.704437,
+                  35.679915
+                ]
+              ]
+            },
+            "properties": {
+              "indoor": false,
+              "inline": {
+                "line_style": "solid",
+                "width": 5,
+                "color": "#02FA47",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#0A6400",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "restriction": false,
+              "route_no": "3",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.704156,
+              35.679915,
+              139.704437,
+              35.680218
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.704437,
+                  35.679915
+                ],
+                [
+                  139.704357,
+                  35.679998
+                ],
+                [
+                  139.704179,
+                  35.680193
+                ],
+                [
+                  139.704156,
+                  35.680218
+                ]
+              ]
+            },
+            "properties": {
+              "indoor": false,
+              "inline": {
+                "line_style": "solid",
+                "width": 5,
+                "color": "#02FA47",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#0A6400",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "restriction": false,
+              "route_no": "3",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.703059,
+              35.680024,
+              139.704156,
+              35.680218
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.704156,
+                  35.680218
+                ],
+                [
+                  139.703676,
+                  35.680144
+                ],
+                [
+                  139.703602,
+                  35.680134
+                ],
+                [
+                  139.703521,
+                  35.680134
+                ],
+                [
+                  139.703187,
+                  35.680064
+                ],
+                [
+                  139.703059,
+                  35.680024
+                ]
+              ]
+            },
+            "properties": {
+              "indoor": false,
+              "inline": {
+                "line_style": "solid",
+                "width": 5,
+                "color": "#02FA47",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#0A6400",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "restriction": false,
+              "route_no": "3",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.702224,
+              35.679316,
+              139.703059,
+              35.680024
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.703059,
+                  35.680024
+                ],
+                [
+                  139.702886,
+                  35.679954
+                ],
+                [
+                  139.702809,
+                  35.67992
+                ],
+                [
+                  139.702502,
+                  35.679614
+                ],
+                [
+                  139.702396,
+                  35.679443
+                ],
+                [
+                  139.702324,
+                  35.679316
+                ],
+                [
+                  139.702224,
+                  35.67935
+                ]
+              ]
+            },
+            "properties": {
+              "indoor": false,
+              "inline": {
+                "line_style": "solid",
+                "width": 5,
+                "color": "#02FA47",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#0A6400",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "restriction": false,
+              "route_no": "3",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.702133,
+              35.679127,
+              139.702224,
+              35.67935
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.702224,
+                  35.67935
+                ],
+                [
+                  139.702133,
+                  35.679127
+                ]
+              ]
+            },
+            "properties": {
+              "indoor": false,
+              "inline": {
+                "line_style": "solid",
+                "width": 5,
+                "color": "#02FA47",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#0A6400",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "restriction": false,
+              "route_no": "3",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.69946,
+              35.675172,
+              139.70214,
+              35.679127
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.702133,
+                  35.679127
+                ],
+                [
+                  139.70214,
+                  35.678114
+                ],
+                [
+                  139.702001,
+                  35.676339
+                ],
+                [
+                  139.70185,
+                  35.675446
+                ],
+                [
+                  139.701819,
+                  35.675172
+                ],
+                [
+                  139.701623,
+                  35.67521
+                ],
+                [
+                  139.701501,
+                  35.675255
+                ],
+                [
+                  139.701321,
+                  35.675385
+                ],
+                [
+                  139.701143,
+                  35.675516
+                ],
+                [
+                  139.700901,
+                  35.675635
+                ],
+                [
+                  139.700751,
+                  35.675691
+                ],
+                [
+                  139.699897,
+                  35.675629
+                ],
+                [
+                  139.69946,
+                  35.675599
+                ]
+              ]
+            },
+            "properties": {
+              "indoor": false,
+              "inline": {
+                "line_style": "solid",
+                "width": 5,
+                "color": "#02FA47",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#0A6400",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "restriction": false,
+              "route_no": "3",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.699326,
+              35.675599,
+              139.69946,
+              35.676398
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.69946,
+                  35.675599
+                ],
+                [
+                  139.699326,
+                  35.676398
+                ]
+              ]
+            },
+            "properties": {
+              "inline": {
+                "line_style": "auxiliary",
+                "width": 5,
+                "color": "#D3D3D3",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#898989",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "route_no": "3",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          }
+        ],
+        "bbox": [
+          139.699326,
+          35.675172,
+          139.707859,
+          35.699843
+        ]
+      }
+    },
+    {
+      "summary": {
+        "no": "4",
+        "start": {
+          "type": "point",
+          "coord": {
+            "lat": 35.69803,
+            "lon": 139.703839
+          },
+          "name": "start"
+        },
+        "goal": {
+          "type": "point",
+          "coord": {
+            "lat": 35.676398,
+            "lon": 139.699326
+          },
+          "name": "goal"
+        },
+        "move": {
+          "transit_count": 0,
+          "walk_distance": 2131,
+          "fare": {
+            "unit_0": 140.0,
+            "unit_48": 136.0,
+            "unit_128_train": 4800.0,
+            "unit_130_train": 13680.0,
+            "unit_133_train": 25920.0
+          },
+          "type": "move",
+          "from_time": "2026-09-03T09:00:00+09:00",
+          "to_time": "2026-09-03T09:40:00+09:00",
+          "time": 40,
+          "distance": 3631,
+          "move_type": [
+            "local_train",
+            "walk"
+          ],
+          "reference_fare": {
+            "lowest_total_ticket": 140.0,
+            "lowest_total_ic": 136.0
+          }
+        }
+      },
+      "sections": [
+        {
+          "type": "point",
+          "coord": {
+            "lat": 35.69803,
+            "lon": 139.703839
+          },
+          "name": "start"
+        },
+        {
+          "type": "move",
+          "move": "walk",
+          "from_time": "2026-09-03T09:00:00+09:00",
+          "to_time": "2026-09-03T09:18:00+09:00",
+          "time": 18,
+          "distance": 1222,
+          "line_name": "徒歩"
+        },
+        {
+          "type": "point",
+          "coord": {
+            "lat": 35.691153,
+            "lon": 139.699379
+          },
+          "name": "新宿",
+          "node_id": "00004254",
+          "node_types": [
+            "station"
+          ],
+          "gateway": "西口(小田急)",
+          "numbering": {
+            "departure": [
+              {
+                "symbol": "OH",
+                "number": "01"
+              }
+            ]
+          }
+        },
+        {
+          "type": "move",
+          "transport": {
+            "fare": {
+              "unit_0": 140.0,
+              "unit_128": 4800.0,
+              "unit_130": 13680.0,
+              "unit_133": 25920.0,
+              "unit_136": 1800.0,
+              "unit_138": 5130.0,
+              "unit_141": 9720.0,
+              "unit_48": 136.0
+            },
+            "getoff": "中",
+            "color": "#3CB9FB",
+            "name": "小田急小田原線",
+            "fare_season": "normal",
+            "company": {
+              "id": "00000073",
+              "name": "小田急電鉄"
+            },
+            "links": [
+              {
+                "id": "00000686",
+                "name": "小田急小田原線",
+                "direction": "down",
+                "destination": {
+                  "id": "00003742",
+                  "name": "小田原"
+                },
+                "from": {
+                  "id": "00004254",
+                  "name": "新宿"
+                },
+                "to": {
+                  "id": "00003089",
+                  "name": "参宮橋"
+                },
+                "is_timetable": "false",
+                "way": "小田原,片瀬江ノ島"
+              }
+            ],
+            "id": "00000460",
+            "type": "普通",
+            "fare_break": {
+              "unit_0": true,
+              "unit_128": true,
+              "unit_130": true,
+              "unit_133": true,
+              "unit_136": true,
+              "unit_138": true,
+              "unit_141": true,
+              "unit_48": true
+            },
+            "fare_detail": [
+              {
+                "start": {
+                  "name": "新宿",
+                  "node_id": "00004254"
+                },
+                "id": "0",
+                "goal": {
+                  "name": "参宮橋",
+                  "node_id": "00003089"
+                },
+                "fare": 140.0
+              },
+              {
+                "start": {
+                  "name": "新宿",
+                  "node_id": "00004254"
+                },
+                "id": "48",
+                "goal": {
+                  "name": "参宮橋",
+                  "node_id": "00003089"
+                },
+                "fare": 136.0
+              },
+              {
+                "start": {
+                  "name": "新宿",
+                  "node_id": "00004254"
+                },
+                "id": "128",
+                "goal": {
+                  "name": "参宮橋",
+                  "node_id": "00003089"
+                },
+                "fare": 4800.0
+              },
+              {
+                "start": {
+                  "name": "新宿",
+                  "node_id": "00004254"
+                },
+                "id": "130",
+                "goal": {
+                  "name": "参宮橋",
+                  "node_id": "00003089"
+                },
+                "fare": 13680.0
+              },
+              {
+                "start": {
+                  "name": "新宿",
+                  "node_id": "00004254"
+                },
+                "id": "133",
+                "goal": {
+                  "name": "参宮橋",
+                  "node_id": "00003089"
+                },
+                "fare": 25920.0
+              },
+              {
+                "start": {
+                  "name": "新宿",
+                  "node_id": "00004254"
+                },
+                "id": "136",
+                "goal": {
+                  "name": "参宮橋",
+                  "node_id": "00003089"
+                },
+                "fare": 1800.0
+              },
+              {
+                "start": {
+                  "name": "新宿",
+                  "node_id": "00004254"
+                },
+                "id": "138",
+                "goal": {
+                  "name": "参宮橋",
+                  "node_id": "00003089"
+                },
+                "fare": 5130.0
+              },
+              {
+                "start": {
+                  "name": "新宿",
+                  "node_id": "00004254"
+                },
+                "id": "141",
+                "goal": {
+                  "name": "参宮橋",
+                  "node_id": "00003089"
+                },
+                "fare": 9720.0
+              }
+            ]
+          },
+          "move": "local_train",
+          "from_time": "2026-09-03T09:22:00+09:00",
+          "to_time": "2026-09-03T09:25:00+09:00",
+          "time": 3,
+          "distance": 1500,
+          "line_name": "小田急小田原線"
+        },
+        {
+          "type": "point",
+          "coord": {
+            "lat": 35.679094,
+            "lon": 139.694085
+          },
+          "name": "参宮橋",
+          "node_id": "00003089",
+          "node_types": [
+            "station"
+          ],
+          "gateway": "東口",
+          "numbering": {
+            "arrival": [
+              {
+                "symbol": "OH",
+                "number": "03"
+              }
+            ]
+          }
+        },
+        {
+          "type": "move",
+          "move": "walk",
+          "from_time": "2026-09-03T09:25:00+09:00",
+          "to_time": "2026-09-03T09:40:00+09:00",
+          "time": 15,
+          "distance": 909,
+          "line_name": "徒歩"
+        },
+        {
+          "type": "point",
+          "coord": {
+            "lat": 35.676398,
+            "lon": 139.699326
+          },
+          "name": "goal"
+        }
+      ],
+      "shapes": {
+        "type": "FeatureCollection",
+        "features": [
+          {
+            "type": "Feature",
+            "bbox": [
+              139.703839,
+              35.698016,
+              139.703957,
+              35.69803
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.703839,
+                  35.69803
+                ],
+                [
+                  139.703957,
+                  35.698016
+                ]
+              ]
+            },
+            "properties": {
+              "inline": {
+                "line_style": "auxiliary",
+                "width": 5,
+                "color": "#D3D3D3",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#898989",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "route_no": "4",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.703957,
+              35.698016,
+              139.703982,
+              35.698168
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.703957,
+                  35.698016
+                ],
+                [
+                  139.703982,
+                  35.698168
+                ]
+              ]
+            },
+            "properties": {
+              "indoor": false,
+              "inline": {
+                "line_style": "solid",
+                "width": 5,
+                "color": "#02FA47",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#0A6400",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "restriction": false,
+              "route_no": "4",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.701909,
+              35.697982,
+              139.703982,
+              35.698168
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.703982,
+                  35.698168
+                ],
+                [
+                  139.703306,
+                  35.698105
+                ],
+                [
+                  139.703247,
+                  35.6981
+                ],
+                [
+                  139.702667,
+                  35.698042
+                ],
+                [
+                  139.702588,
+                  35.698035
+                ],
+                [
+                  139.701968,
+                  35.697987
+                ],
+                [
+                  139.701909,
+                  35.697982
+                ]
+              ]
+            },
+            "properties": {
+              "indoor": false,
+              "inline": {
+                "line_style": "solid",
+                "width": 5,
+                "color": "#02FA47",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#0A6400",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "restriction": false,
+              "route_no": "4",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.701829,
+              35.69725,
+              139.701909,
+              35.697982
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.701909,
+                  35.697982
+                ],
+                [
+                  139.701886,
+                  35.697633
+                ],
+                [
+                  139.701857,
+                  35.697577
+                ],
+                [
+                  139.701855,
+                  35.697542
+                ],
+                [
+                  139.701829,
+                  35.69725
+                ]
+              ]
+            },
+            "properties": {
+              "indoor": false,
+              "inline": {
+                "line_style": "solid",
+                "width": 5,
+                "color": "#02FA47",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#0A6400",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "restriction": false,
+              "route_no": "4",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.701771,
+              35.697132,
+              139.701829,
+              35.69725
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.701829,
+                  35.69725
+                ],
+                [
+                  139.701806,
+                  35.697236
+                ],
+                [
+                  139.701789,
+                  35.697225
+                ],
+                [
+                  139.701778,
+                  35.697225
+                ],
+                [
+                  139.701771,
+                  35.697168
+                ],
+                [
+                  139.701812,
+                  35.697132
+                ]
+              ]
+            },
+            "properties": {
+              "indoor": false,
+              "inline": {
+                "line_style": "solid",
+                "width": 5,
+                "color": "#02FA47",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#0A6400",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "restriction": false,
+              "route_no": "4",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.701778,
+              35.696739,
+              139.701812,
+              35.697132
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.701812,
+                  35.697132
+                ],
+                [
+                  139.701778,
+                  35.696739
+                ]
+              ]
+            },
+            "properties": {
+              "indoor": false,
+              "inline": {
+                "line_style": "solid",
+                "width": 5,
+                "color": "#02FA47",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#0A6400",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "restriction": false,
+              "route_no": "4",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.701699,
+              35.69609,
+              139.701778,
+              35.696739
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.701778,
+                  35.696739
+                ],
+                [
+                  139.701721,
+                  35.696264
+                ],
+                [
+                  139.701715,
+                  35.696222
+                ],
+                [
+                  139.701699,
+                  35.69609
+                ]
+              ]
+            },
+            "properties": {
+              "indoor": false,
+              "inline": {
+                "line_style": "solid",
+                "width": 5,
+                "color": "#02FA47",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#0A6400",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "restriction": false,
+              "route_no": "4",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.701383,
+              35.694945,
+              139.701755,
+              35.69609
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.701699,
+                  35.69609
+                ],
+                [
+                  139.701664,
+                  35.696073
+                ],
+                [
+                  139.701636,
+                  35.696003
+                ],
+                [
+                  139.701699,
+                  35.695987
+                ],
+                [
+                  139.701755,
+                  35.695913
+                ],
+                [
+                  139.701676,
+                  35.695694
+                ],
+                [
+                  139.701647,
+                  35.695607
+                ],
+                [
+                  139.701602,
+                  35.695521
+                ],
+                [
+                  139.701531,
+                  35.695378
+                ],
+                [
+                  139.70142,
+                  35.695049
+                ],
+                [
+                  139.701383,
+                  35.694945
+                ]
+              ]
+            },
+            "properties": {
+              "indoor": false,
+              "inline": {
+                "line_style": "solid",
+                "width": 5,
+                "color": "#02FA47",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#0A6400",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "restriction": false,
+              "route_no": "4",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.701252,
+              35.694642,
+              139.701383,
+              35.694945
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.701383,
+                  35.694945
+                ],
+                [
+                  139.701338,
+                  35.69491
+                ],
+                [
+                  139.701258,
+                  35.694668
+                ],
+                [
+                  139.701252,
+                  35.694642
+                ]
+              ]
+            },
+            "properties": {
+              "indoor": false,
+              "inline": {
+                "line_style": "solid",
+                "width": 5,
+                "color": "#02FA47",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#0A6400",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "restriction": false,
+              "route_no": "4",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.700982,
+              35.693854,
+              139.701252,
+              35.694642
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.701252,
+                  35.694642
+                ],
+                [
+                  139.701235,
+                  35.694594
+                ],
+                [
+                  139.701215,
+                  35.694536
+                ],
+                [
+                  139.700982,
+                  35.693854
+                ]
+              ]
+            },
+            "properties": {
+              "indoor": false,
+              "inline": {
+                "line_style": "solid",
+                "width": 5,
+                "color": "#02FA47",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#0A6400",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "restriction": false,
+              "route_no": "4",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.700497,
+              35.693376,
+              139.700982,
+              35.693854
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.700982,
+                  35.693854
+                ],
+                [
+                  139.700971,
+                  35.69383
+                ],
+                [
+                  139.700886,
+                  35.693496
+                ],
+                [
+                  139.700818,
+                  35.693503
+                ],
+                [
+                  139.700758,
+                  35.693514
+                ],
+                [
+                  139.700693,
+                  35.693521
+                ],
+                [
+                  139.700616,
+                  35.693489
+                ],
+                [
+                  139.700525,
+                  35.693434
+                ],
+                [
+                  139.700505,
+                  35.693397
+                ],
+                [
+                  139.700497,
+                  35.693376
+                ]
+              ]
+            },
+            "properties": {
+              "indoor": false,
+              "inline": {
+                "line_style": "solid",
+                "width": 5,
+                "color": "#02FA47",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#0A6400",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "restriction": false,
+              "route_no": "4",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.700474,
+              35.69332,
+              139.700497,
+              35.693376
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.700497,
+                  35.693376
+                ],
+                [
+                  139.700474,
+                  35.69332
+                ]
+              ]
+            },
+            "properties": {
+              "indoor": false,
+              "inline": {
+                "line_style": "solid",
+                "width": 5,
+                "color": "#02FA47",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#0A6400",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "restriction": false,
+              "route_no": "4",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.69932,
+              35.69332,
+              139.700474,
+              35.693441
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.700474,
+                  35.69332
+                ],
+                [
+                  139.700199,
+                  35.693327
+                ],
+                [
+                  139.700184,
+                  35.693361
+                ],
+                [
+                  139.699896,
+                  35.693393
+                ],
+                [
+                  139.699619,
+                  35.693424
+                ],
+                [
+                  139.699556,
+                  35.693427
+                ],
+                [
+                  139.699443,
+                  35.693434
+                ],
+                [
+                  139.699369,
+                  35.693441
+                ],
+                [
+                  139.69932,
+                  35.693403
+                ]
+              ]
+            },
+            "properties": {
+              "indoor": false,
+              "inline": {
+                "line_style": "solid",
+                "width": 5,
+                "color": "#02FA47",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#0A6400",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "restriction": false,
+              "route_no": "4",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.699309,
+              35.692258,
+              139.699451,
+              35.693403
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.69932,
+                  35.693403
+                ],
+                [
+                  139.699309,
+                  35.693314
+                ],
+                [
+                  139.699315,
+                  35.693272
+                ],
+                [
+                  139.699338,
+                  35.69308
+                ],
+                [
+                  139.69938,
+                  35.692715
+                ],
+                [
+                  139.699389,
+                  35.692633
+                ],
+                [
+                  139.699396,
+                  35.692614
+                ],
+                [
+                  139.699431,
+                  35.692389
+                ],
+                [
+                  139.699451,
+                  35.692258
+                ]
+              ]
+            },
+            "properties": {
+              "indoor": false,
+              "inline": {
+                "line_style": "solid",
+                "width": 5,
+                "color": "#02FA47",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#0A6400",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "restriction": false,
+              "route_no": "4",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.699187,
+              35.691212,
+              139.699454,
+              35.692258
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.699451,
+                  35.692258
+                ],
+                [
+                  139.699454,
+                  35.692236
+                ],
+                [
+                  139.699423,
+                  35.69223
+                ],
+                [
+                  139.699329,
+                  35.691765
+                ],
+                [
+                  139.699278,
+                  35.691684
+                ],
+                [
+                  139.699187,
+                  35.691649
+                ],
+                [
+                  139.699193,
+                  35.691536
+                ],
+                [
+                  139.699193,
+                  35.691515
+                ],
+                [
+                  139.699195,
+                  35.691473
+                ],
+                [
+                  139.699195,
+                  35.691458
+                ],
+                [
+                  139.699195,
+                  35.691355
+                ],
+                [
+                  139.699187,
+                  35.691229
+                ],
+                [
+                  139.699309,
+                  35.691212
+                ]
+              ]
+            },
+            "properties": {
+              "indoor": false,
+              "inline": {
+                "line_style": "solid",
+                "width": 5,
+                "color": "#02FA47",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#0A6400",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "restriction": false,
+              "route_no": "4",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.699309,
+              35.6912,
+              139.699389,
+              35.691212
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.699309,
+                  35.691212
+                ],
+                [
+                  139.699389,
+                  35.6912
+                ]
+              ]
+            },
+            "properties": {
+              "indoor": false,
+              "inline": {
+                "line_style": "solid",
+                "width": 5,
+                "color": "#02FA47",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#0A6400",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "restriction": false,
+              "route_no": "4",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.698814,
+              35.683671,
+              139.700853,
+              35.690536
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.699582,
+                  35.690536
+                ],
+                [
+                  139.699582,
+                  35.690535
+                ],
+                [
+                  139.699695,
+                  35.68976
+                ],
+                [
+                  139.699839,
+                  35.689221
+                ],
+                [
+                  139.699915,
+                  35.688976
+                ],
+                [
+                  139.699998,
+                  35.688759
+                ],
+                [
+                  139.700286,
+                  35.687756
+                ],
+                [
+                  139.700573,
+                  35.687057
+                ],
+                [
+                  139.700744,
+                  35.686705
+                ],
+                [
+                  139.700801,
+                  35.686566
+                ],
+                [
+                  139.70083,
+                  35.686416
+                ],
+                [
+                  139.700849,
+                  35.686254
+                ],
+                [
+                  139.700853,
+                  35.686082
+                ],
+                [
+                  139.700835,
+                  35.685939
+                ],
+                [
+                  139.700805,
+                  35.685783
+                ],
+                [
+                  139.700805,
+                  35.685782
+                ],
+                [
+                  139.700805,
+                  35.68578
+                ],
+                [
+                  139.700774,
+                  35.685658
+                ],
+                [
+                  139.700722,
+                  35.68552
+                ],
+                [
+                  139.700655,
+                  35.68538
+                ],
+                [
+                  139.700556,
+                  35.68522
+                ],
+                [
+                  139.700438,
+                  35.685062
+                ],
+                [
+                  139.700318,
+                  35.684914
+                ],
+                [
+                  139.700197,
+                  35.684785
+                ],
+                [
+                  139.699927,
+                  35.684559
+                ],
+                [
+                  139.699631,
+                  35.684325
+                ],
+                [
+                  139.698815,
+                  35.683673
+                ],
+                [
+                  139.698814,
+                  35.683671
+                ]
+              ]
+            },
+            "properties": {
+              "inline": {
+                "color": "#3CB9FB",
+                "line_style": "solid",
+                "opacity": 1,
+                "width": 5,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "color": "#00174C",
+                "line_style": "solid",
+                "opacity": 1,
+                "width": 10,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "route_no": "4",
+              "section": "0001,0002,0003",
+              "transport_type": "railway",
+              "ways": "transport"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.693608,
+              35.678644,
+              139.698814,
+              35.683671
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.698814,
+                  35.683671
+                ],
+                [
+                  139.698812,
+                  35.68367
+                ],
+                [
+                  139.696582,
+                  35.681853
+                ],
+                [
+                  139.695493,
+                  35.681031
+                ],
+                [
+                  139.694997,
+                  35.68058
+                ],
+                [
+                  139.694598,
+                  35.68012
+                ],
+                [
+                  139.693609,
+                  35.678646
+                ],
+                [
+                  139.693608,
+                  35.678644
+                ]
+              ]
+            },
+            "properties": {
+              "inline": {
+                "color": "#3CB9FB",
+                "line_style": "solid",
+                "opacity": 1,
+                "width": 5,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "color": "#00174C",
+                "line_style": "solid",
+                "opacity": 1,
+                "width": 10,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "route_no": "4",
+              "section": "0001,0002,0003",
+              "transport_type": "railway",
+              "ways": "transport"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.693978,
+              35.679083,
+              139.694418,
+              35.679672
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.694113,
+                  35.679083
+                ],
+                [
+                  139.694182,
+                  35.679225
+                ],
+                [
+                  139.694171,
+                  35.679329
+                ],
+                [
+                  139.69406,
+                  35.679467
+                ],
+                [
+                  139.694038,
+                  35.679512
+                ],
+                [
+                  139.693978,
+                  35.679607
+                ],
+                [
+                  139.694151,
+                  35.679672
+                ],
+                [
+                  139.694248,
+                  35.679544
+                ],
+                [
+                  139.694327,
+                  35.679426
+                ],
+                [
+                  139.694418,
+                  35.679295
+                ]
+              ]
+            },
+            "properties": {
+              "indoor": false,
+              "inline": {
+                "line_style": "solid",
+                "width": 5,
+                "color": "#02FA47",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#0A6400",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "restriction": false,
+              "route_no": "4",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.694418,
+              35.679079,
+              139.694563,
+              35.679295
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.694418,
+                  35.679295
+                ],
+                [
+                  139.694563,
+                  35.679079
+                ]
+              ]
+            },
+            "properties": {
+              "indoor": false,
+              "inline": {
+                "line_style": "solid",
+                "width": 5,
+                "color": "#02FA47",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#0A6400",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "restriction": false,
+              "route_no": "4",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.694563,
+              35.678363,
+              139.695091,
+              35.679079
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.694563,
+                  35.679079
+                ],
+                [
+                  139.695091,
+                  35.678363
+                ]
+              ]
+            },
+            "properties": {
+              "indoor": false,
+              "inline": {
+                "line_style": "solid",
+                "width": 5,
+                "color": "#02FA47",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#0A6400",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "restriction": false,
+              "route_no": "4",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.695091,
+              35.675474,
+              139.69946,
+              35.678363
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.695091,
+                  35.678363
+                ],
+                [
+                  139.695446,
+                  35.678332
+                ],
+                [
+                  139.695711,
+                  35.678304
+                ],
+                [
+                  139.695898,
+                  35.67826
+                ],
+                [
+                  139.696026,
+                  35.678165
+                ],
+                [
+                  139.696134,
+                  35.678059
+                ],
+                [
+                  139.696182,
+                  35.677982
+                ],
+                [
+                  139.696282,
+                  35.67776
+                ],
+                [
+                  139.696293,
+                  35.6777
+                ],
+                [
+                  139.696316,
+                  35.677468
+                ],
+                [
+                  139.696364,
+                  35.677044
+                ],
+                [
+                  139.696444,
+                  35.676613
+                ],
+                [
+                  139.696522,
+                  35.676352
+                ],
+                [
+                  139.696671,
+                  35.676078
+                ],
+                [
+                  139.696853,
+                  35.675849
+                ],
+                [
+                  139.697026,
+                  35.675679
+                ],
+                [
+                  139.697222,
+                  35.675547
+                ],
+                [
+                  139.697361,
+                  35.675474
+                ],
+                [
+                  139.698663,
+                  35.675533
+                ],
+                [
+                  139.69946,
+                  35.675599
+                ]
+              ]
+            },
+            "properties": {
+              "indoor": false,
+              "inline": {
+                "line_style": "solid",
+                "width": 5,
+                "color": "#02FA47",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#0A6400",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "restriction": false,
+              "route_no": "4",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.699326,
+              35.675599,
+              139.69946,
+              35.676398
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.69946,
+                  35.675599
+                ],
+                [
+                  139.699326,
+                  35.676398
+                ]
+              ]
+            },
+            "properties": {
+              "inline": {
+                "line_style": "auxiliary",
+                "width": 5,
+                "color": "#D3D3D3",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#898989",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "route_no": "4",
+              "section": "0001,0002,0003",
+              "ways": "walk"
+            }
+          }
+        ],
+        "bbox": [
+          139.693608,
+          35.675474,
+          139.703982,
+          35.698168
+        ]
+      }
+    },
+    {
+      "summary": {
+        "no": "5",
+        "start": {
+          "type": "point",
+          "coord": {
+            "lat": 35.69803,
+            "lon": 139.703839
+          },
+          "name": "start"
+        },
+        "goal": {
+          "type": "point",
+          "coord": {
+            "lat": 35.676398,
+            "lon": 139.699326
+          },
+          "name": "goal"
+        },
+        "move": {
+          "transit_count": 1,
+          "walk_distance": 1330,
+          "fare": {
+            "unit_0": 340.0,
+            "unit_48": 333.0,
+            "unit_128_train": 11740.0,
+            "unit_130_train": 33430.0,
+            "unit_133_train": 63510.0
+          },
+          "type": "move",
+          "from_time": "2026-09-03T09:00:00+09:00",
+          "to_time": "2026-09-03T09:40:00+09:00",
+          "time": 40,
+          "distance": 4930,
+          "move_type": [
+            "local_train",
+            "walk"
+          ],
+          "reference_fare": {
+            "lowest_total_ticket": 340.0,
+            "lowest_total_ic": 333.0
+          }
+        }
+      },
+      "sections": [
+        {
+          "type": "point",
+          "coord": {
+            "lat": 35.69803,
+            "lon": 139.703839
+          },
+          "name": "start"
+        },
+        {
+          "type": "move",
+          "move": "walk",
+          "from_time": "2026-09-03T09:00:00+09:00",
+          "to_time": "2026-09-03T09:07:00+09:00",
+          "time": 7,
+          "distance": 350,
+          "line_name": "徒歩"
+        },
+        {
+          "type": "point",
+          "coord": {
+            "lat": 35.697862,
+            "lon": 139.70682
+          },
+          "name": "東新宿",
+          "node_id": "00009222",
+          "node_types": [
+            "station"
+          ],
+          "gateway": "A1口",
+          "numbering": {
+            "departure": [
+              {
+                "symbol": "E",
+                "number": "02"
+              }
+            ]
+          }
+        },
+        {
+          "type": "move",
+          "next_transit": true,
+          "transport": {
+            "fare": {
+              "unit_0": 180.0,
+              "unit_128": 6830.0,
+              "unit_130": 19470.0,
+              "unit_133": 36890.0,
+              "unit_136": 3460.0,
+              "unit_138": 9870.0,
+              "unit_141": 18690.0,
+              "unit_48": 178.0
+            },
+            "getoff": "2",
+            "color": "#B6007A",
+            "name": "都営大江戸線",
+            "fare_season": "normal",
+            "company": {
+              "id": "00000121",
+              "name": "東京都交通局"
+            },
+            "links": [
+              {
+                "id": "00000792",
+                "name": "都営大江戸線（環状部）",
+                "direction": "up",
+                "destination": {
+                  "id": "00006547",
+                  "name": "都庁前"
+                },
+                "from": {
+                  "id": "00009222",
+                  "name": "東新宿"
+                },
+                "to": {
+                  "id": "00009217",
+                  "name": "新宿西口"
+                },
+                "is_timetable": "false",
+                "way": "都庁前,光が丘"
+              }
+            ],
+            "id": "00000572",
+            "type": "普通",
+            "fare_break": {
+              "unit_0": true,
+              "unit_128": true,
+              "unit_130": true,
+              "unit_133": true,
+              "unit_136": true,
+              "unit_138": true,
+              "unit_141": true,
+              "unit_48": true
+            },
+            "fare_detail": [
+              {
+                "start": {
+                  "name": "東新宿",
+                  "node_id": "00009222"
+                },
+                "id": "0",
+                "goal": {
+                  "name": "新宿西口",
+                  "node_id": "00009217"
+                },
+                "fare": 180.0
+              },
+              {
+                "start": {
+                  "name": "東新宿",
+                  "node_id": "00009222"
+                },
+                "id": "48",
+                "goal": {
+                  "name": "新宿西口",
+                  "node_id": "00009217"
+                },
+                "fare": 178.0
+              },
+              {
+                "start": {
+                  "name": "東新宿",
+                  "node_id": "00009222"
+                },
+                "id": "128",
+                "goal": {
+                  "name": "新宿西口",
+                  "node_id": "00009217"
+                },
+                "fare": 6830.0
+              },
+              {
+                "start": {
+                  "name": "東新宿",
+                  "node_id": "00009222"
+                },
+                "id": "130",
+                "goal": {
+                  "name": "新宿西口",
+                  "node_id": "00009217"
+                },
+                "fare": 19470.0
+              },
+              {
+                "start": {
+                  "name": "東新宿",
+                  "node_id": "00009222"
+                },
+                "id": "133",
+                "goal": {
+                  "name": "新宿西口",
+                  "node_id": "00009217"
+                },
+                "fare": 36890.0
+              },
+              {
+                "start": {
+                  "name": "東新宿",
+                  "node_id": "00009222"
+                },
+                "id": "136",
+                "goal": {
+                  "name": "新宿西口",
+                  "node_id": "00009217"
+                },
+                "fare": 3460.0
+              },
+              {
+                "start": {
+                  "name": "東新宿",
+                  "node_id": "00009222"
+                },
+                "id": "138",
+                "goal": {
+                  "name": "新宿西口",
+                  "node_id": "00009217"
+                },
+                "fare": 9870.0
+              },
+              {
+                "start": {
+                  "name": "東新宿",
+                  "node_id": "00009222"
+                },
+                "id": "141",
+                "goal": {
+                  "name": "新宿西口",
+                  "node_id": "00009217"
+                },
+                "fare": 18690.0
+              }
+            ]
+          },
+          "move": "local_train",
+          "from_time": "2026-09-03T09:11:00+09:00",
+          "to_time": "2026-09-03T09:14:00+09:00",
+          "time": 3,
+          "distance": 1400,
+          "line_name": "都営大江戸線"
+        },
+        {
+          "type": "point",
+          "coord": {
+            "lat": 35.693289,
+            "lon": 139.699132
+          },
+          "name": "新宿西口",
+          "node_id": "00009217",
+          "node_types": [
+            "station"
+          ],
+          "numbering": {
+            "arrival": [
+              {
+                "symbol": "E",
+                "number": "01"
+              }
+            ]
+          }
+        },
+        {
+          "type": "move",
+          "move": "walk",
+          "from_time": "2026-09-03T09:14:00+09:00",
+          "to_time": "2026-09-03T09:20:00+09:00",
+          "time": 6,
+          "distance": 0,
+          "line_name": "徒歩（地下鉄）"
+        },
+        {
+          "type": "point",
+          "coord": {
+            "lat": 35.68958,
+            "lon": 139.700676
+          },
+          "name": "新宿",
+          "node_id": "00004254",
+          "node_types": [
+            "station"
+          ],
+          "numbering": {
+            "departure": [
+              {
+                "symbol": "JY",
+                "number": "17"
+              }
+            ]
+          }
+        },
+        {
+          "type": "move",
+          "transport": {
+            "fare": {
+              "unit_0": 160.0,
+              "unit_128": 4910.0,
+              "unit_130": 13960.0,
+              "unit_133": 26620.0,
+              "unit_136": 2760.0,
+              "unit_138": 7830.0,
+              "unit_141": 14860.0,
+              "unit_144": 2480.0,
+              "unit_146": 7040.0,
+              "unit_149": 13370.0,
+              "unit_152": 1930.0,
+              "unit_154": 5480.0,
+              "unit_157": 10400.0,
+              "unit_160": 4170.0,
+              "unit_162": 11860.0,
+              "unit_165": 22620.0,
+              "unit_48": 155.0
+            },
+            "getoff": "前・中",
+            "color": "#80C241",
+            "name": "ＪＲ山手線",
+            "fare_season": "slack",
+            "company": {
+              "id": "00000004",
+              "name": "ＪＲ東日本"
+            },
+            "links": [
+              {
+                "id": "00000141",
+                "name": "ＪＲ山手線",
+                "direction": "up",
+                "destination": {
+                  "id": "00003544",
+                  "name": "渋谷"
+                },
+                "from": {
+                  "id": "00004254",
+                  "name": "新宿"
+                },
+                "to": {
+                  "id": "00002128",
+                  "name": "原宿"
+                },
+                "is_timetable": "false",
+                "way": "渋谷,品川"
+              }
+            ],
+            "id": "00000330",
+            "type": "普通",
+            "fare_break": {
+              "unit_0": true,
+              "unit_128": true,
+              "unit_130": true,
+              "unit_133": true,
+              "unit_136": true,
+              "unit_138": true,
+              "unit_141": true,
+              "unit_144": true,
+              "unit_146": true,
+              "unit_149": true,
+              "unit_152": true,
+              "unit_154": true,
+              "unit_157": true,
+              "unit_160": true,
+              "unit_162": true,
+              "unit_165": true,
+              "unit_48": true
+            },
+            "fare_detail": [
+              {
+                "start": {
+                  "name": "新宿",
+                  "node_id": "00004254"
+                },
+                "id": "0",
+                "goal": {
+                  "name": "原宿",
+                  "node_id": "00002128"
+                },
+                "fare": 160.0
+              },
+              {
+                "start": {
+                  "name": "新宿",
+                  "node_id": "00004254"
+                },
+                "id": "48",
+                "goal": {
+                  "name": "原宿",
+                  "node_id": "00002128"
+                },
+                "fare": 155.0
+              },
+              {
+                "start": {
+                  "name": "新宿",
+                  "node_id": "00004254"
+                },
+                "id": "128",
+                "goal": {
+                  "name": "原宿",
+                  "node_id": "00002128"
+                },
+                "fare": 4910.0
+              },
+              {
+                "start": {
+                  "name": "新宿",
+                  "node_id": "00004254"
+                },
+                "id": "130",
+                "goal": {
+                  "name": "原宿",
+                  "node_id": "00002128"
+                },
+                "fare": 13960.0
+              },
+              {
+                "start": {
+                  "name": "新宿",
+                  "node_id": "00004254"
+                },
+                "id": "133",
+                "goal": {
+                  "name": "原宿",
+                  "node_id": "00002128"
+                },
+                "fare": 26620.0
+              },
+              {
+                "start": {
+                  "name": "新宿",
+                  "node_id": "00004254"
+                },
+                "id": "136",
+                "goal": {
+                  "name": "原宿",
+                  "node_id": "00002128"
+                },
+                "fare": 2760.0
+              },
+              {
+                "start": {
+                  "name": "新宿",
+                  "node_id": "00004254"
+                },
+                "id": "138",
+                "goal": {
+                  "name": "原宿",
+                  "node_id": "00002128"
+                },
+                "fare": 7830.0
+              },
+              {
+                "start": {
+                  "name": "新宿",
+                  "node_id": "00004254"
+                },
+                "id": "141",
+                "goal": {
+                  "name": "原宿",
+                  "node_id": "00002128"
+                },
+                "fare": 14860.0
+              },
+              {
+                "start": {
+                  "name": "新宿",
+                  "node_id": "00004254"
+                },
+                "id": "144",
+                "goal": {
+                  "name": "原宿",
+                  "node_id": "00002128"
+                },
+                "fare": 2480.0
+              },
+              {
+                "start": {
+                  "name": "新宿",
+                  "node_id": "00004254"
+                },
+                "id": "146",
+                "goal": {
+                  "name": "原宿",
+                  "node_id": "00002128"
+                },
+                "fare": 7040.0
+              },
+              {
+                "start": {
+                  "name": "新宿",
+                  "node_id": "00004254"
+                },
+                "id": "149",
+                "goal": {
+                  "name": "原宿",
+                  "node_id": "00002128"
+                },
+                "fare": 13370.0
+              },
+              {
+                "start": {
+                  "name": "新宿",
+                  "node_id": "00004254"
+                },
+                "id": "152",
+                "goal": {
+                  "name": "原宿",
+                  "node_id": "00002128"
+                },
+                "fare": 1930.0
+              },
+              {
+                "start": {
+                  "name": "新宿",
+                  "node_id": "00004254"
+                },
+                "id": "154",
+                "goal": {
+                  "name": "原宿",
+                  "node_id": "00002128"
+                },
+                "fare": 5480.0
+              },
+              {
+                "start": {
+                  "name": "新宿",
+                  "node_id": "00004254"
+                },
+                "id": "157",
+                "goal": {
+                  "name": "原宿",
+                  "node_id": "00002128"
+                },
+                "fare": 10400.0
+              },
+              {
+                "start": {
+                  "name": "新宿",
+                  "node_id": "00004254"
+                },
+                "id": "160",
+                "goal": {
+                  "name": "原宿",
+                  "node_id": "00002128"
+                },
+                "fare": 4170.0
+              },
+              {
+                "start": {
+                  "name": "新宿",
+                  "node_id": "00004254"
+                },
+                "id": "162",
+                "goal": {
+                  "name": "原宿",
+                  "node_id": "00002128"
+                },
+                "fare": 11860.0
+              },
+              {
+                "start": {
+                  "name": "新宿",
+                  "node_id": "00004254"
+                },
+                "id": "165",
+                "goal": {
+                  "name": "原宿",
+                  "node_id": "00002128"
+                },
+                "fare": 22620.0
+              }
+            ]
+          },
+          "move": "local_train",
+          "from_time": "2026-09-03T09:22:00+09:00",
+          "to_time": "2026-09-03T09:27:00+09:00",
+          "time": 5,
+          "distance": 2200,
+          "line_name": "ＪＲ山手線"
+        },
+        {
+          "type": "point",
+          "coord": {
+            "lat": 35.669957,
+            "lon": 139.702262
+          },
+          "name": "原宿",
+          "node_id": "00002128",
+          "node_types": [
+            "station"
+          ],
+          "gateway": "西口",
+          "numbering": {
+            "arrival": [
+              {
+                "symbol": "JY",
+                "number": "19"
+              }
+            ]
+          }
+        },
+        {
+          "type": "move",
+          "move": "walk",
+          "from_time": "2026-09-03T09:27:00+09:00",
+          "to_time": "2026-09-03T09:40:00+09:00",
+          "time": 13,
+          "distance": 980,
+          "line_name": "徒歩"
+        },
+        {
+          "type": "point",
+          "coord": {
+            "lat": 35.676398,
+            "lon": 139.699326
+          },
+          "name": "goal"
+        }
+      ],
+      "shapes": {
+        "type": "FeatureCollection",
+        "features": [
+          {
+            "type": "Feature",
+            "bbox": [
+              139.703839,
+              35.698016,
+              139.703957,
+              35.69803
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.703839,
+                  35.69803
+                ],
+                [
+                  139.703957,
+                  35.698016
+                ]
+              ]
+            },
+            "properties": {
+              "inline": {
+                "line_style": "auxiliary",
+                "width": 5,
+                "color": "#D3D3D3",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#898989",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "route_no": "5",
+              "section": "0001,0002,0003,0004,0005",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.703957,
+              35.698016,
+              139.703982,
+              35.698168
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.703957,
+                  35.698016
+                ],
+                [
+                  139.703982,
+                  35.698168
+                ]
+              ]
+            },
+            "properties": {
+              "indoor": false,
+              "inline": {
+                "line_style": "solid",
+                "width": 5,
+                "color": "#02FA47",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#0A6400",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "restriction": false,
+              "route_no": "5",
+              "section": "0001,0002,0003,0004,0005",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.703982,
+              35.697862,
+              139.706828,
+              35.698191
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.703982,
+                  35.698168
+                ],
+                [
+                  139.704056,
+                  35.69817
+                ],
+                [
+                  139.704306,
+                  35.698182
+                ],
+                [
+                  139.704517,
+                  35.698191
+                ],
+                [
+                  139.704856,
+                  35.698156
+                ],
+                [
+                  139.704959,
+                  35.69807
+                ],
+                [
+                  139.705061,
+                  35.698052
+                ],
+                [
+                  139.705178,
+                  35.698119
+                ],
+                [
+                  139.705453,
+                  35.698077
+                ],
+                [
+                  139.70553,
+                  35.698066
+                ],
+                [
+                  139.705589,
+                  35.698062
+                ],
+                [
+                  139.706129,
+                  35.697996
+                ],
+                [
+                  139.706178,
+                  35.697987
+                ],
+                [
+                  139.706422,
+                  35.697959
+                ],
+                [
+                  139.706828,
+                  35.697911
+                ],
+                [
+                  139.706828,
+                  35.697903
+                ],
+                [
+                  139.706819,
+                  35.697862
+                ]
+              ]
+            },
+            "properties": {
+              "indoor": false,
+              "inline": {
+                "line_style": "solid",
+                "width": 5,
+                "color": "#02FA47",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#0A6400",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "restriction": false,
+              "route_no": "5",
+              "section": "0001,0002,0003,0004,0005",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.697852,
+              35.693277,
+              139.707528,
+              35.698287
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.707528,
+                  35.697933
+                ],
+                [
+                  139.707525,
+                  35.697933
+                ],
+                [
+                  139.707015,
+                  35.697997
+                ],
+                [
+                  139.706723,
+                  35.698031
+                ],
+                [
+                  139.706434,
+                  35.698067
+                ],
+                [
+                  139.706089,
+                  35.698107
+                ],
+                [
+                  139.705795,
+                  35.698146
+                ],
+                [
+                  139.70543,
+                  35.698189
+                ],
+                [
+                  139.70513,
+                  35.698232
+                ],
+                [
+                  139.704856,
+                  35.698265
+                ],
+                [
+                  139.704559,
+                  35.698287
+                ],
+                [
+                  139.704143,
+                  35.698286
+                ],
+                [
+                  139.703876,
+                  35.698265
+                ],
+                [
+                  139.70354,
+                  35.698235
+                ],
+                [
+                  139.70303,
+                  35.698176
+                ],
+                [
+                  139.702642,
+                  35.69814
+                ],
+                [
+                  139.702379,
+                  35.698119
+                ],
+                [
+                  139.702069,
+                  35.698094
+                ],
+                [
+                  139.701646,
+                  35.698086
+                ],
+                [
+                  139.701092,
+                  35.698086
+                ],
+                [
+                  139.700615,
+                  35.698069
+                ],
+                [
+                  139.700281,
+                  35.698066
+                ],
+                [
+                  139.699862,
+                  35.698063
+                ],
+                [
+                  139.699419,
+                  35.698063
+                ],
+                [
+                  139.699156,
+                  35.698066
+                ],
+                [
+                  139.698755,
+                  35.69805
+                ],
+                [
+                  139.698532,
+                  35.697983
+                ],
+                [
+                  139.698324,
+                  35.697889
+                ],
+                [
+                  139.698075,
+                  35.697733
+                ],
+                [
+                  139.697926,
+                  35.697445
+                ],
+                [
+                  139.697852,
+                  35.697224
+                ],
+                [
+                  139.697867,
+                  35.697056
+                ],
+                [
+                  139.697949,
+                  35.696801
+                ],
+                [
+                  139.698045,
+                  35.696532
+                ],
+                [
+                  139.698093,
+                  35.696381
+                ],
+                [
+                  139.698152,
+                  35.696231
+                ],
+                [
+                  139.698226,
+                  35.696045
+                ],
+                [
+                  139.698448,
+                  35.695477
+                ],
+                [
+                  139.698713,
+                  35.694704
+                ],
+                [
+                  139.699076,
+                  35.693623
+                ],
+                [
+                  139.699156,
+                  35.693279
+                ],
+                [
+                  139.699157,
+                  35.693277
+                ]
+              ]
+            },
+            "properties": {
+              "inline": {
+                "color": "#B6007A",
+                "line_style": "solid",
+                "opacity": 1,
+                "width": 5,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "color": "#00174C",
+                "line_style": "solid",
+                "opacity": 1,
+                "width": 10,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "route_no": "5",
+              "section": "0001,0002,0003,0004,0005",
+              "transport_type": "railway",
+              "ways": "transport"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.700216,
+              35.684601,
+              139.701875,
+              35.689594
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.700216,
+                  35.689594
+                ],
+                [
+                  139.700458,
+                  35.688553
+                ],
+                [
+                  139.701144,
+                  35.686882
+                ],
+                [
+                  139.701209,
+                  35.686474
+                ],
+                [
+                  139.701508,
+                  35.685638
+                ],
+                [
+                  139.701875,
+                  35.684601
+                ]
+              ]
+            },
+            "properties": {
+              "inline": {
+                "color": "#80C241",
+                "line_style": "solid",
+                "opacity": 1,
+                "width": 5,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "color": "#00174C",
+                "line_style": "solid",
+                "opacity": 1,
+                "width": 10,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "route_no": "5",
+              "section": "0001,0002,0003,0004,0005",
+              "transport_type": "railway",
+              "ways": "transport"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.70188,
+              35.670662,
+              139.704011,
+              35.684601
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.70188,
+                  35.684601
+                ],
+                [
+                  139.702111,
+                  35.683596
+                ],
+                [
+                  139.702308,
+                  35.682996
+                ],
+                [
+                  139.702575,
+                  35.682419
+                ],
+                [
+                  139.703094,
+                  35.681047
+                ],
+                [
+                  139.703366,
+                  35.679984
+                ],
+                [
+                  139.703627,
+                  35.679097
+                ],
+                [
+                  139.70393,
+                  35.677373
+                ],
+                [
+                  139.70401,
+                  35.676211
+                ],
+                [
+                  139.704011,
+                  35.675471
+                ],
+                [
+                  139.70376,
+                  35.674539
+                ],
+                [
+                  139.703322,
+                  35.673256
+                ],
+                [
+                  139.7029,
+                  35.672043
+                ],
+                [
+                  139.702518,
+                  35.670662
+                ]
+              ]
+            },
+            "properties": {
+              "inline": {
+                "color": "#80C241",
+                "line_style": "solid",
+                "opacity": 1,
+                "width": 5,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "color": "#00174C",
+                "line_style": "solid",
+                "opacity": 1,
+                "width": 10,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "route_no": "5",
+              "section": "0001,0002,0003,0004,0005",
+              "transport_type": "railway",
+              "ways": "transport"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.69946,
+              35.669937,
+              139.702262,
+              35.675599
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.702262,
+                  35.669958
+                ],
+                [
+                  139.70221,
+                  35.669958
+                ],
+                [
+                  139.7022,
+                  35.669955
+                ],
+                [
+                  139.702191,
+                  35.669951
+                ],
+                [
+                  139.702137,
+                  35.669937
+                ],
+                [
+                  139.702023,
+                  35.66994
+                ],
+                [
+                  139.701881,
+                  35.67017
+                ],
+                [
+                  139.701671,
+                  35.671083
+                ],
+                [
+                  139.701631,
+                  35.671388
+                ],
+                [
+                  139.701827,
+                  35.67276
+                ],
+                [
+                  139.701878,
+                  35.673392
+                ],
+                [
+                  139.701856,
+                  35.6736
+                ],
+                [
+                  139.701671,
+                  35.674096
+                ],
+                [
+                  139.699897,
+                  35.674047
+                ],
+                [
+                  139.699594,
+                  35.67404
+                ],
+                [
+                  139.699529,
+                  35.674941
+                ],
+                [
+                  139.69946,
+                  35.675599
+                ]
+              ]
+            },
+            "properties": {
+              "indoor": false,
+              "inline": {
+                "line_style": "solid",
+                "width": 5,
+                "color": "#02FA47",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#0A6400",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "restriction": false,
+              "route_no": "5",
+              "section": "0001,0002,0003,0004,0005",
+              "ways": "walk"
+            }
+          },
+          {
+            "type": "Feature",
+            "bbox": [
+              139.699326,
+              35.675599,
+              139.69946,
+              35.676398
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  139.69946,
+                  35.675599
+                ],
+                [
+                  139.699326,
+                  35.676398
+                ]
+              ]
+            },
+            "properties": {
+              "inline": {
+                "line_style": "auxiliary",
+                "width": 5,
+                "color": "#D3D3D3",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "outline": {
+                "line_style": "solid",
+                "width": 10,
+                "color": "#898989",
+                "opacity": 1.0,
+                "strokelinecap": "round",
+                "strokelinejoin": "round"
+              },
+              "route_no": "5",
+              "section": "0001,0002,0003,0004,0005",
+              "ways": "walk"
+            }
+          }
+        ],
+        "bbox": [
+          139.697852,
+          35.669937,
+          139.707528,
+          35.698287
+        ]
+      }
+    }
+  ],
+  "unit": {
+    "datum": "wgs84",
+    "coord_unit": "degree",
+    "distance": "metre",
+    "time": "minute",
+    "currency": "JPY"
+  }
+}
