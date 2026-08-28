@@ -11,6 +11,7 @@
  */
 import { deriveTransitStats, type TransitLeg } from '../../../src/nest/transit/transit.helpers';
 import { TransitService } from '../../../src/nest/transit/transit.service';
+import { TransitousPlanner } from '../../../src/nest/transit/providers/transitous.planner';
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
@@ -21,7 +22,7 @@ vi.mock('../../../src/app-config', async (importOriginal) => {
 vi.mock('../../../src/nest/maps/maps.helpers', () => ({ buildUserAgent: () => 'TREK-Test-UA' }));
 
 const fetchMock = vi.fn();
-const svc = new TransitService();
+const svc = new TransitService(new TransitousPlanner());
 
 beforeEach(() => {
   vi.stubGlobal('fetch', fetchMock);
