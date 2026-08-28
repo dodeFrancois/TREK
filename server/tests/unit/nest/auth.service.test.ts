@@ -76,6 +76,7 @@ import { verifyJwtAndLoadUser } from '../../../src/nest/auth/jwt-verify';
 import { authenticator } from 'otplib';
 import { hashBackupCode } from '../../../src/nest/auth/auth.helpers';
 import { createEphemeralToken } from '../../../src/nest/auth/ephemeral-tokens';
+import { maybe_encrypt_api_key } from '../../../src/nest/common/crypto/apiKeyCrypto';
 import { TripMembershipService } from '../../../src/nest/trip-membership/trip-membership.service';
 import { UserCleanupService } from '../../../src/nest/auth/user-cleanup.service';
 import { WebauthnConfigService } from '../../../src/nest/auth/webauthn-config.service';
@@ -786,6 +787,49 @@ describe('updateAppSettings', () => {
     expect(value).toBe('stored'); // sentinel never overwrites the secret
     expect(result.auditDebugDetails).not.toHaveProperty('smtp_pass', 'stored');
     testDb.prepare("DELETE FROM app_settings WHERE key IN ('smtp_pass','notification_channels')").run();
+  });
+
+  it('AUTH-DB-113: transit_provider is stored verbatim and named in the audit summary', () => {
+    const { user } = createAdmin(testDb);
+    const result = svc.updateAppSettings(user.id, { transit_provider: 'navitime' });
+    expect(result.success).toBe(true);
+    const { value } = testDb.prepare("SELECT value FROM app_settings WHERE key = 'transit_provider'").get() as { value: string };
+    expect(value).toBe('navitime');
+    expect(result.auditSummary).toMatchObject({ transit_provider: 'navitime' });
+    testDb.prepare("DELETE FROM app_settings WHERE key = 'transit_provider'").run();
+  });
+
+  it('AUTH-DB-114: navitime_api_key goes through the key encryptor on write', () => {
+    const { user } = createAdmin(testDb);
+    // apiKeyCrypto is mocked identity in this file, so assert the call rather
+    // than the ciphertext: what matters is that the secret takes that path.
+    expect(svc.updateAppSettings(user.id, { navitime_api_key: 'rapid-key' }).success).toBe(true);
+    expect(maybe_encrypt_api_key).toHaveBeenCalledWith('rapid-key');
+    testDb.prepare("DELETE FROM app_settings WHERE key = 'navitime_api_key'").run();
+  });
+
+  it('AUTH-DB-115: the navitime_api_key sentinel never overwrites the stored key, and never reaches the audit', () => {
+    const { user } = createAdmin(testDb);
+    testDb.prepare("INSERT OR REPLACE INTO app_settings (key, value) VALUES ('navitime_api_key', 'stored')").run();
+    const result = svc.updateAppSettings(user.id, { navitime_api_key: '••••••••', transit_provider: 'navitime' });
+    expect(result.success).toBe(true);
+    const { value } = testDb.prepare("SELECT value FROM app_settings WHERE key = 'navitime_api_key'").get() as { value: string };
+    expect(value).toBe('stored');
+    expect(result.auditSummary).toMatchObject({ navitime_api_key_updated: true });
+    // An audit trail is not a place to store a credential.
+    expect(result.auditDebugDetails).toMatchObject({ navitime_api_key: '***' });
+    testDb.prepare("DELETE FROM app_settings WHERE key IN ('navitime_api_key','transit_provider')").run();
+  });
+
+  it('AUTH-DB-116: getAppSettings masks the NAVITIME key it returns to the admin', () => {
+    const { user } = createAdmin(testDb);
+    testDb.prepare("INSERT OR REPLACE INTO app_settings (key, value) VALUES ('navitime_api_key', 'stored')").run();
+    testDb.prepare("INSERT OR REPLACE INTO app_settings (key, value) VALUES ('transit_provider', 'navitime')").run();
+    const data = svc.getAppSettings(user.id).data!;
+    expect(data.navitime_api_key).toBe('••••••••');
+    // The provider is not a secret — the select needs its real value.
+    expect(data.transit_provider).toBe('navitime');
+    testDb.prepare("DELETE FROM app_settings WHERE key IN ('navitime_api_key','transit_provider')").run();
   });
 });
 

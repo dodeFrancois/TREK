@@ -36,6 +36,10 @@ export const ADMIN_SETTINGS_KEYS = [
   'notify_trip_reminder',
   'password_login', 'password_registration', 'oidc_login', 'oidc_registration',
   'passkey_login', 'webauthn_rp_id', 'webauthn_origins',
+  // Transit provider selection and the NAVITIME credential. The key lands in an
+  // encrypted app_settings row — the same storage the maps/unsplash instance keys
+  // use — and is read back with readInstanceApiKey.
+  'transit_provider', 'navitime_api_key',
 ];
 
 // ---------------------------------------------------------------------------

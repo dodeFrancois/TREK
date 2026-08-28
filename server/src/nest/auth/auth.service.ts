@@ -607,7 +607,7 @@ export class AuthService {
     const result: Record<string, string> = {};
     for (const key of ADMIN_SETTINGS_KEYS) {
       const row = this.db.get<{ value: string }>("SELECT value FROM app_settings WHERE key = ?", key);
-      if (row) result[key] = (key === 'smtp_pass' || key === 'admin_webhook_url' || key === 'admin_ntfy_token') ? '••••••••' : row.value;
+      if (row) result[key] = (key === 'smtp_pass' || key === 'admin_webhook_url' || key === 'admin_ntfy_token' || key === 'navitime_api_key') ? '••••••••' : row.value;
     }
     return { data: result };
   }
@@ -675,6 +675,8 @@ export class AuthService {
         if (key === 'admin_webhook_url' && val) val = maybe_encrypt_api_key(val) ?? val;
         if (key === 'admin_ntfy_token' && val === '••••••••') continue;
         if (key === 'admin_ntfy_token' && val) val = maybe_encrypt_api_key(val) ?? val;
+        if (key === 'navitime_api_key' && val === '••••••••') continue;
+        if (key === 'navitime_api_key' && val) val = maybe_encrypt_api_key(val) ?? val;
         this.db.run("INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)", key, val);
       }
     }
@@ -690,10 +692,14 @@ export class AuthService {
     if (changedKeys.includes('allow_registration')) summary.allow_registration = body.allow_registration;
     if (changedKeys.includes('allowed_file_types')) summary.allowed_file_types_updated = true;
     if (changedKeys.includes('require_mfa')) summary.require_mfa = body.require_mfa;
+    if (changedKeys.includes('transit_provider')) summary.transit_provider = body.transit_provider;
+    if (changedKeys.includes('navitime_api_key')) summary.navitime_api_key_updated = true;
 
     const debugDetails: Record<string, unknown> = {};
     for (const k of changedKeys) {
-      debugDetails[k] = k === 'smtp_pass' ? '***' : body[k];
+      // Both secrets, never the plaintext: an audit trail is not a place to
+      // store a credential.
+      debugDetails[k] = (k === 'smtp_pass' || k === 'navitime_api_key') ? '***' : body[k];
     }
 
     // The reminder crons read their enable gates and channels per tick, so a

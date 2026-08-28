@@ -71,6 +71,14 @@ export function isManagedBlocked(env: RuntimeEnvService): boolean {
  * public pk.* token, injected when the settings are read, and a per-user value
  * saved over it would only break the map for that user.
  *
+ * navitime_api_key is NOT in here, and the pairing with transit_provider is the
+ * reason: nobody can supply a NAVITIME key on the customer's behalf — it is
+ * their own RapidAPI subscription, the way admin_ntfy_token is their own ntfy
+ * account. Locking it would leave the provider selectable and permanently
+ * unusable. The split mirrors map_provider (the customer's) against
+ * mapbox_access_token (the operator's): the choice is theirs, and so is the
+ * credential when the platform has none to inject.
+ *
  * carto_api_key is the same shape, injected on read and public in the browser,
  * and it is the operator's for one more reason: the key is registered to
  * whoever runs the instance, and CARTO's terms hold that account answerable for
@@ -135,6 +143,7 @@ export const MANAGED_CUSTOMER_KEYS = [
   'mapbox_quality_mode',
   'mapbox_style',
   'maplibre_style',
+  'navitime_api_key',
   'notification_channels',
   'notify_trip_reminder',
   'passkey_login',
@@ -143,6 +152,7 @@ export const MANAGED_CUSTOMER_KEYS = [
   'require_mfa',
   'temperature_unit',
   'time_format',
+  'transit_provider',
 ] as const;
 
 const LOCKED = new Set<string>(MANAGED_LOCKED_SETTING_KEYS);

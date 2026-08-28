@@ -17,9 +17,15 @@ import { decrypt_api_key, maybe_encrypt_api_key } from '../common/crypto/apiKeyC
  * apiKeyCrypto, so the format matches what the users columns already hold and
  * a legacy plaintext value still reads back.
  */
-export type InstanceApiKeyName = 'maps_api_key' | 'unsplash_api_key';
+export type InstanceApiKeyName = 'maps_api_key' | 'unsplash_api_key' | 'navitime_api_key';
 
-/** Instance names whose per-user column is still honoured as a last resort. */
+/**
+ * Instance names whose per-user column is still honoured as a last resort.
+ *
+ * navitime_api_key is deliberately absent: it has no users column and no legacy
+ * of personal keys, so there is no per-user tier to fall back to. It is written
+ * by the admin app-settings route and read back with readInstanceApiKey.
+ */
 export const INSTANCE_API_KEY_NAMES: readonly InstanceApiKeyName[] = ['maps_api_key', 'unsplash_api_key'];
 
 /**
@@ -32,7 +38,9 @@ export type ApiKeySource = 'operator-env' | 'instance' | 'user-row';
 // Full statements rather than an interpolated column: the name doubles as the
 // users column AND the app_settings key, and identifiers only ever come from a
 // literal allow-list.
-const USER_ROW_SQL: Record<InstanceApiKeyName, string> = {
+// Partial: a name with no entry here has no per-user tier, and resolveApiKey
+// stops at the instance value for it.
+const USER_ROW_SQL: Partial<Record<InstanceApiKeyName, string>> = {
   maps_api_key: 'SELECT maps_api_key FROM users WHERE id = ?',
   unsplash_api_key: 'SELECT unsplash_api_key FROM users WHERE id = ?',
 };
@@ -83,7 +91,10 @@ export function resolveApiKey(
   if (instance) return { key: instance, source: 'instance' };
   if (!userId) return { key: null, source: null };
 
-  const row = db.get<Record<string, string | null>>(USER_ROW_SQL[name], userId);
+  const sql = USER_ROW_SQL[name];
+  if (!sql) return { key: null, source: null };
+
+  const row = db.get<Record<string, string | null>>(sql, userId);
   const own = decrypt_api_key(row?.[name]) || null;
   return own ? { key: own, source: 'user-row' } : { key: null, source: null };
 }
