@@ -99,6 +99,25 @@ describe('Transit proxy e2e (real auth guard + temp SQLite)', () => {
     expect(res.body.error).toContain('lat,lng');
   });
 
+  it('returns isTimetable alongside the itineraries', async () => {
+    planSpy.mockResolvedValueOnce({ itineraries: [], isTimetable: false });
+    const res = await request(server).get('/api/transit/plan?from=35.6,139.7&to=35.7,139.8').set('Cookie', sessionCookie(1));
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ itineraries: [], isTimetable: false });
+  });
+
+  it('a provider selected without its credential surfaces as 503', async () => {
+    // The dispatch itself refuses (TRANSIT-SVC-018 covers that with the real
+    // service); this pins that the controller relays the status rather than
+    // flattening it into the generic 502.
+    const err = new Error('The navitime transit provider is not configured.') as Error & { status: number };
+    err.status = 503;
+    planSpy.mockRejectedValueOnce(err);
+    const res = await request(server).get('/api/transit/plan?from=1,2&to=3,4').set('Cookie', sessionCookie(1));
+    expect(res.status).toBe(503);
+    expect(res.body.error).toContain('not configured');
+  });
+
   it('upstream failures surface as 502', async () => {
     const err = new Error('Transit provider error (HTTP 500)') as Error & { status: number };
     err.status = 502;

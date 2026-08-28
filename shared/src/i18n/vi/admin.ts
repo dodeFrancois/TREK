@@ -143,7 +143,8 @@ const admin: TranslationStrings = {
   'admin.transitProvider': 'Nhà cung cấp lộ trình',
   'admin.transitProviderHint': 'Transitous miễn phí và không cần khoá. NAVITIME phủ Nhật Bản và cần đăng ký RapidAPI.',
   'admin.navitimeKey': 'Khoá API NAVITIME',
-  'admin.navitimeKeyHint': 'Khoá RapidAPI cho navitime-route-totalnavi. Bắt buộc khi NAVITIME là nhà cung cấp được chọn.',
+  'admin.navitimeKeyHint':
+    'Khoá RapidAPI cho navitime-route-totalnavi. Bắt buộc khi NAVITIME là nhà cung cấp được chọn.',
   'admin.validateKey': 'Bài kiểm tra',
   'admin.keyValid': 'Đã kết nối',
   'admin.keyInvalid': 'Không hợp lệ',

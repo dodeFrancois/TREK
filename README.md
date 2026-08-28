@@ -78,7 +78,7 @@ Most of what follows is an addon an admin switches on or off. Lists, Costs, Docu
 - **Import**: shared Google Maps and Naver Maps lists, plus GPX, KML and KMZ files
 - **Export**: GPX of a trip's places and tracks, and an ICS feed per trip or across all of them
 - **Routes**: auto-sort a day (nearest neighbour then 2-opt, locked stops and hotel anchors stay put), driving, walking or cycling profiles over OSRM, then open it in Google Maps or CoMaps
-- **Public transport**: door-to-door itineraries over Transitous
+- **Public transport**: door-to-door itineraries over Transitous, or NAVITIME for Japan — the admin picks the provider in Admin → Settings (NAVITIME needs a RapidAPI key)
 - **Weather**: 16-day forecast from Open-Meteo, no key. Dates outside that window read the archive for the same date instead
 - **Day notes**: markdown body with an icon and a colour, reordered by drag and drop or moved to another day
 - **Trip dates**: move a trip and the days re-date themselves, either dragging the bookings along or re-anchoring them. Trips also copy and archive

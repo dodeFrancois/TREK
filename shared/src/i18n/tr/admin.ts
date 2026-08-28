@@ -142,9 +142,11 @@ const admin: TranslationStrings = {
   'admin.unsplashKeyHint': "Görsel araması için. unsplash.com/developers'da ücretsiz",
   'admin.transit': 'Toplu taşıma',
   'admin.transitProvider': 'Güzergâh sağlayıcısı',
-  'admin.transitProviderHint': 'Transitous ücretsizdir ve anahtar gerektirmez. NAVITIME Japonya’yı kapsar ve RapidAPI aboneliği gerektirir.',
+  'admin.transitProviderHint':
+    'Transitous ücretsizdir ve anahtar gerektirmez. NAVITIME Japonya’yı kapsar ve RapidAPI aboneliği gerektirir.',
   'admin.navitimeKey': 'NAVITIME API Anahtarı',
-  'admin.navitimeKeyHint': 'navitime-route-totalnavi için RapidAPI anahtarı. NAVITIME seçili sağlayıcı olduğunda zorunludur.',
+  'admin.navitimeKeyHint':
+    'navitime-route-totalnavi için RapidAPI anahtarı. NAVITIME seçili sağlayıcı olduğunda zorunludur.',
   'admin.validateKey': 'Test et',
   'admin.keyValid': 'Bağlı',
   'admin.keyInvalid': 'Geçersiz',

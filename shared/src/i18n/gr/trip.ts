@@ -63,7 +63,8 @@ const trip: TranslationStrings = {
   'transit.search': 'Αναζήτηση',
   'transit.searching': 'Αναζήτηση…',
   'transit.searchError': 'Η αναζήτηση διαδρομής απέτυχε. Δοκιμάστε ξανά.',
-  'transit.estimatedTimes': 'Οι ώρες είναι κατά προσέγγιση — αυτός ο μεταφορέας δεν δημοσιεύει δρομολόγια για αυτές τις διαδρομές.',
+  'transit.estimatedTimes':
+    'Οι ώρες είναι κατά προσέγγιση — αυτός ο μεταφορέας δεν δημοσιεύει δρομολόγια για αυτές τις διαδρομές.',
   'transit.noResults': 'Δεν βρέθηκαν συνδέσεις. Δοκιμάστε άλλη ώρα ή φίλτρα.',
   'transit.direct': 'Απευθείας',
   'transit.transfers': '{count} μετεπιβιβάσεις',

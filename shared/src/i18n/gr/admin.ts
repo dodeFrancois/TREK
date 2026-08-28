@@ -145,9 +145,11 @@ const admin: TranslationStrings = {
   'admin.unsplashKeyHint': 'Για αναζήτηση εικόνων. Δωρεάν στο unsplash.com/developers',
   'admin.transit': 'Δημόσιες συγκοινωνίες',
   'admin.transitProvider': 'Πάροχος διαδρομών',
-  'admin.transitProviderHint': 'Το Transitous είναι δωρεάν και δεν χρειάζεται κλειδί. Το NAVITIME καλύπτει την Ιαπωνία και απαιτεί συνδρομή RapidAPI.',
+  'admin.transitProviderHint':
+    'Το Transitous είναι δωρεάν και δεν χρειάζεται κλειδί. Το NAVITIME καλύπτει την Ιαπωνία και απαιτεί συνδρομή RapidAPI.',
   'admin.navitimeKey': 'Κλειδί API NAVITIME',
-  'admin.navitimeKeyHint': 'Κλειδί RapidAPI για το navitime-route-totalnavi. Απαιτείται όταν ο επιλεγμένος πάροχος είναι το NAVITIME.',
+  'admin.navitimeKeyHint':
+    'Κλειδί RapidAPI για το navitime-route-totalnavi. Απαιτείται όταν ο επιλεγμένος πάροχος είναι το NAVITIME.',
   'admin.validateKey': 'Δοκιμή',
   'admin.keyValid': 'Συνδέθηκε',
   'admin.keyInvalid': 'Μη έγκυρο',

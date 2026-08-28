@@ -133,7 +133,8 @@ const admin: TranslationStrings = {
   'admin.unsplashKeyHint': '画像検索用。unsplash.com/developers で無料',
   'admin.transit': '公共交通機関',
   'admin.transitProvider': '経路プロバイダー',
-  'admin.transitProviderHint': 'Transitous は無料でキー不要です。NAVITIME は日本をカバーし、RapidAPI の契約が必要です。',
+  'admin.transitProviderHint':
+    'Transitous は無料でキー不要です。NAVITIME は日本をカバーし、RapidAPI の契約が必要です。',
   'admin.navitimeKey': 'NAVITIME API キー',
   'admin.navitimeKeyHint': 'navitime-route-totalnavi 用の RapidAPI キー。NAVITIME を選択している場合に必要です。',
   'admin.validateKey': 'テスト',

@@ -7,10 +7,16 @@ import { TransitService } from './transit.service';
 const RL_WINDOW = 15 * 60 * 1000;
 
 /**
- * /api/transit — public transit routing (#1065) proxied through Transitous
- * (or a self-hosted MOTIS via TRANSIT_API_URL). JWT-guarded and rate-limited:
- * the Transitous usage policy asks integrators to keep expensive routing
- * traffic reasonable, so planning gets a tighter bucket than geocoding.
+ * /api/transit — public transit routing (#1065).
+ *
+ * Planning goes to the provider the administrator selected: Transitous by
+ * default (or a self-hosted MOTIS via TRANSIT_API_URL), NAVITIME optionally.
+ * Geocoding is always Transitous — the NAVITIME subscription exposes no
+ * geocoding endpoint at all.
+ *
+ * JWT-guarded and rate-limited: the Transitous usage policy asks integrators to
+ * keep expensive routing traffic reasonable, so planning gets a tighter bucket
+ * than geocoding.
  */
 @Controller('api/transit')
 @UseGuards(JwtAuthGuard)

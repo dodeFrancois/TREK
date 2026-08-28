@@ -100,9 +100,11 @@ const admin: TranslationStrings = {
   'admin.unsplashKeyHint': 'Voor het zoeken naar afbeeldingen. Gratis op unsplash.com/developers',
   'admin.transit': 'Openbaar vervoer',
   'admin.transitProvider': 'Routeaanbieder',
-  'admin.transitProviderHint': 'Transitous is gratis en heeft geen sleutel nodig. NAVITIME dekt Japan en vereist een RapidAPI-abonnement.',
+  'admin.transitProviderHint':
+    'Transitous is gratis en heeft geen sleutel nodig. NAVITIME dekt Japan en vereist een RapidAPI-abonnement.',
   'admin.navitimeKey': 'NAVITIME API-sleutel',
-  'admin.navitimeKeyHint': 'RapidAPI-sleutel voor navitime-route-totalnavi. Verplicht wanneer NAVITIME de gekozen aanbieder is.',
+  'admin.navitimeKeyHint':
+    'RapidAPI-sleutel voor navitime-route-totalnavi. Verplicht wanneer NAVITIME de gekozen aanbieder is.',
   'admin.validateKey': 'Testen',
   'admin.keyValid': 'Verbonden',
   'admin.keyInvalid': 'Ongeldig',

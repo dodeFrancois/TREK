@@ -138,7 +138,8 @@ const admin: TranslationStrings = {
   'admin.unsplashKeyHint': '이미지 검색용. unsplash.com/developers에서 무료 발급',
   'admin.transit': '대중교통',
   'admin.transitProvider': '경로 제공자',
-  'admin.transitProviderHint': 'Transitous는 무료이며 키가 필요하지 않습니다. NAVITIME은 일본을 지원하며 RapidAPI 구독이 필요합니다.',
+  'admin.transitProviderHint':
+    'Transitous는 무료이며 키가 필요하지 않습니다. NAVITIME은 일본을 지원하며 RapidAPI 구독이 필요합니다.',
   'admin.navitimeKey': 'NAVITIME API 키',
   'admin.navitimeKeyHint': 'navitime-route-totalnavi용 RapidAPI 키. NAVITIME을 선택한 경우 필수입니다.',
   'admin.validateKey': '테스트',

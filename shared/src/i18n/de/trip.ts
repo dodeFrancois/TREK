@@ -63,7 +63,8 @@ const trip: TranslationStrings = {
   'transit.search': 'Suchen',
   'transit.searching': 'Suche …',
   'transit.searchError': 'Routensuche fehlgeschlagen. Bitte erneut versuchen.',
-  'transit.estimatedTimes': 'Zeiten sind Schätzungen — dieser Betreiber veröffentlicht für diese Verbindungen keinen Fahrplan.',
+  'transit.estimatedTimes':
+    'Zeiten sind Schätzungen — dieser Betreiber veröffentlicht für diese Verbindungen keinen Fahrplan.',
   'transit.noResults': 'Keine Verbindungen gefunden. Andere Zeit oder Filter probieren.',
   'transit.direct': 'Direkt',
   'transit.transfers': '{count} Umstiege',

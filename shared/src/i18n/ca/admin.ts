@@ -381,9 +381,11 @@ const admin: TranslationStrings = {
   'admin.unsplashKeyHint': "Per a la cerca d'imatges. Gratuït a unsplash.com/developers",
   'admin.transit': 'Transport públic',
   'admin.transitProvider': 'Proveïdor de rutes',
-  'admin.transitProviderHint': 'Transitous és gratuït i no necessita clau. NAVITIME cobreix el Japó i requereix una subscripció a RapidAPI.',
+  'admin.transitProviderHint':
+    'Transitous és gratuït i no necessita clau. NAVITIME cobreix el Japó i requereix una subscripció a RapidAPI.',
   'admin.navitimeKey': 'Clau d’API de NAVITIME',
-  'admin.navitimeKeyHint': 'Clau de RapidAPI per a navitime-route-totalnavi. Obligatòria quan NAVITIME és el proveïdor triat.',
+  'admin.navitimeKeyHint':
+    'Clau de RapidAPI per a navitime-route-totalnavi. Obligatòria quan NAVITIME és el proveïdor triat.',
   'admin.tabs.plugins': 'Connectors',
   'admin.tabs.storage': 'Emmagatzematge',
   'admin.plugins.rescan': 'Torna a escanejar',

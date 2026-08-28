@@ -141,9 +141,11 @@ const admin: TranslationStrings = {
   'admin.unsplashKeyHint': 'Untuk pencarian gambar. Gratis di unsplash.com/developers',
   'admin.transit': 'Transportasi umum',
   'admin.transitProvider': 'Penyedia rute',
-  'admin.transitProviderHint': 'Transitous gratis dan tidak memerlukan kunci. NAVITIME mencakup Jepang dan memerlukan langganan RapidAPI.',
+  'admin.transitProviderHint':
+    'Transitous gratis dan tidak memerlukan kunci. NAVITIME mencakup Jepang dan memerlukan langganan RapidAPI.',
   'admin.navitimeKey': 'Kunci API NAVITIME',
-  'admin.navitimeKeyHint': 'Kunci RapidAPI untuk navitime-route-totalnavi. Wajib bila NAVITIME adalah penyedia yang dipilih.',
+  'admin.navitimeKeyHint':
+    'Kunci RapidAPI untuk navitime-route-totalnavi. Wajib bila NAVITIME adalah penyedia yang dipilih.',
   'admin.validateKey': 'Uji',
   'admin.keyValid': 'Terhubung',
   'admin.keyInvalid': 'Tidak valid',

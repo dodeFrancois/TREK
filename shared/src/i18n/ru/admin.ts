@@ -100,7 +100,8 @@ const admin: TranslationStrings = {
   'admin.unsplashKeyHint': 'Для поиска изображений. Бесплатно на unsplash.com/developers',
   'admin.transit': 'Общественный транспорт',
   'admin.transitProvider': 'Поставщик маршрутов',
-  'admin.transitProviderHint': 'Transitous бесплатен и не требует ключа. NAVITIME охватывает Японию и требует подписки RapidAPI.',
+  'admin.transitProviderHint':
+    'Transitous бесплатен и не требует ключа. NAVITIME охватывает Японию и требует подписки RapidAPI.',
   'admin.navitimeKey': 'Ключ API NAVITIME',
   'admin.navitimeKeyHint': 'Ключ RapidAPI для navitime-route-totalnavi. Обязателен, когда выбран поставщик NAVITIME.',
   'admin.validateKey': 'Проверить',

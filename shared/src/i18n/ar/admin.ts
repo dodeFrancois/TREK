@@ -122,7 +122,8 @@ const admin: TranslationStrings = {
   'admin.transitProvider': 'مزوّد المسارات',
   'admin.transitProviderHint': 'Transitous مجاني ولا يحتاج مفتاحاً. يغطي NAVITIME اليابان ويتطلب اشتراك RapidAPI.',
   'admin.navitimeKey': 'مفتاح واجهة NAVITIME',
-  'admin.navitimeKeyHint': 'مفتاح RapidAPI الخاص بـ navitime-route-totalnavi. مطلوب عندما يكون NAVITIME هو المزوّد المختار.',
+  'admin.navitimeKeyHint':
+    'مفتاح RapidAPI الخاص بـ navitime-route-totalnavi. مطلوب عندما يكون NAVITIME هو المزوّد المختار.',
   'admin.validateKey': 'اختبار',
   'admin.keyValid': 'متصل',
   'admin.keyInvalid': 'غير صالح',

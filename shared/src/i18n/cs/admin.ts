@@ -98,9 +98,11 @@ const admin: TranslationStrings = {
   'admin.unsplashKeyHint': 'Pro vyhledávání obrázků. Zdarma na unsplash.com/developers',
   'admin.transit': 'Veřejná doprava',
   'admin.transitProvider': 'Poskytovatel spojení',
-  'admin.transitProviderHint': 'Transitous je zdarma a nepotřebuje klíč. NAVITIME pokrývá Japonsko a vyžaduje předplatné RapidAPI.',
+  'admin.transitProviderHint':
+    'Transitous je zdarma a nepotřebuje klíč. NAVITIME pokrývá Japonsko a vyžaduje předplatné RapidAPI.',
   'admin.navitimeKey': 'Klíč API NAVITIME',
-  'admin.navitimeKeyHint': 'Klíč RapidAPI pro navitime-route-totalnavi. Povinný, když je zvoleným poskytovatelem NAVITIME.',
+  'admin.navitimeKeyHint':
+    'Klíč RapidAPI pro navitime-route-totalnavi. Povinný, když je zvoleným poskytovatelem NAVITIME.',
   'admin.validateKey': 'Testovat',
   'admin.keyValid': 'Připojeno',
   'admin.keyInvalid': 'Neplatný',

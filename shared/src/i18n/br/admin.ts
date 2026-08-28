@@ -98,9 +98,11 @@ const admin: TranslationStrings = {
   'admin.unsplashKeyHint': 'Para busca de imagens. Grátis em unsplash.com/developers',
   'admin.transit': 'Transporte público',
   'admin.transitProvider': 'Provedor de rotas',
-  'admin.transitProviderHint': 'O Transitous é gratuito e não precisa de chave. O NAVITIME cobre o Japão e exige uma assinatura RapidAPI.',
+  'admin.transitProviderHint':
+    'O Transitous é gratuito e não precisa de chave. O NAVITIME cobre o Japão e exige uma assinatura RapidAPI.',
   'admin.navitimeKey': 'Chave de API do NAVITIME',
-  'admin.navitimeKeyHint': 'Chave RapidAPI para navitime-route-totalnavi. Obrigatória quando o NAVITIME é o provedor escolhido.',
+  'admin.navitimeKeyHint':
+    'Chave RapidAPI para navitime-route-totalnavi. Obrigatória quando o NAVITIME é o provedor escolhido.',
   'admin.validateKey': 'Testar',
   'admin.keyValid': 'Conectado',
   'admin.keyInvalid': 'Inválida',

@@ -140,9 +140,11 @@ const admin: TranslationStrings = {
   'admin.unsplashKeyHint': 'For image search. Free at unsplash.com/developers',
   'admin.transit': 'Public transit',
   'admin.transitProvider': 'Route provider',
-  'admin.transitProviderHint': 'Transitous is free and needs no key. NAVITIME covers Japan and requires a RapidAPI subscription.',
+  'admin.transitProviderHint':
+    'Transitous is free and needs no key. NAVITIME covers Japan and requires a RapidAPI subscription.',
   'admin.navitimeKey': 'NAVITIME API Key',
-  'admin.navitimeKeyHint': 'RapidAPI key for navitime-route-totalnavi. Required when NAVITIME is the selected provider.',
+  'admin.navitimeKeyHint':
+    'RapidAPI key for navitime-route-totalnavi. Required when NAVITIME is the selected provider.',
   'admin.validateKey': 'Test',
   'admin.keyValid': 'Connected',
   'admin.keyInvalid': 'Invalid',

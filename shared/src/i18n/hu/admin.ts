@@ -99,9 +99,11 @@ const admin: TranslationStrings = {
   'admin.unsplashKeyHint': 'Képkereséshez. Ingyenes: unsplash.com/developers',
   'admin.transit': 'Közösségi közlekedés',
   'admin.transitProvider': 'Útvonal-szolgáltató',
-  'admin.transitProviderHint': 'A Transitous ingyenes, és nem igényel kulcsot. A NAVITIME Japánt fedi le, és RapidAPI-előfizetést igényel.',
+  'admin.transitProviderHint':
+    'A Transitous ingyenes, és nem igényel kulcsot. A NAVITIME Japánt fedi le, és RapidAPI-előfizetést igényel.',
   'admin.navitimeKey': 'NAVITIME API-kulcs',
-  'admin.navitimeKeyHint': 'RapidAPI-kulcs a navitime-route-totalnavi szolgáltatáshoz. Kötelező, ha a NAVITIME a kiválasztott szolgáltató.',
+  'admin.navitimeKeyHint':
+    'RapidAPI-kulcs a navitime-route-totalnavi szolgáltatáshoz. Kötelező, ha a NAVITIME a kiválasztott szolgáltató.',
   'admin.validateKey': 'Teszt',
   'admin.keyValid': 'Csatlakozva',
   'admin.keyInvalid': 'Érvénytelen',
