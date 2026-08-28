@@ -59,6 +59,7 @@ const trip: TranslationStrings = {
   'transit.search': 'Cercar',
   'transit.searching': 'Cercant…',
   'transit.searchError': 'Ha fallat la cerca de la ruta. Torna-ho a provar.',
+  'transit.estimatedTimes': 'Horaris estimats: aquest operador no publica cap horari per a aquests serveis.',
   'transit.noResults': "No s'han trobat connexions. Prova amb un altre horari o filtres.",
   'transit.direct': 'Directe',
   'transit.transfers': '{count} transbords',

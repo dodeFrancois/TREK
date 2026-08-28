@@ -63,6 +63,7 @@ const trip: TranslationStrings = {
   'transit.search': 'Ara',
   'transit.searching': 'Aranıyor…',
   'transit.searchError': 'Rota araması başarısız oldu. Lütfen tekrar deneyin.',
+  'transit.estimatedTimes': 'Saatler tahminidir — bu işletmeci bu seferler için tarife yayınlamıyor.',
   'transit.noResults': 'Bağlantı bulunamadı. Farklı bir saat veya filtre deneyin.',
   'transit.direct': 'Aktarmasız',
   'transit.transfers': '{count} aktarma',

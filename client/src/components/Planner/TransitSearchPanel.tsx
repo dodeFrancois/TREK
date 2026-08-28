@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import tzlookup from 'tz-lookup'
-import { ArrowLeftRight, ArrowRight, Bus, CableCar, ChevronDown, ChevronUp, Clock, Footprints, MapPin, Sailboat, Search, TramFront, TrainFront, TrainFrontTunnel } from 'lucide-react'
+import { ArrowLeftRight, ArrowRight, Bus, CableCar, ChevronDown, ChevronUp, Clock, Footprints, Info, MapPin, Sailboat, Search, TramFront, TrainFront, TrainFrontTunnel } from 'lucide-react'
 import CustomTimePicker from '../shared/CustomTimePicker'
 import { TransitMetaBadges } from './transitDisplay'
 import { transitApi } from '../../api/client'
@@ -352,6 +352,9 @@ export default function TransitSearchPanel({ day, days, places, accommodations =
   const [activeModes, setActiveModes] = useState<Set<string>>(() => new Set(MODE_GROUPS.map(m => m.key)))
   const [pref, setPref] = useState<'best' | 'transfers' | 'walking'>('best')
   const [itineraries, setItineraries] = useState<TransitItinerary[] | null>(null)
+  // False only when the provider says so: a route whose times nobody publishes a
+  // timetable for is an estimate, and the rider deserves to be told.
+  const [estimatedTimes, setEstimatedTimes] = useState(false)
   const [loading, setLoading] = useState(false)
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
   const [addingIdx, setAddingIdx] = useState<number | null>(null)
@@ -386,6 +389,7 @@ export default function TransitSearchPanel({ day, days, places, accommodations =
     if (!from || !to || !day.date) return
     setLoading(true)
     setItineraries(null)
+    setEstimatedTimes(false)
     setExpandedIdx(null)
     try {
       const tzFrom = tzAt(from.lat, from.lng)
@@ -411,6 +415,9 @@ export default function TransitSearchPanel({ day, days, places, accommodations =
       // connection last (#1479) — flip so the itinerary arriving closest to the
       // requested time leads the list, mirroring depart-by.
       if (arriveBy) cleaned.sort((a, b) => Date.parse(b.endTime) - Date.parse(a.endTime))
+      // Strictly false: a provider that omits the field claims nothing, and an
+      // absent claim must not raise the banner.
+      setEstimatedTimes(d.isTimetable === false)
       setItineraries(cleaned)
     } catch {
       toast.error(t('transit.searchError'))
@@ -607,6 +614,19 @@ export default function TransitSearchPanel({ day, days, places, accommodations =
         {!loading && ranked && ranked.length === 0 && (
           <div className="text-content-faint" style={{ textAlign: 'center', padding: '24px 0', fontSize: 'calc(13px * var(--fs-scale-body, 1))' }}>
             {t('transit.noResults')}
+          </div>
+        )}
+        {!loading && ranked && ranked.length > 0 && estimatedTimes && (
+          <div
+            className="text-content-muted"
+            style={{
+              display: 'flex', alignItems: 'flex-start', gap: 6, padding: '7px 9px', borderRadius: 6,
+              background: 'var(--bg-tertiary)', fontSize: 'calc(11px * var(--fs-scale-caption, 1))',
+              marginBottom: 8,
+            }}
+          >
+            <Info size={12} style={{ flexShrink: 0, marginTop: 1 }} />
+            <span>{t('transit.estimatedTimes')}</span>
           </div>
         )}
         {!loading && ranked && ranked.length > 0 && (

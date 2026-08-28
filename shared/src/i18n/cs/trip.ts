@@ -63,6 +63,7 @@ const trip: TranslationStrings = {
   'transit.search': 'Hledat',
   'transit.searching': 'Hledání…',
   'transit.searchError': 'Vyhledání spojení selhalo. Zkuste to prosím znovu.',
+  'transit.estimatedTimes': 'Časy jsou přibližné — tento dopravce pro tyto spoje nezveřejňuje jízdní řád.',
   'transit.noResults': 'Nebyla nalezena žádná spojení. Zkuste jiný čas nebo filtry.',
   'transit.direct': 'Přímé',
   'transit.transfers': '{count} přestupů',

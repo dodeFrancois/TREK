@@ -63,6 +63,7 @@ const trip: TranslationStrings = {
   'transit.search': 'Keresés',
   'transit.searching': 'Keresés…',
   'transit.searchError': 'Az útvonalkeresés nem sikerült. Kérjük, próbáld újra.',
+  'transit.estimatedTimes': 'A menetidők becsültek — ez a szolgáltató nem közöl menetrendet ezekhez a járatokhoz.',
   'transit.noResults': 'Nem található kapcsolat. Próbálj másik időpontot vagy szűrőket.',
   'transit.direct': 'Közvetlen',
   'transit.transfers': '{count} átszállás',

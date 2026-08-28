@@ -594,3 +594,40 @@ describe('TransitSearchPanel', () => {
     expect(screen.getByText('Aachen, Bushof')).toBeInTheDocument()
   })
 })
+
+// ── estimated-times banner (NAVITIME) ────────────────────────────────────────
+
+it('FE-PLANNER-TRANSIT-028: shows the estimated-times banner when the response is not timetabled', async () => {
+  const user = userEvent.setup()
+  render(<TransitSearchPanel {...makeProps()} />)
+  await pickFromAndTo(user)
+  transitApiMock.plan.mockResolvedValueOnce({ itineraries: [ITINERARY], isTimetable: false })
+  await user.click(screen.getByRole('button', { name: /^Search$/ }))
+  expect(await screen.findByText(/Times are estimated/)).toBeInTheDocument()
+})
+
+it('FE-PLANNER-TRANSIT-029: hides the banner when the response is timetabled', async () => {
+  const user = userEvent.setup()
+  render(<TransitSearchPanel {...makeProps()} />)
+  await pickFromAndTo(user)
+  transitApiMock.plan.mockResolvedValueOnce({ itineraries: [ITINERARY], isTimetable: true })
+  await user.click(screen.getByRole('button', { name: /^Search$/ }))
+  // Same anchor the other cases in this file use: the collapsed card shows times,
+  // not stop names.
+  expect(await screen.findByText(/08:30 – 09:00/)).toBeInTheDocument()
+  expect(screen.queryByText(/Times are estimated/)).not.toBeInTheDocument()
+})
+
+it('FE-PLANNER-TRANSIT-030: shows no banner when the provider omits the field', async () => {
+  // Every pre-existing case in this file resolves plan() without isTimetable, so
+  // an absent claim must stay silent — the flag is opt-in, never opt-out.
+  const user = userEvent.setup()
+  render(<TransitSearchPanel {...makeProps()} />)
+  await pickFromAndTo(user)
+  transitApiMock.plan.mockResolvedValueOnce({ itineraries: [ITINERARY] })
+  await user.click(screen.getByRole('button', { name: /^Search$/ }))
+  // Same anchor the other cases in this file use: the collapsed card shows times,
+  // not stop names.
+  expect(await screen.findByText(/08:30 – 09:00/)).toBeInTheDocument()
+  expect(screen.queryByText(/Times are estimated/)).not.toBeInTheDocument()
+})

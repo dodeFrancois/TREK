@@ -63,6 +63,7 @@ const trip: TranslationStrings = {
   'transit.search': 'Zoeken',
   'transit.searching': 'Zoeken…',
   'transit.searchError': 'Routezoeken mislukt. Probeer het opnieuw.',
+  'transit.estimatedTimes': 'Tijden zijn schattingen — deze vervoerder publiceert geen tijdschema voor deze diensten.',
   'transit.noResults': 'Geen verbindingen gevonden. Probeer een andere tijd of andere filters.',
   'transit.direct': 'Direct',
   'transit.transfers': '{count} keer overstappen',

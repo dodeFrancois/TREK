@@ -63,6 +63,7 @@ const trip: TranslationStrings = {
   'transit.search': '검색',
   'transit.searching': '검색 중…',
   'transit.searchError': '경로 검색에 실패했습니다. 다시 시도해 주세요.',
+  'transit.estimatedTimes': '시간은 추정치입니다 — 이 운영사는 해당 편의 시간표를 공개하지 않습니다.',
   'transit.noResults': '연결편을 찾을 수 없습니다. 시간이나 필터를 변경해 보세요.',
   'transit.direct': '직행',
   'transit.transfers': '환승 {count}회',

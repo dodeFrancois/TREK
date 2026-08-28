@@ -63,6 +63,7 @@ const trip: TranslationStrings = {
   'transit.search': 'Cari',
   'transit.searching': 'Mencari…',
   'transit.searchError': 'Pencarian rute gagal. Silakan coba lagi.',
+  'transit.estimatedTimes': 'Waktu adalah perkiraan — operator ini tidak menerbitkan jadwal untuk layanan ini.',
   'transit.noResults': 'Tidak ada koneksi ditemukan. Coba waktu atau filter lain.',
   'transit.direct': 'Langsung',
   'transit.transfers': '{count} transit',

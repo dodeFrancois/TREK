@@ -63,6 +63,7 @@ const trip: TranslationStrings = {
   'transit.search': 'Buscar',
   'transit.searching': 'Buscando…',
   'transit.searchError': 'Falha na busca de rota. Tente novamente.',
+  'transit.estimatedTimes': 'Horários estimados — este operador não publica horários para estes serviços.',
   'transit.noResults': 'Nenhuma conexão encontrada. Tente outro horário ou filtros.',
   'transit.direct': 'Direto',
   'transit.transfers': '{count} baldeações',

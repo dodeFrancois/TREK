@@ -63,6 +63,7 @@ const trip: TranslationStrings = {
   'transit.search': 'Rechercher',
   'transit.searching': 'Recherche…',
   'transit.searchError': "Échec de la recherche d'itinéraire. Veuillez réessayer.",
+  'transit.estimatedTimes': 'Horaires estimés — l’opérateur ne publie pas de grille horaire pour ces services.',
   'transit.noResults': "Aucune connexion trouvée. Essayez un autre horaire ou d'autres filtres.",
   'transit.direct': 'Direct',
   'transit.transfers': '{count} correspondances',

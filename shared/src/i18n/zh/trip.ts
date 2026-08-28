@@ -62,6 +62,7 @@ const trip: TranslationStrings = {
   'transit.search': '搜索',
   'transit.searching': '搜索中…',
   'transit.searchError': '路线搜索失败，请重试。',
+  'transit.estimatedTimes': '时间为预估值 —— 该运营商未公布这些班次的时刻表。',
   'transit.noResults': '未找到线路，请尝试其他时间或筛选条件。',
   'transit.direct': '直达',
   'transit.transfers': '换乘 {count} 次',
