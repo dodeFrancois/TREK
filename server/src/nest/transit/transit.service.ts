@@ -1,8 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { badRequest } from './transit.http';
+import { DatabaseService } from '../database/database.service';
+import { badRequest, notConfigured } from './transit.http';
+import { readTransitProvider } from './transit.settings';
 import { SCHEDULED_TRANSIT_MODES, type PlanQuery, type TransitPlace } from './transit.helpers';
 import type { TransitPlanResult, TransitPlanner, TransitProvider } from './providers/transit-planner';
 import { TransitousPlanner, upstream } from './providers/transitous.planner';
+import { NavitimePlanner } from './providers/navitime/navitime.planner';
 
 /**
  * Public transit routing (#1065). This service owns what is provider-agnostic —
@@ -58,10 +61,21 @@ function isCoord(v: string): boolean {
 
 @Injectable()
 export class TransitService {
-  private readonly planners: { transitous: TransitPlanner };
+  private readonly planners: Record<TransitProvider, TransitPlanner>;
 
-  constructor(transitous: TransitousPlanner) {
-    this.planners = { transitous };
+  constructor(
+    private readonly db: DatabaseService,
+    transitous: TransitousPlanner,
+    navitime: NavitimePlanner,
+  ) {
+    // A Record over the union: forgetting a provider fails the typecheck rather
+    // than a request.
+    this.planners = { transitous, navitime };
+  }
+
+  /** The configured provider's id — the value transit reservation metadata records. */
+  providerId(): TransitProvider {
+    return readTransitProvider(this.db);
   }
 
   /** Station/place search for the from/to pickers. `near` biases results. */
@@ -120,8 +134,10 @@ export class TransitService {
       if (!Number.isInteger(n) || n < 0 || n > 10) throw badRequest('maxTransfers must be 0-10');
     }
 
-    const provider: TransitProvider = 'transitous';
-    const planner = this.planners[provider];
+    const planner = this.planners[readTransitProvider(this.db)];
+    if (!planner.isConfigured()) {
+      throw notConfigured(`The ${planner.id} transit provider is not configured.`);
+    }
 
     // Keyed on the TREK query plus the provider id, not on the provider's own
     // parameters: without the id, flipping providers would serve the previous

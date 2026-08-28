@@ -4,6 +4,7 @@ import { TransitController } from './transit.controller';
 import { TransitService } from './transit.service';
 import { TransitMcp } from './transit.mcp';
 import { TransitousPlanner } from './providers/transitous.planner';
+import { NavitimePlanner } from './providers/navitime/navitime.planner';
 import { DaysModule } from '../days/days.module';
 import { ReservationsModule } from '../reservations/reservations.module';
 import { AuthModule } from '../auth/auth.module';
@@ -18,7 +19,7 @@ import { McpSharedModule } from '../mcp-shared/mcp-shared.module';
   // DaysModule + ReservationsModule: TransitMcp's create_transit_journey injects both.
   imports: [McpSharedModule, RateLimitModule, DaysModule, ReservationsModule, AuthModule],
   controllers: [TransitController],
-  providers: [TransitService, TransitMcp, TransitousPlanner],
+  providers: [TransitService, TransitMcp, TransitousPlanner, NavitimePlanner],
   exports: [TransitService],
 })
 export class TransitModule {}

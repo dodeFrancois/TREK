@@ -12,6 +12,7 @@
 import { deriveTransitStats, type TransitLeg } from '../../../src/nest/transit/transit.helpers';
 import { TransitService } from '../../../src/nest/transit/transit.service';
 import { TransitousPlanner } from '../../../src/nest/transit/providers/transitous.planner';
+import { NavitimePlanner } from '../../../src/nest/transit/providers/navitime/navitime.planner';
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
@@ -22,7 +23,19 @@ vi.mock('../../../src/app-config', async (importOriginal) => {
 vi.mock('../../../src/nest/maps/maps.helpers', () => ({ buildUserAgent: () => 'TREK-Test-UA' }));
 
 const fetchMock = vi.fn();
-const svc = new TransitService(new TransitousPlanner());
+
+// One app_settings stub for both readers — the only source either of them has.
+// A plaintext value reads back through decrypt_api_key untouched
+// (instance-api-keys.ts keeps that legacy path), so no encryption is needed here.
+const settings = new Map<string, string>();
+const fakeDb = {
+  get: (_sql: string, key: string) => {
+    const value = settings.get(key);
+    return value === undefined ? undefined : { value };
+  },
+} as never;
+
+const svc = new TransitService(fakeDb, new TransitousPlanner(), new NavitimePlanner(fakeDb));
 
 beforeEach(() => {
   vi.stubGlobal('fetch', fetchMock);
@@ -263,5 +276,69 @@ describe('quirk repairs (DI fold fix pass)', () => {
     await svc.geocode('lru-evictor-station');
     await svc.geocode('lru-probe-station');
     expect(fetchMock.mock.calls.length).toBe(fetchesBeforeTouch + 1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Provider dispatch (#NAVITIME)
+//
+// The response cache is module-scoped and persists across this whole file, so
+// every case below uses coordinates of its own.
+// ---------------------------------------------------------------------------
+
+describe('provider dispatch', () => {
+  beforeEach(() => settings.clear());
+
+  it('TRANSIT-SVC-016: plans through Transitous when no provider is configured', async () => {
+    fetchMock.mockResolvedValueOnce(okJson({ itineraries: [] }));
+    const r = await svc.plan({ from: '52.5000,13.3000', to: '52.5100,13.3100' });
+    // GTFS feeds are published timetables.
+    expect(r.isTimetable).toBe(true);
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/api/v6/plan?');
+  });
+
+  it('TRANSIT-SVC-017: plans through NAVITIME once the admin selects it', async () => {
+    settings.set('transit_provider', 'navitime');
+    settings.set('navitime_api_key', 'rapid-key');
+    fetchMock.mockResolvedValueOnce(okJson({ items: [] }));
+    await svc.plan({ from: '35.6000,139.7000', to: '35.6100,139.7100' });
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toContain('navitime-route-totalnavi.p.rapidapi.com/route_transit?');
+    expect(String(url)).toContain('options=railway_calling_at');
+    expect(init.headers['x-rapidapi-key']).toBe('rapid-key');
+  });
+
+  it('TRANSIT-SVC-018: 503s when NAVITIME is selected with no key anywhere', async () => {
+    settings.set('transit_provider', 'navitime');
+    await expect(svc.plan({ from: '35.6200,139.7200', to: '35.6300,139.7300' })).rejects.toMatchObject({
+      status: 503,
+    });
+    // Refuse, never degrade: no silent Transitous fallback.
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('TRANSIT-SVC-019: falls back to Transitous for an unusable provider value', async () => {
+    settings.set('transit_provider', 'motis');
+    fetchMock.mockResolvedValueOnce(okJson({ itineraries: [] }));
+    await svc.plan({ from: '52.5200,13.3200', to: '52.5300,13.3300' });
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/api/v6/plan?');
+  });
+
+  it('TRANSIT-SVC-020: never serves one provider the other cached itineraries', async () => {
+    const query = { from: '35.6400,139.7400', to: '35.6500,139.7500' };
+    fetchMock.mockResolvedValueOnce(okJson({ itineraries: [] }));
+    await svc.plan(query);
+    settings.set('transit_provider', 'navitime');
+    settings.set('navitime_api_key', 'rapid-key');
+    fetchMock.mockResolvedValueOnce(okJson({ items: [] }));
+    await svc.plan(query);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(String(fetchMock.mock.calls[1][0])).toContain('rapidapi.com');
+  });
+
+  it('TRANSIT-SVC-021: reports the configured provider id', () => {
+    expect(svc.providerId()).toBe('transitous');
+    settings.set('transit_provider', 'navitime');
+    expect(svc.providerId()).toBe('navitime');
   });
 });
