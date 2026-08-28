@@ -97,3 +97,21 @@ export function deriveTransitStats(
     walkSeconds: legs.filter((leg) => leg.mode === 'WALK').reduce((total, leg) => total + leg.duration, 0),
   };
 }
+
+/**
+ * Precision of the encoded polylines TREK writes (~11 cm). MOTIS sends its own
+ * precision beside the geometry and this is only the fallback; NAVITIME sends
+ * raw GeoJSON, so this is what the encoder actually uses.
+ */
+export const POLYLINE_PRECISION = 6;
+
+/**
+ * Normalise a provider line colour to a #-prefixed value the client can drop
+ * straight into CSS, or null. GTFS colours arrive as bare hex ("FF0000"), with
+ * a hash, or empty; NAVITIME already sends "#80C241" — one normaliser covers both.
+ */
+export function safeColor(v: unknown): string | null {
+  if (typeof v !== 'string') return null;
+  const hex = v.trim().replace(/^#/, '');
+  return /^[0-9a-fA-F]{6}$/.test(hex) || /^[0-9a-fA-F]{3}$/.test(hex) ? `#${hex}` : null;
+}

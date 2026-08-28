@@ -1,8 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { getAppUrl, readEnv } from '../../app-config';
 import { buildUserAgent } from '../maps/maps.helpers';
+import { badRequest, fetchJson } from './transit.http';
 import {
   deriveTransitStats,
+  POLYLINE_PRECISION,
+  safeColor,
   SCHEDULED_TRANSIT_MODES,
   type PlanQuery,
   type TransitItinerary,
@@ -76,36 +79,10 @@ function isCoord(v: string): boolean {
   return Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
 }
 
-// A plan response with eight geometry-carrying itineraries stays well under a
-// megabyte; anything bigger is a misbehaving provider, not data we want to map.
-const MAX_RESPONSE_BYTES = 5_000_000;
-
+/** Transitous keeps its base URL and its identifying User-Agent; the rest of the
+ * upstream contract (timeout, size ceiling, 429/502) lives in transit.http.ts. */
 async function upstream(path: string, params: URLSearchParams): Promise<unknown> {
-  const url = `${TRANSIT_API_BASE}${path}?${params}`;
-  const res = await fetch(url, {
-    headers: { 'User-Agent': getUserAgent(), Accept: 'application/json' },
-    signal: AbortSignal.timeout(8000),
-  });
-  if (!res.ok) {
-    const err = new Error(`Transit provider error (HTTP ${res.status})`) as Error & { status: number };
-    err.status = res.status === 429 ? 429 : 502;
-    throw err;
-  }
-  const length = Number(res.headers?.get('content-length') ?? 0);
-  if (length > MAX_RESPONSE_BYTES) {
-    const err = new Error('Transit provider error (response too large)') as Error & { status: number };
-    err.status = 502;
-    throw err;
-  }
-  return res.json();
-}
-
-// GTFS colors come as bare hex ("FF0000"), with hash, or empty — normalise to
-// a #-prefixed value or null so the client can use them in CSS directly.
-function safeColor(v: unknown): string | null {
-  if (typeof v !== 'string') return null;
-  const hex = v.trim().replace(/^#/, '');
-  return /^[0-9a-fA-F]{6}$/.test(hex) || /^[0-9a-fA-F]{3}$/.test(hex) ? `#${hex}` : null;
+  return fetchJson(`${TRANSIT_API_BASE}${path}?${params}`, { 'User-Agent': getUserAgent() });
 }
 
 interface MotisPlaceRaw {
@@ -143,11 +120,7 @@ export class TransitService {
   async geocode(query: string, language?: string, near?: string): Promise<{ results: TransitPlace[] }> {
     const text = (query || '').trim();
     if (text.length < 2) return { results: [] };
-    if (text.length > 200) {
-      const e = new Error('Query too long') as Error & { status: number };
-      e.status = 400;
-      throw e;
-    }
+    if (text.length > 200) throw badRequest('Query too long');
 
     const params = new URLSearchParams({ text });
     if (language) params.set('language', language.slice(0, 5));
@@ -178,10 +151,8 @@ export class TransitService {
 
   /** Route search between two coordinates. Returns compact itineraries for the picker. */
   async plan(q: PlanQuery): Promise<{ itineraries: TransitItinerary[] }> {
-    const bad = (msg: string) => {
-      const e = new Error(msg) as Error & { status: number };
-      e.status = 400;
-      throw e;
+    const bad = (msg: string): never => {
+      throw badRequest(msg);
     };
     if (!q.from || !isCoord(q.from)) bad('from must be "lat,lng"');
     if (!q.to || !isCoord(q.to)) bad('to must be "lat,lng"');
@@ -259,7 +230,7 @@ export class TransitService {
         agency: leg.agencyName || null,
         intermediateStops: Array.isArray(leg.intermediateStops) ? leg.intermediateStops.length : 0,
         geometry: leg.legGeometry?.points || null,
-        geometryPrecision: leg.legGeometry?.precision ?? 6,
+        geometryPrecision: leg.legGeometry?.precision ?? POLYLINE_PRECISION,
       }));
       const stats = deriveTransitStats(it.startTime, it.endTime, legs, it.transfers);
       return [
