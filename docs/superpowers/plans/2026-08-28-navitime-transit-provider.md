@@ -31,7 +31,7 @@
 | `server/src/nest/transit/transit.settings.ts` | **new** — `readTransitProvider(db)`, `readNavitimeApiKey(db)` |
 | `server/src/nest/transit/providers/transit-planner.ts` | **new** — `TransitProvider`, `TransitPlanResult`, `TransitPlanner` |
 | `server/src/nest/transit/providers/transitous.planner.ts` | **new** — the MOTIS request + mapping, moved out of the service |
-| `server/src/nest/transit/providers/navitime/navitime.modes.ts` | **new** — `MOVE_MODES`, `LEGACY_MOVES`, `ALWAYS_USED`, `navitimeMode()`, `unuseFor()` |
+| `server/src/nest/transit/providers/navitime/navitime.modes.ts` | **new** — `MOVE_MODES`, `ALWAYS_USED`, `navitimeMode()`, `unuseFor()` |
 | `server/src/nest/transit/providers/navitime/navitime.request.ts` | **new** — pure query-string builder (local naked time, `unuse`) |
 | `server/src/nest/transit/providers/navitime/navitime.mapper.ts` | **new** — pure `sections` → `TransitLeg[]` + transfer indexes + `isTimetable` |
 | `server/src/nest/transit/providers/navitime/navitime.geometry.ts` | **new** — pure `shapes` → per-leg polyline, all-or-nothing; polyline encoder |
@@ -508,7 +508,7 @@ git commit -m "feat(transit): admin-settable transit provider and NAVITIME key s
 
 **Interfaces:**
 - Consumes: `badRequest` (Task 1); `PlanQuery` from `transit.helpers`.
-- Produces: `MOVE_MODES`, `LEGACY_MOVES`, `ALWAYS_USED`, `navitimeMode(move: string | undefined): string`, `unuseFor(modes: string | undefined): string[]` from `navitime.modes.ts`; `buildNavitimeQuery(query: PlanQuery): URLSearchParams` and `NAVITIME_HOST: string`, `NAVITIME_PATH: string` from `navitime.request.ts`.
+- Produces: `MOVE_MODES`, `ALWAYS_USED`, `navitimeMode(move: string | undefined): string`, `unuseFor(modes: string | undefined): string[]` from `navitime.modes.ts`; `buildNavitimeQuery(query: PlanQuery): URLSearchParams` and `NAVITIME_HOST: string`, `NAVITIME_PATH: string` from `navitime.request.ts`.
 
 - [ ] **Step 1: Create `navitime.modes.ts`**
 
@@ -558,27 +558,10 @@ export const MOVE_MODES: Record<string, string> = {
 /** Never sent in `unuse`: walking is how a journey reaches its first stop. */
 export const ALWAYS_USED: readonly string[] = ['walk', 'car', 'bicycle', 'unknown'];
 
-/**
- * An earlier NAVITIME vocabulary, READ ONLY. These names would be rejected in
- * `unuse`, so they must never reach it. Their TREK targets are inferred by
- * alignment with the modern equivalents (`limited_express` = ultraexpress_train,
- * `express`/`rapid`/`semiexpress` = their `*_train` forms, `superexpress` =
- * superexpress_train, `route_bus` = local_bus); no captured response contains
- * them yet.
- */
-export const LEGACY_MOVES: Record<string, string> = {
-  route_bus: 'BUS',
-  superexpress: 'HIGHSPEED_RAIL',
-  limited_express: 'LONG_DISTANCE',
-  express: 'REGIONAL_RAIL',
-  rapid: 'REGIONAL_RAIL',
-  semiexpress: 'REGIONAL_RAIL',
-};
-
 /** A leg's TREK mode. Unknown keys become OTHER — the schema wants ^[A-Z_]+$, never empty. */
 export function navitimeMode(move: string | undefined): string {
   if (!move) return 'OTHER';
-  return MOVE_MODES[move] ?? LEGACY_MOVES[move] ?? 'OTHER';
+  return MOVE_MODES[move] ?? 'OTHER';
 }
 
 /**
@@ -735,11 +718,6 @@ describe('navitimeMode', () => {
     expect(navitimeMode('superexpress_train')).toBe('HIGHSPEED_RAIL');
     expect(navitimeMode('walk')).toBe('WALK');
     expect(navitimeMode('highway_bus')).toBe('COACH');
-  });
-
-  it('reads the legacy vocabulary too', () => {
-    expect(navitimeMode('route_bus')).toBe('BUS');
-    expect(navitimeMode('limited_express')).toBe('LONG_DISTANCE');
   });
 
   it('falls back to OTHER for anything unknown', () => {
@@ -2032,7 +2010,28 @@ npm run dev
 ```
 Paste a real RapidAPI key into Admin → Settings and set the provider to NAVITIME, search 新宿 → 代々木 in the transit panel, confirm the itineraries appear, the estimated-times banner shows, and the map draws continuous alignments with no gap at the 新宿西口 → 新宿 transfer. Then clear the key and confirm the panel surfaces the 503 rather than silently returning Transitous results.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Note the out-of-scope follow-up in the PR description**
+
+Add this to the PR body, under a "Deliberately out of scope" heading. It is a real
+weakness this work exposed, but fixing it here would break `CONTRIBUTING.md` (one focused
+change per PR, no unrelated refactors):
+
+> **TREK's transit modes are magic strings, not a type.** `SCHEDULED_TRANSIT_MODES`
+> (`server/src/nest/transit/transit.helpers.ts`) is a `readonly string[]`, `TransitLeg.mode`
+> is a bare `string`, `transitLegModes` in `transit-itinerary.helpers.ts` validates only
+> `/^[A-Z_]+$/`, and the client's `MODE_GROUPS` (`TransitSearchPanel.tsx:44`) repeats the
+> same tokens in comma-joined string literals. Nothing type-checks one against the other.
+>
+> That is exactly how this port's mode-mapping bug became possible: mapping NAVITIME's
+> trains to `RAIL` compiled cleanly even though the client never emits `RAIL`, so any
+> partial chip selection would have silently dropped every train (unchecking "ferry" in
+> Tokyo would have dropped the Yamanote line). It was caught by reading the client, not by
+> the compiler.
+>
+> Worth a follow-up issue: a shared `TransitMode` union in `@trek/shared`, consumed by the
+> server whitelist, the leg schema and the client chips, so a mismatch is a build error.
+
+- [ ] **Step 6: Commit**
 
 ```bash
 git add server MCP.md

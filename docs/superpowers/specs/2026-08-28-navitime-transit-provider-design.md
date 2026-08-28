@@ -98,7 +98,7 @@ server/src/nest/transit/
       navitime.request.ts          construction des paramètres                   (~70 l.)
       navitime.mapper.ts           sections → TransitLeg[]           — pur      (~150 l.)
       navitime.geometry.ts         shapes → polyline par leg         — pur      (~120 l.)
-      navitime.modes.ts            MOVE_MODES / LEGACY_MOVES / ALWAYS_USED      (~40 l.)
+      navitime.modes.ts            MOVE_MODES / ALWAYS_USED                     (~40 l.)
 ```
 
 `NavitimePlanner` **ne contient aucun algorithme** : le mapper et la géométrie sont des
@@ -182,6 +182,11 @@ unuse=<clés séparées par des POINTS>
 gauche par le constructeur de requête (construire `unuse`). Les clés sont aussi, à
 `ALWAYS_USED` près, les valeurs que `unuse` accepte.
 
+Il n'y a **pas** de table d'un vocabulaire antérieur : les noms `route_bus`,
+`superexpress`, `limited_express`, `express`, `rapid`, `semiexpress` n'apparaissent nulle
+part dans la documentation NAVITIME et venaient d'une lecture approximative de la version
+japonaise. Aucune capture ne les contient. Une clé inconnue tombe sur `'OTHER'`.
+
 ```
 walk                  → WALK              local_train        → REGIONAL_RAIL
 car / bicycle         → OTHER             rapid_train        → REGIONAL_RAIL
@@ -195,22 +200,7 @@ sleeper_ultraexpress  → NIGHT_RAIL        shuttle_bus        → COACH
 
 `ALWAYS_USED` = `walk`, `car`, `bicycle`, `unknown` — jamais envoyés dans `unuse`.
 
-`LEGACY_MOVES` mappe un vocabulaire antérieur de l'API, **en lecture seule** ; ces noms
-seraient refusés dans `unuse` :
-
-```
-route_bus → BUS            express     → REGIONAL_RAIL
-superexpress → HIGHSPEED_RAIL   rapid  → REGIONAL_RAIL
-limited_express → LONG_DISTANCE semiexpress → REGIONAL_RAIL
-```
-
-Les six clés de `LEGACY_MOVES` sont connues, mais **leurs cibles TREK sont déduites** en
-les alignant sur leur équivalent moderne (`limited_express` ≡ `ultraexpress_train`,
-`express`/`rapid`/`semiexpress` ≡ leurs `*_train`, `superexpress` ≡ `superexpress_train`,
-`route_bus` ≡ `local_bus`). Aucune capture ne les contient : à confirmer si une réponse
-réelle en produit un jour.
-
-Clé absente des deux tables ⇒ `'OTHER'` (le schéma exige `^[A-Z_]+$`, jamais vide).
+Clé absente de la table ⇒ `'OTHER'` (le schéma exige `^[A-Z_]+$`, jamais vide).
 
 ### Pourquoi les trains ordinaires ne vont pas sur `RAIL`
 
@@ -259,7 +249,7 @@ deux voisins.
 
 | `TransitLeg` | source NAVITIME |
 |---|---|
-| `mode` | `MOVE_MODES[move]`, sinon `LEGACY_MOVES[move]`, sinon `'OTHER'` |
+| `mode` | `MOVE_MODES[move]`, sinon `'OTHER'` |
 | `from` / `to` | les sections `point` voisines du `move` |
 | `…name` | `point.name`, mais `start`/`goal` → **`'START'` / `'END'`** |
 | `…lat` / `…lng` | `point.coord.lat` / `point.coord.lon` |
@@ -512,7 +502,7 @@ Après la fonctionnalité.
 | fichier | couverture |
 |---|---|
 | `navitime.geometry.test.ts` | 17/17 sur la capture, l'itinéraire 5 au mètre, les 6 replis, la capture sans `calling_at` → 5 replis, l'aller-retour de l'encodeur |
-| `navitime.mapper.test.ts` | table des modes (dont `LEGACY_MOVES`), `START`/`END`, `line` nul sur marche, détection de correspondance, `isTimetable` (les trois formes de `is_timetable`, dont le cas horaire construit à la main) |
+| `navitime.mapper.test.ts` | table des modes, `START`/`END`, `line` nul sur marche, détection de correspondance, `isTimetable` (les trois formes de `is_timetable`, dont le cas horaire construit à la main) |
 | `navitime.request.test.ts` | `unuse` séparé par des points, heure locale nue au bon fuseau, `arriveBy` → `goal_time`, filtre `maxTransfers` |
 | `transit.service.test.ts` (existant) | dispatch, clé de cache incluant le provider, 503 sans clé ; les cas MOTIS existants doivent passer inchangés |
 | `transit.settings.test.ts` | valeur inconnue / ligne absente → `transitous` |

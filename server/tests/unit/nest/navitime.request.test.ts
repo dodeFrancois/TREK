@@ -104,16 +104,12 @@ describe('unuseFor', () => {
 });
 
 describe('navitimeMode', () => {
-  it('NAVITIME-REQ-013: labels both vocabularies and falls back to OTHER', () => {
+  it('NAVITIME-REQ-013: labels the NAVITIME vocabulary and falls back to OTHER', () => {
     expect(navitimeMode('walk')).toBe('WALK');
     expect(navitimeMode('local_train')).toBe('REGIONAL_RAIL');
     expect(navitimeMode('ultraexpress_train')).toBe('LONG_DISTANCE');
     expect(navitimeMode('superexpress_train')).toBe('HIGHSPEED_RAIL');
     expect(navitimeMode('highway_bus')).toBe('COACH');
-    // Legacy names are readable but must never be sent back in unuse.
-    expect(navitimeMode('route_bus')).toBe('BUS');
-    expect(navitimeMode('limited_express')).toBe('LONG_DISTANCE');
-    expect(unuseFor('BUS')).not.toContain('route_bus');
     expect(navitimeMode('teleporter')).toBe('OTHER');
     expect(navitimeMode(undefined)).toBe('OTHER');
   });

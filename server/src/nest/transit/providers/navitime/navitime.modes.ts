@@ -43,27 +43,10 @@ export const MOVE_MODES: Record<string, string> = {
 /** Never sent in `unuse`: walking is how a journey reaches its first stop. */
 export const ALWAYS_USED: readonly string[] = ['walk', 'car', 'bicycle', 'unknown'];
 
-/**
- * An earlier NAVITIME vocabulary, READ ONLY. These names would be rejected in
- * `unuse`, so they must never reach it. Their TREK targets are inferred by
- * alignment with the modern equivalents (`limited_express` = ultraexpress_train,
- * `express`/`rapid`/`semiexpress` = their `*_train` forms, `superexpress` =
- * superexpress_train, `route_bus` = local_bus); no captured response contains
- * them yet.
- */
-export const LEGACY_MOVES: Record<string, string> = {
-  route_bus: 'BUS',
-  superexpress: 'HIGHSPEED_RAIL',
-  limited_express: 'LONG_DISTANCE',
-  express: 'REGIONAL_RAIL',
-  rapid: 'REGIONAL_RAIL',
-  semiexpress: 'REGIONAL_RAIL',
-};
-
 /** A leg's TREK mode. Unknown keys become OTHER — the schema wants ^[A-Z_]+$, never empty. */
 export function navitimeMode(move: string | undefined): string {
   if (!move) return 'OTHER';
-  return MOVE_MODES[move] ?? LEGACY_MOVES[move] ?? 'OTHER';
+  return MOVE_MODES[move] ?? 'OTHER';
 }
 
 /**
