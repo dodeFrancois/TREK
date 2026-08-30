@@ -341,4 +341,35 @@ describe('provider dispatch', () => {
     settings.set('transit_provider', 'navitime');
     expect(svc.providerId()).toBe('navitime');
   });
+
+  it('TRANSIT-SVC-022: lists only providers whose required configuration is present', () => {
+    expect(svc.providers()).toEqual({ defaultProvider: 'transitous', providers: ['transitous'] });
+    settings.set('navitime_api_key', 'rapid-key');
+    settings.set('transit_provider', 'navitime');
+    expect(svc.providers()).toEqual({
+      defaultProvider: 'navitime',
+      providers: ['transitous', 'navitime'],
+    });
+    settings.delete('navitime_api_key');
+    expect(svc.providers()).toEqual({ defaultProvider: 'transitous', providers: ['transitous'] });
+  });
+
+  it('TRANSIT-SVC-023: uses a configured request provider without changing the admin default', async () => {
+    settings.set('navitime_api_key', 'rapid-key');
+    fetchMock.mockResolvedValueOnce(okJson({ items: [] }));
+    const result = await svc.plan(
+      { from: '35.6000,139.7000', to: '35.6100,139.7100' },
+      'navitime',
+    );
+    expect(result.provider).toBe('navitime');
+    expect(svc.providerId()).toBe('transitous');
+    expect(String(fetchMock.mock.calls[0][0])).toContain('rapidapi.com');
+  });
+
+  it('TRANSIT-SVC-024: rejects an unavailable request provider instead of falling back', async () => {
+    await expect(
+      svc.plan({ from: '1,2', to: '3,4' }, 'navitime'),
+    ).rejects.toMatchObject({ status: 503 });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });

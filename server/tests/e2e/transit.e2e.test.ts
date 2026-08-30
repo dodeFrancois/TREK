@@ -68,7 +68,20 @@ describe('Transit proxy e2e (real auth guard + temp SQLite)', () => {
 
   it('401 without a session cookie', async () => {
     expect((await request(server).get('/api/transit/geocode?q=alexanderplatz')).status).toBe(401);
+    expect((await request(server).get('/api/transit/providers')).status).toBe(401);
     expect((await request(server).get('/api/transit/plan?from=1,2&to=3,4')).status).toBe(401);
+  });
+
+  it('lists only the transit providers configured on this instance', async () => {
+    db.prepare("DELETE FROM app_settings WHERE key IN ('transit_provider', 'navitime_api_key')").run();
+    const transitousOnly = await request(server).get('/api/transit/providers').set('Cookie', sessionCookie(1));
+    expect(transitousOnly.status).toBe(200);
+    expect(transitousOnly.body).toEqual({ defaultProvider: 'transitous', providers: ['transitous'] });
+
+    db.prepare("INSERT INTO app_settings (key, value) VALUES ('transit_provider', 'navitime'), ('navitime_api_key', 'rapid-key')").run();
+    const both = await request(server).get('/api/transit/providers').set('Cookie', sessionCookie(1));
+    expect(both.status).toBe(200);
+    expect(both.body).toEqual({ defaultProvider: 'navitime', providers: ['transitous', 'navitime'] });
   });
 
   it('geocode passes q/lang/near through and returns the service result', async () => {
@@ -80,14 +93,14 @@ describe('Transit proxy e2e (real auth guard + temp SQLite)', () => {
   });
 
   it('plan passes all params through (arriveBy + maxTransfers coerced)', async () => {
-    planSpy.mockResolvedValueOnce({ itineraries: [] });
+    planSpy.mockResolvedValueOnce({ provider: 'navitime', itineraries: [], isTimetable: false });
     const res = await request(server)
-      .get('/api/transit/plan?from=52.5,13.4&to=52.6,13.5&time=2026-07-13T09:00:00Z&arriveBy=true&modes=BUS&maxTransfers=2')
+      .get('/api/transit/plan?from=52.5,13.4&to=52.6,13.5&time=2026-07-13T09:00:00Z&arriveBy=true&modes=BUS&maxTransfers=2&provider=navitime')
       .set('Cookie', sessionCookie(1));
     expect(res.status).toBe(200);
     expect(planSpy).toHaveBeenCalledWith({
       from: '52.5,13.4', to: '52.6,13.5', time: '2026-07-13T09:00:00Z', arriveBy: true, modes: 'BUS', maxTransfers: 2,
-    });
+    }, 'navitime');
   });
 
   it('service validation errors propagate with their status', async () => {
@@ -99,11 +112,20 @@ describe('Transit proxy e2e (real auth guard + temp SQLite)', () => {
     expect(res.body.error).toContain('lat,lng');
   });
 
-  it('returns isTimetable alongside the itineraries', async () => {
-    planSpy.mockResolvedValueOnce({ itineraries: [], isTimetable: false });
+  it('rejects an unknown provider before dispatching a plan', async () => {
+    const res = await request(server)
+      .get('/api/transit/plan?from=1,2&to=3,4&provider=google')
+      .set('Cookie', sessionCookie(1));
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: 'unsupported transit provider' });
+    expect(planSpy).not.toHaveBeenCalled();
+  });
+
+  it('returns the actual provider and timetable status alongside the itineraries', async () => {
+    planSpy.mockResolvedValueOnce({ provider: 'navitime', itineraries: [], isTimetable: false });
     const res = await request(server).get('/api/transit/plan?from=35.6,139.7&to=35.7,139.8').set('Cookie', sessionCookie(1));
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ itineraries: [], isTimetable: false });
+    expect(res.body).toEqual({ provider: 'navitime', itineraries: [], isTimetable: false });
   });
 
   it('a provider selected without its credential surfaces as 503', async () => {

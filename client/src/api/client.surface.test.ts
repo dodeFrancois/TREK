@@ -9,8 +9,9 @@ import {
   tagsApi, categoriesApi, adminApi, addonsApi, pluginsApi, airtrailApi, journeyApi,
   mapsApi, airportsApi, budgetApi, filesApi, reservationsApi, healthApi, weatherApi,
   configApi, helpApi, settingsApi, accommodationsApi, dayNotesApi, collabApi, backupApi,
-  shareApi, transitApi, tripInviteApi, notificationsApi, inAppNotificationsApi, memoriesApi,
+  shareApi, tripInviteApi, notificationsApi, inAppNotificationsApi, memoriesApi,
 } from './client'
+import { transitApi } from './transit'
 
 interface Recorded { method: string; url: string; body: unknown }
 
@@ -520,6 +521,7 @@ describe('client > endpoint wiring', () => {
       { n: 'share.deleteLink', r: () => shareApi.deleteLink(1), e: 'DELETE /api/trips/1/share-link' },
       { n: 'share.getSharedTrip', r: () => shareApi.getSharedTrip('tok'), e: 'GET /api/shared/tok' },
       { n: 'transit.geocode', r: () => transitApi.geocode('Roma Termini'), e: 'GET /api/transit/geocode' },
+      { n: 'transit.providers', r: () => transitApi.providers(), e: 'GET /api/transit/providers' },
       { n: 'transit.plan', r: () => transitApi.plan({ from: 'a', to: 'b' }), e: 'GET /api/transit/plan' },
       { n: 'tripInvite.getLink', r: () => tripInviteApi.getLink(1), e: 'GET /api/trips/1/invite-link' },
       { n: 'tripInvite.createLink', r: () => tripInviteApi.createLink(1, 7), e: 'POST /api/trips/1/invite-link' },

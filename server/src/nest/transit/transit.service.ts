@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import type { TransitProvidersResponse } from '@trek/shared';
 import { DatabaseService } from '../database/database.service';
 import { badRequest, notConfigured } from './transit.http';
 import { readTransitProvider } from './transit.settings';
@@ -10,8 +11,8 @@ import { NavitimePlanner } from './providers/navitime/navitime.planner';
 /**
  * Public transit routing (#1065). This service owns what is provider-agnostic —
  * query validation, the shared response cache, and the dispatch to the planner
- * the administrator selected — while each provider's request building and
- * response mapping lives in providers/.
+ * the administrator selected (or the request temporarily overrides) — while
+ * each provider's request building and response mapping lives in providers/.
  *
  * `geocode` is NOT dispatched: it always goes to Transitous, because the
  * NAVITIME subscription exposes no geocoding endpoint at all.
@@ -78,6 +79,17 @@ export class TransitService {
     return readTransitProvider(this.db);
   }
 
+  providers(): TransitProvidersResponse {
+    const providers = (Object.values(this.planners) as TransitPlanner[])
+      .filter((planner) => planner.isConfigured())
+      .map((planner) => planner.id);
+    const configuredDefault = readTransitProvider(this.db);
+    return {
+      defaultProvider: providers.includes(configuredDefault) ? configuredDefault : providers[0]!,
+      providers,
+    };
+  }
+
   /** Station/place search for the from/to pickers. `near` biases results. */
   async geocode(query: string, language?: string, near?: string): Promise<{ results: TransitPlace[] }> {
     const text = (query || '').trim();
@@ -116,7 +128,7 @@ export class TransitService {
    * selected provider — every 400 below is raised here so no provider has to
    * repeat it.
    */
-  async plan(q: PlanQuery): Promise<TransitPlanResult> {
+  async plan(q: PlanQuery, requestedProvider?: TransitProvider): Promise<TransitPlanResult & { provider: TransitProvider }> {
     if (!q.from || !isCoord(q.from)) throw badRequest('from must be "lat,lng"');
     if (!q.to || !isCoord(q.to)) throw badRequest('to must be "lat,lng"');
     if (q.time !== undefined && Number.isNaN(new Date(q.time).getTime())) {
@@ -134,7 +146,7 @@ export class TransitService {
       if (!Number.isInteger(n) || n < 0 || n > 10) throw badRequest('maxTransfers must be 0-10');
     }
 
-    const planner = this.planners[readTransitProvider(this.db)];
+    const planner = this.planners[requestedProvider ?? readTransitProvider(this.db)];
     if (!planner.isConfigured()) {
       throw notConfigured(`The ${planner.id} transit provider is not configured.`);
     }
@@ -144,10 +156,10 @@ export class TransitService {
     // one's itineraries for a full TTL.
     const key = `plan:${planner.id}:${q.from}|${q.to}|${q.time ?? ''}|${q.arriveBy ? '1' : '0'}|${q.modes ?? ''}|${q.maxTransfers ?? ''}`;
     const cached = cacheGet(key);
-    if (cached) return cached as TransitPlanResult;
+    if (cached) return { ...(cached as TransitPlanResult), provider: planner.id };
 
     const data = await planner.plan(q);
     cacheSet(key, data);
-    return data;
+    return { ...data, provider: planner.id };
   }
 }

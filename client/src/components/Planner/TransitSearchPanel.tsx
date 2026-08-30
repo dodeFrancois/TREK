@@ -1,17 +1,18 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
+import type { TransitProvider } from '@trek/shared'
 import tzlookup from 'tz-lookup'
 import { ArrowLeftRight, ArrowRight, Bus, CableCar, ChevronDown, ChevronUp, Clock, Footprints, Info, MapPin, Sailboat, Search, TramFront, TrainFront, TrainFrontTunnel } from 'lucide-react'
 import CustomTimePicker from '../shared/CustomTimePicker'
 import { TransitMetaBadges } from './transitDisplay'
-import { transitApi } from '../../api/client'
+import { transitApi } from '../../api/transit'
 import { useSettingsStore } from '../../store/settingsStore'
 import { useToast } from '../shared/Toast'
 import { useTranslation } from '../../i18n'
 import type { Day, Place, Accommodation } from '../../types'
 
 /**
- * Public transit route search (#1065), backed by Transitous (MOTIS) through the
- * server proxy — no paid providers. Google-Maps-like flow in TREK's clean style:
+ * Public transit route search (#1065), backed by the instance's configured
+ * provider through the server proxy. Google-Maps-like flow in TREK's clean style:
  * pick from/to (stop search + the day's own places as quick picks), filter by
  * mode and preference, compare the returned itineraries, then add the chosen
  * one to the day. The result is saved as a regular transport reservation
@@ -358,6 +359,23 @@ export default function TransitSearchPanel({ day, days, places, accommodations =
   const [loading, setLoading] = useState(false)
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
   const [addingIdx, setAddingIdx] = useState<number | null>(null)
+  const [providers, setProviders] = useState<TransitProvider[]>([])
+  const [provider, setProvider] = useState<TransitProvider | null>(null)
+  const [resultProvider, setResultProvider] = useState<TransitProvider | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    void transitApi.providers().then((config) => {
+      if (cancelled) return
+      setProviders(config.providers)
+      setProvider(config.defaultProvider)
+    }).catch((error: unknown) => {
+      // Provider discovery only enhances the picker. Planning without an
+      // override still uses the administrator's server-side default.
+      console.error('Failed to load transit providers:', error)
+    })
+    return () => { cancelled = true }
+  }, [])
 
   // Quick picks: the day's located places, plus the trip's located accommodations.
   const quickPicks = useMemo<PickedPlace[]>(() => {
@@ -390,6 +408,7 @@ export default function TransitSearchPanel({ day, days, places, accommodations =
     setLoading(true)
     setItineraries(null)
     setEstimatedTimes(false)
+    setResultProvider(null)
     setExpandedIdx(null)
     try {
       const tzFrom = tzAt(from.lat, from.lng)
@@ -399,7 +418,7 @@ export default function TransitSearchPanel({ day, days, places, accommodations =
       const timeIso = localToUtcIso(day.date, time, arriveBy ? tzTo : tzFrom)
       const allModes = activeModes.size === MODE_GROUPS.length
       const modes = allModes ? undefined : MODE_GROUPS.filter(m => activeModes.has(m.key)).map(m => m.modes).join(',')
-      const d = await transitApi.plan({ from: `${from.lat},${from.lng}`, to: `${to.lat},${to.lng}`, time: timeIso, arriveBy, modes })
+      const d = await transitApi.plan({ from: `${from.lat},${from.lng}`, to: `${to.lat},${to.lng}`, time: timeIso, arriveBy, modes, provider: provider ?? undefined })
       // MOTIS names the request coordinates START/END — swap in the places the
       // user actually picked so walks read "Walk to Zoologischer Garten".
       const cleanStop = (n: string) => (n === 'START' ? from.name : n === 'END' ? to.name : n)
@@ -418,6 +437,7 @@ export default function TransitSearchPanel({ day, days, places, accommodations =
       // Strictly false: a provider that omits the field claims nothing, and an
       // absent claim must not raise the banner.
       setEstimatedTimes(d.isTimetable === false)
+      setResultProvider(d.provider)
       setItineraries(cleaned)
     } catch {
       toast.error(t('transit.searchError'))
@@ -483,7 +503,7 @@ export default function TransitSearchPanel({ day, days, places, accommodations =
         notes: null,
         metadata: {
           transit: {
-            provider: 'transitous',
+            provider: resultProvider ?? provider ?? 'transitous',
             duration: it.duration,
             transfers: it.transfers,
             walk_seconds: it.walkSeconds,
@@ -546,6 +566,22 @@ export default function TransitSearchPanel({ day, days, places, accommodations =
 
         {/* search options — one calm card: when + how on top, modes + go below */}
         <div className="bg-surface-tertiary" style={{ borderRadius: 14, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {providers.length > 1 && provider && (
+            <label className="text-content-muted" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 'calc(12px * var(--fs-scale-body, 1))', fontWeight: 600 }}>
+              <span>{t('admin.transitProvider')}</span>
+              <select
+                aria-label={t('admin.transitProvider')}
+                value={provider}
+                onChange={(event) => setProvider(event.target.value as TransitProvider)}
+                className="bg-surface-secondary border border-edge text-content"
+                style={{ borderRadius: 8, padding: '6px 9px', font: 'inherit', marginLeft: 'auto' }}
+              >
+                {providers.map((item) => (
+                  <option key={item} value={item}>{item === 'navitime' ? 'NAVITIME' : 'Transitous'}</option>
+                ))}
+              </select>
+            </label>
+          )}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <div className="bg-surface-secondary" style={{ display: 'flex', borderRadius: 9, padding: 3 }}>
@@ -647,7 +683,9 @@ export default function TransitSearchPanel({ day, days, places, accommodations =
             ))}
             <div className="text-content-faint" style={{ fontSize: 'calc(10.5px * var(--fs-scale-caption, 1))', textAlign: 'center', marginTop: 2 }}>
               {t('transit.attribution')}{' '}
-              <a href="https://transitous.org/sources/" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'underline' }}>Transitous</a>
+              {resultProvider === 'navitime'
+                ? 'NAVITIME'
+                : <a href="https://transitous.org/sources/" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'underline' }}>Transitous</a>}
             </div>
           </div>
         )}

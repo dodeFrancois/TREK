@@ -10,14 +10,11 @@ import type { Accommodation, Day } from '../../types'
 import TransitSearchPanel from './TransitSearchPanel'
 
 const { transitApiMock, toastErrors } = vi.hoisted(() => ({
-  transitApiMock: { geocode: vi.fn(), plan: vi.fn() },
+  transitApiMock: { geocode: vi.fn(), plan: vi.fn(), providers: vi.fn() },
   toastErrors: [] as string[],
 }))
 
-vi.mock('../../api/client', async (importOriginal) => {
-  const actual = await importOriginal() as object
-  return { ...actual, transitApi: transitApiMock }
-})
+vi.mock('../../api/transit', () => ({ transitApi: transitApiMock }))
 
 vi.mock('../shared/Toast', () => ({
   useToast: () => ({ error: (m: string) => { toastErrors.push(m) }, success: vi.fn() }),
@@ -88,6 +85,36 @@ beforeEach(() => {
   toastErrors.length = 0
   seedStore(useAuthStore, { user: buildUser(), isAuthenticated: true })
   seedStore(useSettingsStore, { settings: { time_format: '24h' } } as any)
+  transitApiMock.providers.mockResolvedValue({ defaultProvider: 'transitous', providers: ['transitous'] })
+})
+
+it('FE-PLANNER-TRANSIT-031: offers configured providers and uses the temporary selection', async () => {
+  const user = userEvent.setup()
+  const onAdd = vi.fn().mockResolvedValue({})
+  transitApiMock.providers.mockResolvedValueOnce({
+    defaultProvider: 'transitous',
+    providers: ['transitous', 'navitime'],
+  })
+  transitApiMock.plan.mockResolvedValueOnce({ provider: 'navitime', itineraries: [ITINERARY], isTimetable: false })
+  render(<TransitSearchPanel {...makeProps({ onAdd })} />)
+  const provider = await screen.findByRole('combobox', { name: 'Route provider' })
+  expect(provider).toHaveValue('transitous')
+  await user.selectOptions(provider, 'navitime')
+  await pickFromAndTo(user)
+  await user.click(screen.getByRole('button', { name: /^Search$/ }))
+  await screen.findByText(/08:30 – 09:00/)
+  expect(transitApiMock.plan.mock.calls[0][0]).toMatchObject({ provider: 'navitime' })
+  expect(screen.getByText('Routing data via').parentElement).toHaveTextContent('NAVITIME')
+  await user.click(screen.getByText(/08:30 – 09:00/))
+  await user.click(screen.getByRole('button', { name: 'Add to day' }))
+  await waitFor(() => expect(onAdd).toHaveBeenCalled())
+  expect(onAdd.mock.calls[0][0].metadata.transit.provider).toBe('navitime')
+})
+
+it('FE-PLANNER-TRANSIT-032: hides the provider picker when only one is configured', async () => {
+  render(<TransitSearchPanel {...makeProps()} />)
+  await waitFor(() => expect(transitApiMock.providers).toHaveBeenCalled())
+  expect(screen.queryByRole('combobox', { name: 'Route provider' })).not.toBeInTheDocument()
 })
 
 describe('TransitSearchPanel', () => {

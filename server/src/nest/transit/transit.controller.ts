@@ -1,4 +1,5 @@
 import { Controller, Get, HttpException, Query, Req, UseGuards } from '@nestjs/common';
+import { transitProviderSchema, type TransitProvider } from '@trek/shared';
 import type { Request } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RateLimitService } from '../common/rate-limit.service';
@@ -9,8 +10,8 @@ const RL_WINDOW = 15 * 60 * 1000;
 /**
  * /api/transit — public transit routing (#1065).
  *
- * Planning goes to the provider the administrator selected: Transitous by
- * default (or a self-hosted MOTIS via TRANSIT_API_URL), NAVITIME optionally.
+ * Planning goes to the provider the administrator selected by default, with an
+ * optional per-request override among the configured providers.
  * Geocoding is always Transitous — the NAVITIME subscription exposes no
  * geocoding endpoint at all.
  *
@@ -51,6 +52,11 @@ export class TransitController {
     } catch (err) { this.rethrow(err); }
   }
 
+  @Get('providers')
+  providers() {
+    return this.transit.providers();
+  }
+
   @Get('plan')
   async plan(
     @Query('from') from: string | undefined,
@@ -59,10 +65,19 @@ export class TransitController {
     @Query('arriveBy') arriveBy: string | undefined,
     @Query('modes') modes: string | undefined,
     @Query('maxTransfers') maxTransfers: string | undefined,
+    @Query('provider') provider: string | undefined,
     @Req() req: Request,
   ) {
     this.limit('transit_plan', req, 60);
     try {
+      let requestedProvider: TransitProvider | undefined;
+      if (provider !== undefined) {
+        const parsedProvider = transitProviderSchema.safeParse(provider);
+        if (!parsedProvider.success) {
+          throw Object.assign(new Error('unsupported transit provider'), { status: 400 });
+        }
+        requestedProvider = parsedProvider.data;
+      }
       return await this.transit.plan({
         from: from || '',
         to: to || '',
@@ -70,7 +85,7 @@ export class TransitController {
         arriveBy: arriveBy === 'true' || arriveBy === '1',
         modes,
         maxTransfers: maxTransfers !== undefined && maxTransfers !== '' ? Number(maxTransfers) : undefined,
-      });
+      }, requestedProvider);
     } catch (err) { this.rethrow(err); }
   }
 }

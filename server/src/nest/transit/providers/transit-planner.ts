@@ -1,7 +1,8 @@
+import type { TransitProvider } from '@trek/shared';
 import type { PlanQuery, TransitItinerary } from '../transit.helpers';
 
 /** The value stored in app_settings.transit_provider. */
-export type TransitProvider = 'transitous' | 'navitime';
+export type { TransitProvider } from '@trek/shared';
 
 export interface TransitPlanResult {
   itineraries: TransitItinerary[];
