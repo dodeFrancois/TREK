@@ -8,7 +8,7 @@ import { safeHttpUrl } from '../../utils/safeUrl'
 import { ChevronDown, ChevronRight, ChevronUp, Compass, Navigation, RotateCcw, ExternalLink, Clock, Pencil, GripVertical, Ticket, Plus, FileText, Trash2, Car, Lock, Hotel, Footprints, Route as RouteIcon, Bookmark, TramFront, Zap } from 'lucide-react'
 import { type PickedPlace } from './TransitSearchPanel'
 import { assignmentsApi, reservationsApi, daysApi } from '../../api/client'
-import { calculateRouteWithLegs, optimizeRoute, generateGoogleMapsUrl, generateCoMapsUrl, type NamedWaypoint } from '../Map/RouteCalculator'
+import { calculateRouteWithLegs, optimizeRoute, generateGoogleMapsUrl, googleMapsUrlForLeg, generateCoMapsUrl, type NamedWaypoint } from '../Map/RouteCalculator'
 import GoogleMapsIcon from '../shared/GoogleMapsIcon'
 import PlaceAvatar from '../shared/PlaceAvatar'
 import ConfirmDialog from '../shared/ConfirmDialog'
@@ -1452,12 +1452,23 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar(props: DayPlanSidebarP
     return [{ label: t('transit.title'), icon: TramFront, onClick: () => onPlanTransitLeg({ dayId, from: leg.from, to: leg.to, time: leg.time }) }]
   }
 
+  // Hand this one leg to Google Maps. The day-wide export next to the Route
+  // button cannot answer "how do I get from here to there by public transport",
+  // because Google only plans transit between two points — and a day is more than
+  // two. A connector IS two points, so this link lands on the transit tab.
+  const googleMapsLegMenuItem = (seg?: RouteSegment) => {
+    const url = googleMapsUrlForLeg(seg)
+    if (!url) return []
+    return [{ label: t('planner.openGoogleMaps'), icon: GoogleMapsIcon, onClick: () => window.open(url, '_blank', 'noopener,noreferrer') }]
+  }
+
   // Open the mode menu at the clicked connector: every route profile, the optional
   // "public transport" entry, plus a "use day default" entry that clears the override.
   const openLegModeMenu = (e: React.MouseEvent, assignmentId: number, dayId: number, seg?: RouteSegment) => {
     ctxMenu.open(e, [
       ...routeProfileOptions.map(o => ({ label: o.label, icon: modeIcon(o.key), onClick: () => setLegMode(assignmentId, dayId, o.key) })),
       ...transitLegMenuItem(dayId, seg),
+      ...googleMapsLegMenuItem(seg),
       { divider: true },
       { label: t('dayplan.transportMode.useDefault'), icon: RotateCcw, onClick: () => setLegMode(assignmentId, dayId, null) },
     ])
@@ -1483,6 +1494,7 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar(props: DayPlanSidebarP
     ctxMenu.open(e, [
       ...routeProfileOptions.map(o => ({ label: o.label, icon: modeIcon(o.key), onClick: () => setIncomingLegMode(assignmentId, dayId, o.key) })),
       ...transitLegMenuItem(dayId, seg),
+      ...googleMapsLegMenuItem(seg),
       { divider: true },
       { label: t('dayplan.transportMode.useDefault'), icon: RotateCcw, onClick: () => setIncomingLegMode(assignmentId, dayId, null) },
     ])

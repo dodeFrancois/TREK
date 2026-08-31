@@ -21,7 +21,8 @@ import { Fragment } from 'react'
 import MDancingTrek from '../../../components/MDancingTrek'
 import type { MPlanTimelineProps } from '../MTripShell'
 import type { MergedItem } from '../../../../utils/dayMerge'
-import type { Assignment } from '../../../../types'
+import type { Assignment, RouteSegment } from '../../../../types'
+import { googleMapsUrlForLeg } from '../../../../components/Map/RouteCalculator'
 import type { ComponentType, ReactNode } from 'react'
 import GoogleMapsIcon from '../../../../components/shared/GoogleMapsIcon'
 import { isRtlLanguage } from '../../../../i18n'
@@ -41,15 +42,29 @@ export default function MPlanTimeline({ planner, shell }: MPlanTimelineProps) {
   const { t, trip, can } = planner
   const canEdit = can('day_edit', trip)
   const editing = shell.mode === 'edit' && canEdit
-  // Per-segment travel mode (#1281): tap a connector → pick the leg's mode.
+  // Tap a connector → that leg's menu. Editing picks the per-segment travel mode
+  // (#1281); everyone gets the Google Maps hand-off — which is why the
+  // connector is tappable in go mode at all, since that is when someone is stood
+  // at one stop wondering how to reach the next.
   const legMenu = useContextMenu()
   const modeIcon = (key: string) => (key === 'walking' ? Footprints : key.startsWith('plugin:') ? Zap : Car)
-  const openLegMenu = (e: MouseEvent, assignmentId: number) => {
-    legMenu.open(e, [
+  const legMenuItems = (seg?: RouteSegment, assignmentId?: number) => {
+    const url = googleMapsUrlForLeg(seg)
+    const maps = url
+      ? [{ label: t('planner.openGoogleMaps'), icon: GoogleMapsIcon, onClick: () => window.open(url, '_blank', 'noopener,noreferrer') }]
+      : []
+    if (!editing || assignmentId == null) return maps
+    return [
       ...tl.routeModeOptions.map(o => ({ label: o.label, icon: modeIcon(o.key), onClick: () => tl.setLegMode(assignmentId, o.key) })),
+      ...maps,
       { divider: true },
       { label: t('dayplan.transportMode.useDefault'), icon: RotateCcw, onClick: () => tl.setLegMode(assignmentId, null) },
-    ])
+    ]
+  }
+  // No entries, no button: a leg with neither ends nor edit rights is not a control.
+  const legMenuTap = (seg?: RouteSegment, assignmentId?: number) => {
+    const items = legMenuItems(seg, assignmentId)
+    return items.length ? (e: MouseEvent) => legMenu.open(e, items) : undefined
   }
   // Plugin time contributions in the day plan (dayScheduleProvider hook) —
   // slotted under their anchor rows, same as the desktop sidebar.
@@ -227,7 +242,7 @@ export default function MPlanTimeline({ planner, shell }: MPlanTimelineProps) {
                 />
               )
             case 'conn':
-              return <ConnRow key={row.key} seg={row.seg} onTap={editing && row.assignmentId != null ? e => openLegMenu(e, row.assignmentId!) : undefined} />
+              return <ConnRow key={row.key} seg={row.seg} onTap={legMenuTap(row.seg, row.assignmentId)} />
           }
         })}
 

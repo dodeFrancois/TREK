@@ -351,16 +351,49 @@ describe('MPlanTimeline', () => {
       expect(mocks.tl.setLegMode).toHaveBeenCalledWith(11, null)
     })
 
-    it('FE-MOB-PLTL-020: read-only members get no tappable connectors', () => {
+    it('FE-MOB-PLTL-020: read-only members get no travel-mode entries', () => {
       renderTimeline({}, { can: vi.fn(() => false) }, { mode: 'edit' })
+      fireEvent.click(connector())
 
-      expect(screen.getByText('7 min').closest('button')).toBeNull()
+      expect(screen.queryByText('Driving')).not.toBeInTheDocument()
+      expect(screen.queryByText('dayplan.transportMode.useDefault')).not.toBeInTheDocument()
     })
 
-    it('FE-MOB-PLTL-020b: go mode keeps the connectors read-only even with edit rights', () => {
+    it('FE-MOB-PLTL-020b: go mode keeps the travel-mode entries out of the menu', () => {
+      renderTimeline()
+      fireEvent.click(connector())
+
+      expect(screen.queryByText('Driving')).not.toBeInTheDocument()
+      expect(screen.queryByText('dayplan.transportMode.useDefault')).not.toBeInTheDocument()
+    })
+
+    // The day-wide Google Maps export cannot answer "how do I get from this
+    // stop to the next by public transport" — Google only plans transit between two
+    // points. A connector is two points, which is why this entry exists, and why it
+    // is reachable in go mode, when someone is stood at one stop looking at the next.
+    it('FE-MOB-PLTL-020c: any member opens the tapped leg in Google Maps, in either mode', () => {
+      const open = vi.spyOn(window, 'open').mockReturnValue(null)
+      renderTimeline({}, { can: vi.fn(() => false) })
+      fireEvent.click(connector())
+
+      fireEvent.click(screen.getByText('planner.openGoogleMaps'))
+
+      // Two stops and no travelmode, so Google Maps opens on the mode the viewer last used.
+      expect(open).toHaveBeenCalledWith(
+        'https://www.google.com/maps/dir/35.71,139.79/35.72,139.77', '_blank', 'noopener,noreferrer',
+      )
+      open.mockRestore()
+    })
+
+    it('FE-MOB-PLTL-020d: a connector with no origin assignment still offers the hand-off', () => {
       renderTimeline()
 
-      expect(screen.getByText('7 min').closest('button')).toBeNull()
+      // The orphan leg (no origin assignment) can carry no mode override, but its
+      // two ends are as good a route as any other leg's.
+      fireEvent.click(screen.getByText('26 min').closest('button') as HTMLElement)
+
+      expect(screen.getByText('planner.openGoogleMaps')).toBeInTheDocument()
+      expect(screen.queryByText('Driving')).not.toBeInTheDocument()
     })
   })
 

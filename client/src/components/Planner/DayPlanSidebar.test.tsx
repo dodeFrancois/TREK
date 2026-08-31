@@ -57,7 +57,10 @@ vi.mock('../../api/client', async (importOriginal) => {
 
 vi.mock('../PDF/TripPDF', () => ({ downloadTripPDF: vi.fn().mockResolvedValue(undefined) }))
 
-vi.mock('../Map/RouteCalculator', () => ({
+vi.mock('../Map/RouteCalculator', async (importOriginal) => ({
+  // googleMapsUrlForLeg stays real: it is a pure coordinate → URL function, and
+  // the point of these tests is the URL the connector actually opens.
+  googleMapsUrlForLeg: ((await importOriginal()) as typeof import('../Map/RouteCalculator')).googleMapsUrlForLeg,
   calculateRoute: vi.fn().mockResolvedValue({ distanceText: '5 km', durationText: '1h', coordinates: [] }),
   generateGoogleMapsUrl: vi.fn().mockReturnValue('https://maps.google.com/...'),
   generateCoMapsUrl: vi.fn().mockReturnValue('https://comaps.at/...'),
@@ -3786,6 +3789,54 @@ describe('DayPlanSidebar', () => {
     await user.click(contextMenu().getByRole('button', { name: 'Public transit' }))
     // Day 11's own 16:30, not day 10's 09:00 (a trip-wide coord index would leak it).
     expect(onPlanTransitLeg).toHaveBeenCalledWith(expect.objectContaining({ dayId: 11, time: '16:30' }))
+  })
+
+  it('FE-PLANNER-DAYPLAN-171f: a stop-to-stop connector opens just that leg in Google Maps', async () => {
+    const user = userEvent.setup()
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null)
+    const day = buildDay({ id: 10, date: '2025-06-01', title: 'Day 1' })
+    const assignments = {
+      '10': [
+        buildAssignment({ id: 11, day_id: 10, order_index: 0, place: buildPlace({ id: 1, name: 'Louvre', lat: 48.86, lng: 2.34 }) }),
+        buildAssignment({ id: 12, day_id: 10, order_index: 1, place: buildPlace({ id: 2, name: 'Orsay', lat: 48.87, lng: 2.33 }) }),
+      ],
+    }
+    render(<DayPlanSidebar {...makeDefaultProps({ days: [day], assignments, selectedDayId: 10, routeShown: true })} />)
+    await user.click(await screen.findByTitle('Change travel mode'))
+    await user.click(contextMenu().getByRole('button', { name: 'Open in Google Maps' }))
+    // Two stops and no travelmode — that is what lets Google Maps offer transit.
+    expect(openSpy).toHaveBeenCalledWith(
+      'https://www.google.com/maps/dir/48.86,2.34/48.87,2.33', '_blank', 'noopener,noreferrer',
+    )
+    openSpy.mockRestore()
+  })
+
+  it('FE-PLANNER-DAYPLAN-171g: a hotel bookend connector opens the hotel-to-first-stop leg', async () => {
+    const user = userEvent.setup()
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null)
+    const days = [
+      buildDay({ id: 10, date: '2025-06-01', title: 'Day 1' }),
+      buildDay({ id: 11, date: '2025-06-02', title: 'Day 2' }),
+      buildDay({ id: 12, date: '2025-06-03', title: 'Day 3' }),
+    ]
+    const accommodations: Accommodation[] = [{
+      id: 1, trip_id: 1, start_day_id: 10, end_day_id: 12,
+      place_lat: 48.85, place_lng: 2.35, place_name: 'Hotel Lutetia',
+    }]
+    const assignments = {
+      '11': [
+        buildAssignment({ id: 11, day_id: 11, order_index: 0, place: buildPlace({ id: 1, name: 'Louvre', lat: 48.86, lng: 2.34 }) }),
+        buildAssignment({ id: 12, day_id: 11, order_index: 1, place: buildPlace({ id: 2, name: 'Orsay', lat: 48.87, lng: 2.33 }) }),
+      ],
+    }
+    render(<DayPlanSidebar {...makeDefaultProps({ days, assignments, accommodations, selectedDayId: 11, routeShown: true })} />)
+    const connectors = await screen.findAllByTitle('Change travel mode')
+    await user.click(connectors[0])
+    await user.click(contextMenu().getByRole('button', { name: 'Open in Google Maps' }))
+    expect(openSpy).toHaveBeenCalledWith(
+      'https://www.google.com/maps/dir/48.85,2.35/48.86,2.34', '_blank', 'noopener,noreferrer',
+    )
+    openSpy.mockRestore()
   })
 
   it('FE-PLANNER-DAYPLAN-172: a failing per-segment save is reported and the days are refetched', async () => {
