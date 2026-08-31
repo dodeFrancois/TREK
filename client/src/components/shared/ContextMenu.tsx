@@ -1,10 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react'
+import type { ComponentType, CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
-import { LucideIcon } from 'lucide-react'
+
+/**
+ * Any icon the menu can render at a fixed size. Lucide icons satisfy it, and so do
+ * the hand-vendored brand marks (GoogleMapsIcon), which lucide's own type rejects.
+ */
+type MenuIcon = ComponentType<{ size?: number | string; className?: string; style?: CSSProperties }>
 
 interface MenuItem {
   label?: string
-  icon?: LucideIcon
+  icon?: MenuIcon
   onClick?: () => void
   danger?: boolean
   divider?: boolean

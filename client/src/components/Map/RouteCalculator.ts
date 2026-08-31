@@ -116,6 +116,26 @@ export function generateGoogleMapsUrl(places: Waypoint[]): string | null {
   return `https://www.google.com/maps/dir/${stops}`
 }
 
+/**
+ * The two ends of a single route leg, opened as a Google Maps route.
+ *
+ * The day-wide export above hands Google every stop at once, which is what makes
+ * it useless for public transport: Google Maps only plans transit between two
+ * points and silently falls back to driving past that. One leg is two points, so
+ * the transit tab is there — which is the whole reason this link exists.
+ *
+ * No `travelmode`: Google Maps opens on whatever mode the viewer last used, and
+ * choosing there is one tap. Pinning a mode here would override that choice on
+ * every single leg.
+ */
+export function googleMapsUrlForLeg(seg: { from?: [number, number]; to?: [number, number] } | undefined | null): string | null {
+  if (!seg?.from || !seg?.to) return null
+  return generateGoogleMapsUrl([
+    { lat: seg.from[0], lng: seg.from[1] },
+    { lat: seg.to[0], lng: seg.to[1] },
+  ])
+}
+
 /** A stop that can carry its name into a deep link that has somewhere to put one. */
 export type NamedWaypoint = Waypoint & { name?: string | null }
 

@@ -9,6 +9,7 @@ import {
   calculateSegments,
   optimizeRoute,
   generateGoogleMapsUrl,
+  googleMapsUrlForLeg,
   generateCoMapsUrl,
   parsePluginProfile,
   withHotelBookends,
@@ -251,6 +252,30 @@ describe('generateGoogleMapsUrl', () => {
     expect(result).toMatch(/^https:\/\/www\.google\.com\/maps\/dir\//)
     expect(result).toContain('48.85,2.35')
     expect(result).toContain('48.86,2.36')
+  })
+})
+
+// ── googleMapsUrlForLeg ────────────────────────────────────────────────────────
+
+describe('googleMapsUrlForLeg', () => {
+  const seg = (from: [number, number], to: [number, number]) => ({ from, to })
+
+  it('FE-COMP-ROUTECALCULATOR-050: builds a two-stop directions URL from the leg ends', () => {
+    expect(googleMapsUrlForLeg(seg([48.85, 2.35], [48.86, 2.36])))
+      .toBe('https://www.google.com/maps/dir/48.85,2.35/48.86,2.36')
+  })
+
+  it('FE-COMP-ROUTECALCULATOR-051: carries no travelmode, so Google Maps keeps the mode the user last picked', () => {
+    expect(googleMapsUrlForLeg(seg([48.85, 2.35], [48.86, 2.36]))).not.toContain('travelmode')
+  })
+
+  it('FE-COMP-ROUTECALCULATOR-052: returns null without a leg', () => {
+    expect(googleMapsUrlForLeg(undefined)).toBeNull()
+  })
+
+  it('FE-COMP-ROUTECALCULATOR-053: returns null when an end is missing', () => {
+    expect(googleMapsUrlForLeg({ from: [48.85, 2.35] })).toBeNull()
+    expect(googleMapsUrlForLeg({ to: [48.86, 2.36] })).toBeNull()
   })
 })
 
